@@ -1,0 +1,48 @@
+version: '3.7'
+services:
+  postgres:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_USER=airflow
+      - POSTGRES_PASSWORD=airflow
+      - POSTGRES_DB=airflow
+      
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+  webserver:
+    image: geoscienceaustralia/airflow
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      - LOAD_EX=n
+      # Uncomment and add fernet key to encrypt/decrypt secrets. For details see
+      # https://airflow.readthedocs.io/en/stable/howto/secure-connections.html
+      #- FERNET_KEY=<insert-fernet-key-here>
+      - EXECUTOR=Local
+      - AIRFLOW__SMTP__SMTP_HOST=maildev
+      - AIRFLOW__CORE__ENABLE_XCOM_PICKLING=False
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+    volumes:
+      - ./dags:/usr/local/airflow/dags
+      - ./plugins:/usr/local/airflow/plugins
+      - ./scripts:/usr/local/airflow/scripts
+      - ./requirements:/requirements
+    ports:
+      - "8080:8080"
+    command: webserver
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  maildev:
+    image: maildev/maildev
+    ports:
+      - "1080:80"
