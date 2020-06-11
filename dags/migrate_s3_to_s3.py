@@ -36,10 +36,10 @@ default_args = {
     "aws_conn_id": "deafrica_data_dev_migration",
     "dest_bucket_name": "africa-migration-test", 
     "schedule_interval": '*/5 * * * *',
-    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/test_africa"
+    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/deafrica-prod-eks-sentinel-2-data-transfer"
 }
 
-with DAG('migrate_s3_to_s3', default_args=default_args, schedule_interval="@once", 
+with DAG('migrate_s3_to_s3', default_args=default_args, schedule_interval=default_args['schedule_interval'], 
         catchup=False, dagrun_timeout=timedelta(seconds=30)) as dag:
    
     process_sqs = SQSSensor(
