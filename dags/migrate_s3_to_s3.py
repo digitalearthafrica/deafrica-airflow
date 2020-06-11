@@ -1,7 +1,8 @@
 """
 # Migrate(copy) data between S3 buckets
 
-DAG to periodically check SQS and copy new data to Cape Town
+DAG to periodically check a SQS and copy new data to Cape Town
+The SQS is subscribed to the following SNS topic: arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 In case where the queue is empty, a timeout policy is applied to kill the DAG
 """
 
@@ -45,8 +46,8 @@ with DAG('migrate_s3_to_s3', default_args=default_args, schedule_interval="@once
         task_id='sqs_sensor',
         sqs_queue=dag.default_args['sqs_queue'],
         aws_conn_id=dag.default_args['aws_conn_id'],
-        max_messages=1,
-        wait_time_seconds=5,
+        max_messages=10,
+        wait_time_seconds=50,
         execution_timeout=timedelta(seconds=20)
     )
 
