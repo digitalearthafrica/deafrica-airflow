@@ -17,7 +17,7 @@ from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
     'owner': 'Airflow',
-    "start_date": datetime(2017, 2, 1),
+    "start_date": datetime(2020, 6, 12),
     'email': ['toktam.ebadi@ga.gov.au'],
     'email_on_failure': True,
     'email_on_retry': False,
