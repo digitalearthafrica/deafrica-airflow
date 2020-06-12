@@ -67,7 +67,7 @@ def copy_s3_objects(ti, **kwargs):
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
 with DAG('migrate_s3_to_s3', default_args=default_args,
-         schedule_interval="@once",
+         schedule_interval=default_args['schedule_interval'],
          catchup=False, dagrun_timeout=timedelta(seconds=60)) as dag:
 
     process_sqs = SQSSensor(
