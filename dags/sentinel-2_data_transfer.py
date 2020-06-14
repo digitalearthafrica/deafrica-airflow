@@ -26,8 +26,8 @@ default_args = {
     "dest_bucket_name": "africa-migration-test",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": '*/5 * * * *',
-    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/\
-    deafrica-prod-eks-sentinel-2-data-transfer"
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+                  "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
