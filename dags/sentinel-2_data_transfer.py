@@ -55,34 +55,36 @@ def copy_s3_objects(ti, **kwargs):
         body = json.loads(rec['Body'])
         message = json.loads(body['Message'])
 
-        # Extract URL of the json file        
+        # Extract URL of the json file
         urls = [message["links"][0]["href"]]
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        for src_url in urls:        
-            src_key = extract_src_key(src_url)            
+        for src_url in urls:
+            src_key = extract_src_key(src_url)
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
+            print("Copied scene:", src_key)
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
-         catchup=False, dagrun_timeout=timedelta(seconds=60)) as dag:
+         tags=["Sentinel-2", "transfer"], catchup=False,
+         dagrun_timeout=timedelta(seconds=60*3)) as dag:
 
-    process_sqs = SQSSensor(
+    PROCESS_SQS = SQSSensor(
         task_id='sqs_sensor',
         sqs_queue=dag.default_args['sqs_queue'],
         aws_conn_id=dag.default_args['aws_conn_id'],
-        max_messages=10,
+        max_messages=5,
         wait_time_seconds=20,
         execution_timeout=timedelta(seconds=20)
     )
 
-    copy_scenes = PythonOperator(
+    COPY_OBJECTS = PythonOperator(
         task_id='copy_scenes',
         provide_context=True,
         python_callable=copy_s3_objects
     )
 
-    process_sqs >> copy_scenes
+    PROCESS_SQS >> COPY_OBJECTS
