@@ -1,11 +1,11 @@
 """
 # Sentinel-2 indexing automation
 
-DAG to periodically/one-shot index Sentinel=2 data. Eventually it could 
+DAG to periodically index Sentinel-2 data. Eventually it could 
 update explorer and ows schemas in RDS after a given Dataset has been 
 indexed.
 
-This DAG uses k8s executors and pre-existing pods in cluster with relevant tooling
+This DAG uses k8s executors and in cluster with relevant tooling
 and configuration installed.
 
 """
@@ -29,7 +29,7 @@ DEFAULT_ARGS = {
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "database-write.local",
-        "DB_DATABASE": "ows-index",
+        "DB_DATABASE": "africa",
     },
     # Lift secrets into environment variables
     "secrets": [
