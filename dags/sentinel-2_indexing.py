@@ -1,23 +1,12 @@
 """
-# S3 to Datacube Indexing
+# Sentinel-2 indexing automation
 
-DAG to periodically/one-shot update explorer and ows schemas in RDS
-after a given Dataset has been indexed from S3.
-
-- Run Explorer summaries
-- Run ows update ranges for NRT products
-- Run ows update ranges for NRT multi-products
+DAG to periodically/one-shot index Sentinel=2 data. Eventually it could 
+update explorer and ows schemas in RDS after a given Dataset has been 
+indexed.
 
 This DAG uses k8s executors and pre-existing pods in cluster with relevant tooling
 and configuration installed.
-
-The DAG has to be parameterized with S3_Glob and Target product as below.
-
-
-    {
-        "s3_glob": "s3://dea-public-data/cemp_insar/insar/displacement/alos//**/*.yaml",
-        "product": "cemp_insar_alos_displacement"
-    }
 
 """
 from datetime import datetime, timedelta
