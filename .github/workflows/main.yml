@@ -1,0 +1,36 @@
+name: Airflow Lint DAGs
+
+on:
+  push:
+    paths:
+      - 'dags/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches:
+      - master
+      - develop
+    paths:
+      - 'dags/**'
+      - '.github/workflows/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.6]
+    name: Airflow ${{ matrix.python-version }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Airflow and Lint
+        uses: s-weigand/setup-conda@v1
+        with:
+          update-conda: true
+          python-version: ${{ matrix.python-version }}
+          conda-channels: anaconda, conda-forge
+      - run: conda --version
+      - run: which python
+      - run: |
+          pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]
+          pip install pylint pylint-airflow
+          PYTHONPATH=plugins pylint --load-plugins=pylint_airflow --disable=C,W --disable=similarities dags
