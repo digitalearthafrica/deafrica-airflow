@@ -62,7 +62,7 @@ with dag:
         image=INDEXER_IMAGE,
         cmds=["sqs-to-dc"],
         annotations={"iam.amazonaws.com/role": "svc-deafrica-processing-prod"},
-        arguments=["--stac", "deafrica-prod-eks-sentinel-2-indexing" "s2_l2a"],
+        arguments=["--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
