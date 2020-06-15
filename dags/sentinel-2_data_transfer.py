@@ -87,4 +87,4 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         python_callable=copy_s3_objects
     )
 
-    process_sqs >> copy_objects
+    PROCESS_SQS >> COPY_OBJECTS
