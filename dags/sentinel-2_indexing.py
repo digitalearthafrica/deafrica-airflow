@@ -29,7 +29,7 @@ DEFAULT_ARGS = {
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "database-write.local",
-        "DB_DATABASE": "ows-index",
+        "DB_DATABASE": "africa",
     },
     # Lift secrets into environment variables
     "secrets": [
