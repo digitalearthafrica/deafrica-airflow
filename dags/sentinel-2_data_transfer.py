@@ -55,17 +55,17 @@ def copy_s3_objects(ti, **kwargs):
         body = json.loads(rec['Body'])
         message = json.loads(body['Message'])
 
-        # Extract URL of the json file        
+        # Extract URL of the json file
         urls = [message["links"][0]["href"]]
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        for src_url in urls:        
-            src_key = extract_src_key(src_url)                
+        for src_url in urls:
+            src_key = extract_src_key(src_url)
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
-            print("Copied scene:", src_key) 
+            print("Copied scene:", src_key)
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
