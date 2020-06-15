@@ -75,7 +75,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         task_id='sqs_sensor',
         sqs_queue=dag.default_args['sqs_queue'],
         aws_conn_id=dag.default_args['aws_conn_id'],
-        max_messages=10,
+        max_messages=5,
         wait_time_seconds=20,
         execution_timeout=timedelta(seconds=20)
     )
