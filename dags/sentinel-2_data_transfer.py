@@ -70,7 +70,7 @@ def copy_s3_objects(ti, **kwargs):
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
          tags=["Sentinel-2", "transfer"], catchup=False,
-         dagrun_timeout=timedelta(seconds=60*3)) as dag:
+         dagrun_timeout=timedelta(seconds=60*5)) as dag:
 
     PROCESS_SQS = SQSSensor(
         task_id='sqs_sensor',
