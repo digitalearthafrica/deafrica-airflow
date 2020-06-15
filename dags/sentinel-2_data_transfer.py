@@ -66,7 +66,7 @@ def copy_s3_objects(ti, **kwargs):
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
-with DAG('migrate_s3_to_s3', default_args=default_args,
+with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
          catchup=False, dagrun_timeout=timedelta(seconds=60)) as dag:
 
