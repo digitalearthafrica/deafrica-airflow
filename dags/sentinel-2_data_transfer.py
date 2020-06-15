@@ -69,9 +69,10 @@ def copy_s3_objects(ti, **kwargs):
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
-         catchup=False, dagrun_timeout=timedelta(seconds=60*3)) as dag:
+         tags=["Sentinel-2", "transfer"], catchup=False,
+         dagrun_timeout=timedelta(seconds=60*3)) as dag:
 
-    process_sqs = SQSSensor(
+    PROCESS_SQS = SQSSensor(
         task_id='sqs_sensor',
         sqs_queue=dag.default_args['sqs_queue'],
         aws_conn_id=dag.default_args['aws_conn_id'],
@@ -80,7 +81,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         execution_timeout=timedelta(seconds=20)
     )
 
-    copy_objects = PythonOperator(
+    COPY_OBJECTS = PythonOperator(
         task_id='copy_scenes',
         provide_context=True,
         python_callable=copy_s3_objects
