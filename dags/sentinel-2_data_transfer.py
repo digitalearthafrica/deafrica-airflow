@@ -79,10 +79,10 @@ with DAG('migrate_s3_to_s3', default_args=default_args,
         execution_timeout=timedelta(seconds=20)
     )
 
-    migrate_data = PythonOperator(
-        task_id='copy_objects',
+    copy_scenes = PythonOperator(
+        task_id='copy_scenes',
         provide_context=True,
         python_callable=copy_s3_objects
     )
 
-    process_sqs >> migrate_data
+    process_sqs >> copy_scenes
