@@ -27,16 +27,17 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "AWS_DEFAULT_REGION": "us-west-2",
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "database-write.local",
         "DB_DATABASE": "ows-index",
     },
-    # Use Ku secrets to send DB Creds
-    # Lift secrets into environment variables for datacube
+    # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
         Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
+        Secret("env", "AWS_DEFAULT_REGION", "processing-aws-creds-prod", "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", "processing-aws-creds-prod", "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", "processing-aws-creds-prod", "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 
@@ -61,7 +62,7 @@ with dag:
         namespace="processing",
         image=INDEXER_IMAGE,
         cmds=["sqs-to-dc"],
-        annotations={"iam.amazonaws.com/role": "svc-deafrica-prod-processing-prod"},
+        # annotations={"iam.amazonaws.com/role": "svc-deafrica-prod-processing-prod"},
         arguments=["--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
