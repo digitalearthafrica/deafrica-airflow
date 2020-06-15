@@ -60,11 +60,12 @@ def copy_s3_objects(ti, **kwargs):
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
         for src_url in urls:        
-            src_key = extract_src_key(src_url)            
+            src_key = extract_src_key(src_url)                
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
+            print("Copied scene:", src_key) 
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
@@ -79,10 +80,10 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         execution_timeout=timedelta(seconds=20)
     )
 
-    copy_scenes = PythonOperator(
+    copy_objects = PythonOperator(
         task_id='copy_scenes',
         provide_context=True,
         python_callable=copy_s3_objects
     )
 
-    process_sqs >> copy_scenes
+    process_sqs >> copy_objects
