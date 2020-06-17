@@ -48,24 +48,27 @@ def copy_s3_objects(ti, **kwargs):
     Copy objects from a s3 bucket to another s3 bucket.
     :param ti: Task instance
     """
+  
     s3_hook = S3Hook(aws_conn_id=dag.default_args['aws_conn_id'])
     messages = ti.xcom_pull(key='messages', task_ids='sqs_sensor')
+    if messages:
+        for rec in messages['Messages']:
+            body = json.loads(rec['Body'])
+            message = json.loads(body['Message'])
 
-    for rec in messages['Messages']:
-        body = json.loads(rec['Body'])
-        message = json.loads(body['Message'])
-
-        # Extract URL of the json file
-        urls = [message["links"][0]["href"]]
-        # Add URL of .tif files
-        urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        for src_url in urls:
-            src_key = extract_src_key(src_url)
-            s3_hook.copy_object(source_bucket_key=src_key,
-                                dest_bucket_key=src_key,
-                                source_bucket_name=default_args['src_bucket_name'],
-                                dest_bucket_name=default_args['dest_bucket_name'])
-            print("Copied scene:", src_key)
+            # Extract URL of the json file        
+            urls = [message["links"][0]["href"]]
+            # Add URL of .tif files
+            urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+            for src_url in urls:        
+                src_key = extract_src_key(src_url)                
+                s3_hook.copy_object(source_bucket_key=src_key,
+                                    dest_bucket_key=src_key,
+                                    source_bucket_name=default_args['src_bucket_name'],
+                                    dest_bucket_name=default_args['dest_bucket_name'])
+                print("Copied scene:", src_key) 
+    else:
+        print("Message queue is empty")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
@@ -84,7 +87,8 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
     COPY_OBJECTS = PythonOperator(
         task_id='copy_scenes',
         provide_context=True,
-        python_callable=copy_s3_objects
+        python_callable=copy_s3_objects,
+        trigger_rule='all_done'
     )
 
     PROCESS_SQS >> COPY_OBJECTS
