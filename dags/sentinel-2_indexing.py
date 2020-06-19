@@ -35,9 +35,9 @@ DEFAULT_ARGS = {
     "secrets": [
         Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
         Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", "processing-aws-creds-prod", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "processing-aws-creds-prod", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "processing-aws-creds-prod", "AWS_SECRET_ACCESS_KEY"),
+        Secret("env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", "indexing-aws-creds-prod", "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 
