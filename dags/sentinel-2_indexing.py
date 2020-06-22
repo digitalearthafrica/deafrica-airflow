@@ -104,7 +104,6 @@ with dag:
         name="ows-update-extents",
         task_id="ows-update-extents",
         get_logs=True,
-        init_containers=[init_container],
         is_delete_operator_pod=True,
     )
 
