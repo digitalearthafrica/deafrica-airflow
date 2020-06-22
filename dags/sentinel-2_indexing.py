@@ -63,8 +63,7 @@ init_container_volume_mounts = [k8s.V1VolumeMount(
 
 init_container = k8s.V1Container(
   name="init-container",
-  image="geoscienceaustralia/deafrica-config",
-  tag="0.1.1-unstable.305.ge30a170",
+  image="geoscienceaustralia/deafrica-config:0.1.1-unstable.305.ge30a170",
   volume_mounts=init_container_volume_mounts,
   command=["bash", "-cx"],
   args=["echo 10"]
