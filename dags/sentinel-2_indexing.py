@@ -50,9 +50,21 @@ OWS_ENV = {
     "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
 }
 
+EXPLORER_SECRETS = [
+    Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
+    Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password")
+]
+
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
 OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
+
+volume_mount = VolumeMount(
+    'ows-config',
+    mount_path='/env/config',
+    sub_path=None,
+    read_only=True
+)
 
 volume_config= {
     'persistentVolumeClaim': {
@@ -114,6 +126,7 @@ with dag:
         task_id="ows-update-mv",
         get_logs=True,
         volumes=[volume],
+        volume_mounts=[volume_mount],
         init_containers=[init_container],
         is_delete_operator_pod=True,
     )
@@ -129,6 +142,7 @@ with dag:
         task_id="ows-update-product",
         get_logs=True,
         volumes=[volume],
+        volume_mounts=[volume_mount],
         init_containers=[init_container],
         is_delete_operator_pod=True,
     )
@@ -143,6 +157,7 @@ with dag:
             "--force-refresh",
             "s2_l2a"
         ],
+        secrets=EXPLORER_SECRETS,
         labels={"step": "explorer"},
         name="explorer-summary",
         task_id="explorer-summary-task",
