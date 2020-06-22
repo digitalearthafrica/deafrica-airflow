@@ -12,11 +12,14 @@ and configuration installed.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.contrib.kubernetes.secret import Secret
+from airflow.contrib.kubernetes.volume import Volume
+from airflow.contrib.kubernetes.volume_mount import VolumeMount
+from airflow.contrib.operators.kubernetes_pod_operator import \
+    KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
-import kubernetes.client.models as k8s
 
+import kubernetes.client.models as k8s
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
