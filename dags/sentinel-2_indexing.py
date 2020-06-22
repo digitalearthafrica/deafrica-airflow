@@ -90,14 +90,14 @@ with dag:
         cmds=["bash"],
         arguments=[
             "-c",
-                [
-                    "\"",
-                    "mkdir -p /env/config;",
-                    "curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;",
-                    "datacube-ows-update", "--views", "--blocking;",
-                    "datacube-ows-update", "s2_l2a;",
-                    "\""
-                ].join(" ")
+            " ".join([
+                "\"",
+                "mkdir -p /env/config;",
+                "curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;",
+                "datacube-ows-update", "--views", "--blocking;",
+                "datacube-ows-update", "s2_l2a;",
+                "\""
+            ])
         ],
         labels={"step": "ows-mv"},
         env_vars=OWS_ENV,
