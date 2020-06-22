@@ -59,37 +59,6 @@ INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
 OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
-volume_mount = VolumeMount(
-    'ows-config',
-    mount_path='/env/config',
-    sub_path=None,
-    read_only=True
-)
-
-volume_config= {
-    'persistentVolumeClaim': {
-            'claimName': 'ows-config'
-        }
-}
-volume = Volume(name='ows-config', configs=volume_config)
-
-init_container_volume_mounts = [
-    k8s.V1VolumeMount(
-        mount_path='/env/config',
-        name='ows-config',
-        sub_path=None,
-        read_only=True
-    )
-]
-
-init_container = k8s.V1Container(
-  name="init-container",
-  image="geoscienceaustralia/deafrica-config:0.1.1-unstable.305.ge30a170",
-  volume_mounts=init_container_volume_mounts,
-  command=["bash", "-cx"],
-  args=["cp", "-f", "/opt/dea-config/services/ows_cfg.py",  "/env/config/ows_cfg.py"]
-)
-
 dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
@@ -115,34 +84,26 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    OWS_UPDATE_MV = KubernetesPodOperator(
+    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
         namespace="processing",
         image=OWS_IMAGE,
-        cmds=["datacube-ows-update"],
-        arguments=["--views", "--blocking"],
+        cmds=["bash"],
+        arguments=[
+            "-c",
+                [
+                    "\"",
+                    "mkdir -p /env/config;",
+                    "curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;",
+                    "datacube-ows-update", "--views", "--blocking;",
+                    "datacube-ows-update", "s2_l2a;",
+                    "\""
+                ].join(" ")
+        ],
         labels={"step": "ows-mv"},
         env_vars=OWS_ENV,
-        name="ows-update-materialised-view",
-        task_id="ows-update-mv",
+        name="ows-update-extents",
+        task_id="ows-update-extents",
         get_logs=True,
-        volumes=[volume],
-        volume_mounts=[volume_mount],
-        init_containers=[init_container],
-        is_delete_operator_pod=True,
-    )
-
-    OWS_UPDATE_PRODUCT = KubernetesPodOperator(
-        namespace="processing",
-        image=OWS_IMAGE,
-        cmds=["datacube-ows-update"],
-        arguments=["s2_l2a"],
-        labels={"step": "ows-product"},
-        env_vars=OWS_ENV,
-        name="ows-update-product",
-        task_id="ows-update-product",
-        get_logs=True,
-        volumes=[volume],
-        volume_mounts=[volume_mount],
         init_containers=[init_container],
         is_delete_operator_pod=True,
     )
@@ -168,7 +129,7 @@ with dag:
     COMPLETE = DummyOperator(task_id="all_done")
 
     START >> INDEXING
-    INDEXING >> OWS_UPDATE_MV >> OWS_UPDATE_PRODUCT
+    INDEXING >> OWS_UPDATE_EXTENTS
     INDEXING >> EXPLORER_SUMMARY
-    OWS_UPDATE_PRODUCT >> COMPLETE
+    OWS_UPDATE_EXTENTS >> COMPLETE
     EXPLORER_SUMMARY >> COMPLETE
