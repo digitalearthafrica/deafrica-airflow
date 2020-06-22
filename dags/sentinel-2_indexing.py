@@ -69,7 +69,7 @@ init_container = k8s.V1Container(
   image="geoscienceaustralia/deafrica-config:0.1.1-unstable.305.ge30a170",
   volume_mounts=init_container_volume_mounts,
   command=["bash", "-cx"],
-  args=["echo 10"]
+  args=["cp", "-f", "/opt/dea-config/services/ows_cfg.py",  "/env/config/ows_cfg.py"]
 )
 
 dag = DAG(
