@@ -45,24 +45,30 @@ DEFAULT_ARGS = {
     ],
 }
 
+OWS_ENV = {
+    "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
+    "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
+}
+
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
-OWS_IMAGE = "opendatacube/ows:0.14.6"
+OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
 volume_config= {
-    'persistentVolumeClaim':
-        {
+    'persistentVolumeClaim': {
             'claimName': 'ows-config'
         }
-    }
+}
 volume = Volume(name='ows-config', configs=volume_config)
 
-init_container_volume_mounts = [k8s.V1VolumeMount(
-    mount_path='/env/config',
-    name='ows-config',
-    sub_path=None,
-    read_only=True
-)]
+init_container_volume_mounts = [
+    k8s.V1VolumeMount(
+        mount_path='/env/config',
+        name='ows-config',
+        sub_path=None,
+        read_only=True
+    )
+]
 
 init_container = k8s.V1Container(
   name="init-container",
@@ -103,10 +109,7 @@ with dag:
         cmds=["datacube-ows-update"],
         arguments=["--views", "--blocking"],
         labels={"step": "ows-mv"},
-        env_vars={
-            "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-            "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
-        },
+        env_vars=OWS_ENV,
         name="ows-update-materialised-view",
         task_id="ows-update-mv",
         get_logs=True,
@@ -121,10 +124,7 @@ with dag:
         cmds=["datacube-ows-update"],
         arguments=["s2_l2a"],
         labels={"step": "ows-product"},
-        env_vars={
-            "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-            "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
-        },
+        env_vars=OWS_ENV,
         name="ows-update-product",
         task_id="ows-update-product",
         get_logs=True,
