@@ -97,14 +97,36 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    UPDATE_RANGES = KubernetesPodOperator(
+    OWS_UPDATE_MV = KubernetesPodOperator(
+        namespace="processing",
+        image=OWS_IMAGE,
+        cmds=["datacube-ows-update"],
+        arguments=["--views", "--blocking"],
+        labels={"step": "ows-mv"},
+        env_vars={
+            "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
+            "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
+        },
+        name="ows-update-materialised-view",
+        task_id="ows-update-mv",
+        get_logs=True,
+        volumes=[volume],
+        init_containers=[init_container],
+        is_delete_operator_pod=True,
+    )
+
+    OWS_UPDATE_PRODUCT = KubernetesPodOperator(
         namespace="processing",
         image=OWS_IMAGE,
         cmds=["datacube-ows-update"],
         arguments=["s2_l2a"],
-        labels={"step": "ows"},
-        name="ows-update-ranges",
-        task_id="update-ranges-task",
+        labels={"step": "ows-product"},
+        env_vars={
+            "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
+            "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
+        },
+        name="ows-update-product",
+        task_id="ows-update-product",
         get_logs=True,
         volumes=[volume],
         init_containers=[init_container],
@@ -131,7 +153,7 @@ with dag:
     COMPLETE = DummyOperator(task_id="all_done")
 
     START >> INDEXING
-    INDEXING >> UPDATE_RANGES
+    INDEXING >> OWS_UPDATE_MV >> OWS_UPDATE_PRODUCT
     INDEXING >> EXPLORER_SUMMARY
-    UPDATE_RANGES >> COMPLETE
+    OWS_UPDATE_PRODUCT >> COMPLETE
     EXPLORER_SUMMARY >> COMPLETE
