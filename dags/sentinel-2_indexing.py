@@ -61,13 +61,16 @@ INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
 OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
-OWS_BASH_COMMAND = dedent("""
-    bash -c \
-        "mkdir -p /env/config;\
-        curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;\
-        datacube-ows-update --views --blocking;\
-        datacube-ows-update s2_l2a;"
-""")
+OWS_BASH_COMMAND = [
+    "bash",
+    "-c",
+    dedent("""
+        mkdir -p /env/config;
+        curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
+        datacube-ows-update --views --blocking;
+        datacube-ows-update s2_l2a;
+    """)
+]
 
 dag = DAG(
     "sentinel-2_indexing",
