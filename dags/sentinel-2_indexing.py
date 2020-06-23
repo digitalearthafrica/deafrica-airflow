@@ -36,6 +36,8 @@ DEFAULT_ARGS = {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "database-write.local",
         "DB_DATABASE": "africa",
+        "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
+        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
     },
     # Lift secrets into environment variables
     "secrets": [
@@ -45,11 +47,6 @@ DEFAULT_ARGS = {
         Secret("env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"),
         Secret("env", "AWS_SECRET_ACCESS_KEY", "indexing-aws-creds-prod", "AWS_SECRET_ACCESS_KEY"),
     ],
-}
-
-OWS_ENV = {
-    "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-    "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
 }
 
 EXPLORER_SECRETS = [
@@ -100,7 +97,6 @@ with dag:
         image=OWS_IMAGE,
         arguments=OWS_BASH_COMMAND,
         labels={"step": "ows-mv"},
-        env_vars=OWS_ENV,
         name="ows-update-extents",
         task_id="ows-update-extents",
         get_logs=True,
