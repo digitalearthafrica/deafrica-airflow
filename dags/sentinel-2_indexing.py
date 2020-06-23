@@ -19,6 +19,8 @@ from airflow.contrib.operators.kubernetes_pod_operator import \
     KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
 
+from textwrap import dedent
+
 import kubernetes.client.models as k8s
 
 DEFAULT_ARGS = {
@@ -59,6 +61,14 @@ INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
 OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
+OWS_BASH_COMMAND = dedent("""
+    bash -c \
+        "mkdir -p /env/config;\
+        curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;\
+        datacube-ows-update --views --blocking;\
+        datacube-ows-update s2_l2a;"
+""")
+
 dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
@@ -74,9 +84,7 @@ with dag:
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
-        cmds=["sqs-to-dc"],
-        # annotations={"iam.amazonaws.com/role": "svc-deafrica-prod-processing-prod"},
-        arguments=["--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
+        arguments=["sqs-to-dc", "--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
@@ -87,18 +95,7 @@ with dag:
     OWS_UPDATE_EXTENTS = KubernetesPodOperator(
         namespace="processing",
         image=OWS_IMAGE,
-        cmds=["bash"],
-        arguments=[
-            "-c",
-            " ".join([
-                "\"",
-                "mkdir -p /env/config;",
-                "curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;",
-                "datacube-ows-update", "--views", "--blocking;",
-                "datacube-ows-update", "s2_l2a;",
-                "\""
-            ])
-        ],
+        arguments=OWS_BASH_COMMAND,
         labels={"step": "ows-mv"},
         env_vars=OWS_ENV,
         name="ows-update-extents",
@@ -110,8 +107,8 @@ with dag:
     EXPLORER_SUMMARY = KubernetesPodOperator(
         namespace="processing",
         image=EXPLORER_IMAGE,
-        cmds=["cubedash-gen"],
         arguments=[
+            "cubedash-gen",
             "--no-init-database",
             "--refresh-stats",
             "--force-refresh",
