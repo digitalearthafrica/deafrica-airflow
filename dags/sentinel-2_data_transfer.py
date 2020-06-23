@@ -9,6 +9,10 @@ In case where the queue is empty, a timeout policy is applied to kill this DAG
 import json
 import re
 
+from shapely.geometry import mapping, shape
+from shapely.ops import transform
+import pyproj
+
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
@@ -26,8 +30,9 @@ default_args = {
     "dest_bucket_name": "africa-migration-test",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": '*/5 * * * *',
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-                  "deafrica-prod-eks-sentinel-2-data-transfer")
+    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/test_africa",
+    # ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+    #               "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -38,10 +43,68 @@ def extract_src_key(src_url):
     :param src_url: Full http path of the object
     :return: Object path relative to the base bucket
     """
+
     matches = (re.finditer("/", src_url))
     matches_positions = [match.start() for match in matches]
     start = matches_positions[2] + 1
     return src_url[start:]
+    
+def load_stac(s3_hook, stac_json_path):
+    """
+    load the STAC file associated with each scene
+    :param s3_hook: Hook to interact with S3
+    :param stac_json_path: Path to the STAC file on S3
+    :return: Dictionary of the STAC file
+    """
+
+    content_object = s3_hook.get_key(key=extract_src_key(stac_json_path), 
+                     bucket_name=default_args['src_bucket_name'])
+    content = content_object.get()['Body'].read().decode('utf-8')
+    data = json.loads(content) 
+    return data
+
+def africa_extent():
+    """
+    Loads a file containing Africa boundary   
+    :return: Shape object of the boundary
+    """
+    
+    boundaries = json.load(open("data/africa-extent.json")) 
+    return shape(boundaries["features"][0]["geometry"])
+
+def scene_stac_utm(stac):
+    """
+    Extract the UTM zone from the STAC file   
+    :return: UTM zone
+    """
+    return stac['properties']['proj:epsg']
+
+def reproject_scene_geom_to_epsg_4326(stac, scene_geometry): 
+    """
+    Reproject CRS of the scene to WGS84 (same as the Africa extent)
+    :param stac: STAC file
+    :param scene_geometry: Scene geometry
+    :return: Scene geometry reprojected to epsg:4326
+    """ 
+    src_epsg = scene_stac_utm(stac)
+    src_gcs = "epsg:" + str(src_epsg)
+    project = pyproj.Transformer.from_proj(
+        pyproj.Proj(init=src_gcs), # source coordinate system
+        pyproj.Proj(init='epsg:4326')) # destination coordinate system
+    return transform(project.transform, scene_geometry)  # apply projection
+
+def is_in_africa(s3_hook, scene_geometry, africa_footprint, stac_file):  
+    """
+    Check whether a scene falls within Africa boundary
+    :param s3_hook: hook to interact with S3
+    :param scene_geometry: Shape object of the scene Geometry
+    :param africa_footprint: A dictionary containing Africa boundary
+    :param stac_file: path to the STAC file on S3
+    :return: a boolean indicating whether a scene falls within Africa boundary
+    """
+    stac = load_stac(s3_hook, stac_file)
+    scene_epsg_4326 = reproject_scene_geom_to_epsg_4326(stac, scene_geometry) 
+    return  scene_geometry.intersects(africa_footprint)
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -49,29 +112,35 @@ def copy_s3_objects(ti, **kwargs):
     :param ti: Task instance
     """
   
-    s3_hook = S3Hook(aws_conn_id=dag.default_args['aws_conn_id'])
+    s3_hook = S3Hook(aws_conn_id=dag.default_args['aws_conn_id'])    
     messages = ti.xcom_pull(key='messages', task_ids='sqs_sensor')
+    # Load Africa footprint
+    africa_footprint = africa_extent()
     if messages:
-        for rec in messages['Messages']:
+        for rec in messages['Messages']:                   
             body = json.loads(rec['Body'])
             message = json.loads(body['Message'])
+            scene_geometry = shape(message["geometry"])
 
             # Extract URL of the json file        
             urls = [message["links"][0]["href"]]
-            # Add URL of .tif files
-            urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-            for src_url in urls:        
-                src_key = extract_src_key(src_url)                
-                s3_hook.copy_object(source_bucket_key=src_key,
-                                    dest_bucket_key=src_key,
-                                    source_bucket_name=default_args['src_bucket_name'],
-                                    dest_bucket_name=default_args['dest_bucket_name'])
-                print("Copied scene:", src_key) 
+            is_in_africa_flag = is_in_africa(s3_hook, scene_geometry, 
+                                                      africa_footprint, urls[0])
+            if is_in_africa_flag:
+                # Add URL of .tif files
+                urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+                for src_url in urls:        
+                    src_key = extract_src_key(src_url)                
+                    s3_hook.copy_object(source_bucket_key=src_key,
+                                        dest_bucket_key=src_key,
+                                        source_bucket_name=default_args['src_bucket_name'],
+                                        dest_bucket_name=default_args['dest_bucket_name'])
+                    print("Copied scene:", src_key)
     else:
         print("Message queue is empty")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
-         schedule_interval=default_args['schedule_interval'],
+         schedule_interval="@once",
          tags=["Sentinel-2", "transfer"], catchup=False,
          dagrun_timeout=timedelta(seconds=60*5)) as dag:
 
