@@ -63,7 +63,7 @@ OWS_BASH_COMMAND = [
     "-c",
     dedent("""
         mkdir -p /env/config;
-        curl https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
+        curl -s https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
         datacube-ows-update --views --blocking;
         datacube-ows-update s2_l2a;
     """)
@@ -73,9 +73,9 @@ dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval=None,
+    schedule_interval='0 */1 * * *',
     catchup=False,
-    tags=["k8s"]
+    tags=["k8s", "sentinel-2"]
 )
 
 with dag:
