@@ -9,7 +9,7 @@ In case where the queue is empty, a timeout policy is applied to kill this DAG
 import json
 import re
 
-from shapely.geometry import mapping, shape
+from shapely.geometry import shape
 from shapely.ops import transform
 import pyproj
 
@@ -29,10 +29,10 @@ default_args = {
     "aws_conn_id": "deafrica_data_dev_migration",
     "dest_bucket_name": "africa-migration-test",
     "src_bucket_name": "sentinel-cogs",
-    "schedule_interval": '*/5 * * * *',
-    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/test_africa",
-    # ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-    #               "deafrica-prod-eks-sentinel-2-data-transfer")
+    "schedule_interval": '*/5 * * * *',    
+    "crs_black_list": "[32601, 32701, 32660, 32760]",
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+                  "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -77,6 +77,7 @@ def scene_stac_utm(stac):
     Extract the UTM zone from the STAC file   
     :return: UTM zone
     """
+
     return stac['properties']['proj:epsg']
 
 def reproject_scene_geom_to_epsg_4326(stac, scene_geometry): 
@@ -86,8 +87,10 @@ def reproject_scene_geom_to_epsg_4326(stac, scene_geometry):
     :param scene_geometry: Scene geometry
     :return: Scene geometry reprojected to epsg:4326
     """ 
+
     src_epsg = scene_stac_utm(stac)
-    src_gcs = "epsg:" + str(src_epsg)
+    src_gcs = "epsg:" + str(src_epsg)    
+
     project = pyproj.Transformer.from_proj(
         pyproj.Proj(init=src_gcs), # source coordinate system
         pyproj.Proj(init='epsg:4326')) # destination coordinate system
@@ -102,9 +105,13 @@ def is_in_africa(s3_hook, scene_geometry, africa_footprint, stac_file):
     :param stac_file: path to the STAC file on S3
     :return: a boolean indicating whether a scene falls within Africa boundary
     """
+    
     stac = load_stac(s3_hook, stac_file)
-    scene_epsg_4326 = reproject_scene_geom_to_epsg_4326(stac, scene_geometry) 
-    return  scene_geometry.intersects(africa_footprint)
+    src_epsg = scene_stac_utm(stac)
+    scene_epsg_4326 = reproject_scene_geom_to_epsg_4326(stac, scene_geometry)
+    # Exclude scenes on the anti-meridian
+    merdian_180 = src_epsg in list(default_args["crs_black_list"])
+    return  scene_geometry.intersects(africa_footprint) & merdian_180
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -126,6 +133,7 @@ def copy_s3_objects(ti, **kwargs):
             urls = [message["links"][0]["href"]]
             is_in_africa_flag = is_in_africa(s3_hook, scene_geometry, 
                                                       africa_footprint, urls[0])
+            
             if is_in_africa_flag:
                 # Add URL of .tif files
                 urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
@@ -137,7 +145,7 @@ def copy_s3_objects(ti, **kwargs):
                                         dest_bucket_name=default_args['dest_bucket_name'])
                     print("Copied scene:", src_key)
     else:
-        print("Message queue is empty")
+        print("Message queue is empty")    
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval="@once",
