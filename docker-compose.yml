@@ -29,6 +29,7 @@ services:
       - ./dags:/usr/local/airflow/dags
       - ./plugins:/usr/local/airflow/plugins
       - ./scripts:/usr/local/airflow/scripts
+      - ./data:/usr/local/airflow/data
       - ./requirements:/requirements
     ports:
       - "8080:8080"
