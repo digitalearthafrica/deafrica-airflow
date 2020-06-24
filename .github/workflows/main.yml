@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - 'dags/**'
+      - 'scripts/**'
       - '.github/workflows/**'
   pull_request:
     branches:
@@ -11,6 +12,7 @@ on:
       - develop
     paths:
       - 'dags/**'
+      - 'scripts/**'
       - '.github/workflows/**'
 
 jobs:
