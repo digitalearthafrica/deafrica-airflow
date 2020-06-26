@@ -124,7 +124,6 @@ def copy_s3_objects(ti, **kwargs):
     # Load Africa footprint
     africa_footprint = africa_extent()
 
-    # if messages:
     for rec in messages:
         body = json.loads(rec)
         message = json.loads(body['Message'])
@@ -134,17 +133,18 @@ def copy_s3_objects(ti, **kwargs):
         urls = [message["links"][0]["href"]]
         is_in_africa_flag = is_in_africa(s3_hook, scene_geometry,
                                                     africa_footprint, urls[0])
-        if is_in_africa_flag:
-            
+        if is_in_africa_flag:            
             # Add URL of .tif files
-            urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+            urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])            
             for src_url in urls:
                 src_key = extract_src_key(src_url)
                 s3_hook.copy_object(source_bucket_key=src_key,
                                     dest_bucket_key=src_key,
                                     source_bucket_name=default_args['src_bucket_name'],
-                                    dest_bucket_name=default_args['dest_bucket_name'])
-                print("Copied scene:", src_key)
+                                    dest_bucket_name=default_args['dest_bucket_name'])                
+                
+            scene = urls[0]
+            print("Copied: ", scene[0: scene.rindex("/")])
 
 def get_queue():
     """
@@ -168,7 +168,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()   
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :    
-        max_num_polls = 100                      
+        max_num_polls = 100            
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         import itertools
         msg_list  = list(itertools.chain(*msg_list))
@@ -177,7 +177,7 @@ def trigger_sensor(ti, **kwargs):
             messages.append(msg.body) 
             msg.delete()            
         ti.xcom_push(key="Messages", value=messages)     
-        print("Count of read messages:", len(messages))    
+        print(f"Read {len(messages)} messages")   
         return "copy_scenes"
     else:
          return "end"
@@ -196,6 +196,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
     COPY_OBJECTS = PythonOperator(
         task_id='copy_scenes',
         provide_context=True,
+        execution_timeout = timedelta(hours=20),
         python_callable=copy_s3_objects
     )
 
