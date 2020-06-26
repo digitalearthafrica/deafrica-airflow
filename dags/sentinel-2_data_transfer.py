@@ -148,6 +148,9 @@ def copy_s3_objects(ti, **kwargs):
                 print("Copied scene:", src_key)
 
 def get_queue():
+    """
+    Return the SQS queue object
+    """
     sqs_hook = SQSHook(aws_conn_id=dag.default_args['aws_conn_id'])
     queue_url = default_args['sqs_queue']
     queue_name = queue_url[queue_url.rindex("/") + 1:]
@@ -157,8 +160,10 @@ def get_queue():
 def trigger_sensor(ti, **kwargs):
     """
     Function to fork tasks
-    If there are messages in the queue, it pushes them to task index object and calls the copy function
+    If there are messages in the queue, it pushes them to task index object, and calls the copy function
     otherwise it calls a task that terminates the DAG run
+    :param ti: Task instance
+    :return: String id of the downstream task
     """
 
     queue = get_queue()   
