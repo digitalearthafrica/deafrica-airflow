@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
-from airflow.operators import TriggerDagRunOperator
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
