@@ -108,7 +108,7 @@ with dag:
         arguments=ARCHIVE_BASH_COMMAND,
         labels={"step": "ds-arch"},
         name="datacube-dataset-archive",
-        task_id="dc-ds-kill",
+        task_id="archive-antimeridian-datasets",
         get_logs=True,
         is_delete_operator_pod=True,
     )
