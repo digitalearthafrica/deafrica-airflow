@@ -186,6 +186,7 @@ def end_dag():
     print("Message queue is empty, terminating DAG")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
+         schedule_interval=default_args['schedule_interval'],
          tags=["Sentinel-2", "transfer"], catchup=False) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
