@@ -54,7 +54,7 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password")
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.7"
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.8"
 OWS_IMAGE = "opendatacube/ows:1.8.0"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
@@ -69,6 +69,17 @@ OWS_BASH_COMMAND = [
     """)
 ]
 
+ARCHIVE_BASH_COMMAND = [
+    "bash",
+    "-c",
+    dedent("""
+        datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
+        cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
+        wc -l /tmp/to_kill.list;
+        cat /tmp/to_kill.list | xargs datacube dataset archive --dry-run
+    """)
+]
+
 dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
@@ -79,15 +90,25 @@ dag = DAG(
 )
 
 with dag:
-    START = DummyOperator(task_id="sentinel-2_indexing")
-
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
+        image_pull_policy='Always',
         arguments=["sqs-to-dc", "--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
+        get_logs=True,
+        is_delete_operator_pod=True,
+    )
+
+    ARCHIVE_EXTRANEOUS_DS = KubernetesPodOperator(
+        namespace="processing",
+        image=INDEXER_IMAGE,
+        arguments=ARCHIVE_BASH_COMMAND,
+        labels={"step": "ds-arch"},
+        name="datacube-dataset-archive",
+        task_id="archive-antimeridian-datasets",
         get_logs=True,
         is_delete_operator_pod=True,
     )
@@ -123,8 +144,8 @@ with dag:
 
     COMPLETE = DummyOperator(task_id="all_done")
 
-    START >> INDEXING
-    INDEXING >> OWS_UPDATE_EXTENTS
-    INDEXING >> EXPLORER_SUMMARY
+    INDEXING >> ARCHIVE_EXTRANEOUS_DS
+    ARCHIVE_EXTRANEOUS_DS >> OWS_UPDATE_EXTENTS
+    ARCHIVE_EXTRANEOUS_DS >> EXPLORER_SUMMARY
     OWS_UPDATE_EXTENTS >> COMPLETE
     EXPLORER_SUMMARY >> COMPLETE
