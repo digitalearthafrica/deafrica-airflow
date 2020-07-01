@@ -132,7 +132,7 @@ def copy_s3_objects(ti, **kwargs):
         # Extract URL of the json file
         urls = [message["links"][0]["href"]]
         is_in_africa_flag = is_in_africa(s3_hook, scene_geometry,
-                                                    africa_footprint, urls[0])
+                                         africa_footprint, urls[0])
         if is_in_africa_flag:            
             # Add URL of .tif files
             urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])            
@@ -186,6 +186,7 @@ def end_dag():
     print("Message queue is empty, terminating DAG")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
+         schedule_interval=default_args['schedule_interval'],
          tags=["Sentinel-2", "transfer"], catchup=False) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
