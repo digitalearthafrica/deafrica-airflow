@@ -76,7 +76,7 @@ ARCHIVE_BASH_COMMAND = [
         datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
         cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
         wc -l /tmp/to_kill.list;
-        cat /tmp/to_kill.list | xargs datacube dataset archive --dry-run
+        cat /tmp/to_kill.list | xargs datacube dataset archive
     """)
 ]
 
