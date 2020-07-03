@@ -9,8 +9,7 @@ import json
 import boto3
 import re
 import itertools
-
-import pandas as pd
+import csv
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -55,7 +54,11 @@ def africa_tile_ids():
     :return: Set of tile ids
     """
 
-    return set(pd.read_csv(default_args['africa_tiles'], header=None)[0])
+    with open(default_args['africa_tiles']) as f:
+        reader = csv.reader(f)
+        list_of_mgrs = [x[0] for x in reader]
+
+    return set(list_of_mgrs)
 
 def copy_s3_objects(ti, **kwargs):
     """
