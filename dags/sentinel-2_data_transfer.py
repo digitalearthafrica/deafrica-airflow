@@ -26,12 +26,13 @@ default_args = {
     'retries': 0,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     "aws_conn_id": "deafrica_data_dev_migration",
-    "dest_bucket_name": "africa-migration-test",
+    "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "@daily",
     "crs_black_list": "[32601, 32701, 32660, 32760]",
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-                  "deafrica-prod-eks-sentinel-2-data-transfer")
+    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/test_africa"
+    # ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+    #               "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -113,7 +114,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 100
+        max_num_polls = 1
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
