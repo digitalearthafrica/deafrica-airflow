@@ -30,7 +30,8 @@ default_args = {
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "@daily",
     "crs_black_list": "[32601, 32701, 32660, 32760]",
-    "sqs_queue": "https://sqs.us-west-2.amazonaws.com/565417506782/test_africa"
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/"
+                  "565417506782/test_africa")
     # ("https://sqs.us-west-2.amazonaws.com/565417506782/"
     #               "deafrica-prod-eks-sentinel-2-data-transfer")
 }
