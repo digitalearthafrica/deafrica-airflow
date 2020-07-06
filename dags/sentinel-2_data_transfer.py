@@ -24,7 +24,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
-    'africa_tiles': "data/africa-mgrs-tiles.csv",
+    'africa_tiles': "dags/data/africa-mgrs-tiles.csv",
     "aws_conn_id": "deafrica_data_dev_migration",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
