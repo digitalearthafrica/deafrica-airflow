@@ -10,8 +10,10 @@ import boto3
 import re
 import itertools
 import csv
+from pathlib import Path
 from datetime import datetime, timedelta
 
+from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
@@ -24,16 +26,14 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
-    'africa_tiles': "dags/data/africa-mgrs-tiles.csv",
+    'africa_tiles': "data/africa-mgrs-tiles.csv",
     "aws_conn_id": "deafrica_data_dev_migration",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "@daily",
     "crs_black_list": "[32601, 32701, 32660, 32760]",
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/"
-                  "565417506782/test_africa")
-    # ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-    #               "deafrica-prod-eks-sentinel-2-data-transfer")
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+                  "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -56,7 +56,9 @@ def africa_tile_ids():
     :return: Set of tile ids
     """
 
-    with open(default_args['africa_tiles']) as f:
+    tile_ids_filepath = Path(configuration.get('core', 'dags_folder')). \
+                        parent.joinpath(default_args['africa_tiles'])
+    with open(tile_ids_filepath) as f:
         reader = csv.reader(f)
         list_of_mgrs = [x[0] for x in reader]
 
