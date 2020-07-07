@@ -28,6 +28,7 @@ default_args = {
     'email_on_retry': False,
     'retries': 0,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
+    'africa_conn_id': "deafrica-staging-prod-migration",
     "aws_conn_id": "deafrica_data_dev_migration",
     "dest_bucket_name": "deafrica-staging-prod",
     "src_bucket_name": "sentinel-cogs",
@@ -71,7 +72,7 @@ def copy_s3_objects(ti, **kwargs):
     :param ti: Task instance
     """
 
-    s3_hook = S3Hook(aws_conn_id=dag.default_args['deafrica-staging-prod-migration'])
+    s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
 
     # Load Africa tile ids
