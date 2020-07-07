@@ -71,9 +71,7 @@ def copy_s3_objects(ti, **kwargs):
     :param ti: Task instance
     """
 
-
     s3_hook = S3Hook(aws_conn_id=dag.default_args['deafrica-staging-prod-migration'])
-    os.environ['AWS_DEFAULT_REGION'] = 'af-south-1'
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
 
     # Load Africa tile ids
