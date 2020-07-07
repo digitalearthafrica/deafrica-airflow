@@ -28,7 +28,7 @@ default_args = {
     'retries': 0,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     "aws_conn_id": "deafrica_data_dev_migration",
-    "dest_bucket_name": "deafrica-sentinel-2",
+    "dest_bucket_name": "deafrica-staging-prod",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "@daily",
     "crs_black_list": "[32601, 32701, 32660, 32760]",
