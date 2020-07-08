@@ -28,12 +28,11 @@ default_args = {
     'email_on_retry': False,
     'retries': 0,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
-    'africa_conn_id': "deafrica-staging-prod-migration",
-    "aws_conn_id": "deafrica_data_dev_migration",
+    'africa_conn_id': "deafrica-staging-prod-migration_africa",
+    "us_conn_id": "deafrica-staging-prod-migration_us",
     "dest_bucket_name": "deafrica-staging-prod",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "@daily",
-    "crs_black_list": "[32601, 32701, 32660, 32760]",
     "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
                   "deafrica-prod-eks-sentinel-2-data-transfer")
 }
@@ -101,7 +100,7 @@ def get_queue():
     """
     Return the SQS queue object
     """
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args['aws_conn_id'])
+    sqs_hook = SQSHook(aws_conn_id=dag.default_args['us_conn_id'])
     queue_url = default_args['sqs_queue']
     queue_name = queue_url[queue_url.rindex("/") + 1:]
     sqs = sqs_hook.get_resource_type('sqs')
