@@ -66,7 +66,7 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
-def copy_scene(rec):
+def copy_scene(rec, valid_tile_ids):
     body = json.loads(rec)
     message = json.loads(body['Message'])
     tile_id = message["id"].split("_")[1]
@@ -99,7 +99,7 @@ def copy_s3_objects(ti, **kwargs):
     valid_tile_ids = africa_tile_ids()
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        for msg in executor.map(copy_scene, messages):
+        for msg in executor.map(copy_scene, messages, itertools.repeat(valid_tile_ids)):
             print(f'Copied {msg}')
 
     # for rec in messages:
