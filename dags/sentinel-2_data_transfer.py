@@ -13,7 +13,7 @@ import csv
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
-import concurrent.futures
+import multiprocessing
 
 from airflow import configuration
 from airflow import DAG
@@ -66,7 +66,9 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
-def copy_scene(rec, valid_tile_ids, completed_tasks):
+def copy_scene(args):
+    rec = args[0]
+    valid_tile_ids = args[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
 
@@ -88,7 +90,7 @@ def copy_scene(rec, valid_tile_ids, completed_tasks):
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
         scene = urls[0]
-        completed_tasks.put(scene[0: scene.rindex("/")])
+        return scene[0: scene.rindex("/")]
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -97,43 +99,14 @@ def copy_s3_objects(ti, **kwargs):
     """
 
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
-
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    from multiprocessing import Queue, Process
-    procs = []
-    completed_tasks = Queue()
-    for rec in messages:
-        proc = Process(target=copy_scene, args=(rec, valid_tile_ids, completed_tasks))
-        procs.append(proc)
-        proc.start()
-
-    # complete the processes
-    for proc in procs:
-        proc.join()
-
-    while not completed_tasks.empty():
-        print(f"Copied {completed_tasks.get()}")
-
-    # for rec in messages:
-    #     body = json.loads(rec)
-    #     message = json.loads(body['Message'])
-    #     tile_id = message["id"].split("_")[1]
-
-    #     if tile_id in valid_tile_ids:
-    #         # Extract URL of the json file
-    #         urls = [message["links"][0]["href"]]
-    #         # Add URL of .tif files
-    #         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-    #         for src_url in urls:
-    #             src_key = extract_src_key(src_url)
-    #             s3_hook.copy_object(source_bucket_key=src_key,
-    #                                 dest_bucket_key=src_key,
-    #                                 source_bucket_name=default_args['src_bucket_name'],
-    #                                 dest_bucket_name=default_args['dest_bucket_name'])
-
-    #         scene = urls[0]
-    #         print("Copied: ", scene[0: scene.rindex("/")])
+    max_num_cpus = multiprocessing.cpu_count() - 2
+    pool = multiprocessing.Pool(max_num_cpus)
+    args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
+    results = pool.map(copy_scene, args)
+    print(f"Copied {len(results)} files")
+    print(results)
 
 def get_queue():
     """
