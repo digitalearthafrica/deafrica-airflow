@@ -67,6 +67,9 @@ def africa_tile_ids():
     return set(list_of_mgrs)
 
 def copy_scene(rec, valid_tile_ids):
+
+    s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
+
     body = json.loads(rec)
     message = json.loads(body['Message'])
     tile_id = message["id"].split("_")[1]
@@ -92,7 +95,6 @@ def copy_s3_objects(ti, **kwargs):
     :param ti: Task instance
     """
 
-    s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
 
     # Load Africa tile ids
