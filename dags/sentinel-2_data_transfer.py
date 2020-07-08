@@ -13,6 +13,7 @@ import csv
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
+import concurrent.futures
 
 from airflow import configuration
 from airflow import DAG
@@ -65,6 +66,26 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
+def copy_scene(rec):
+    body = json.loads(rec)
+    message = json.loads(body['Message'])
+    tile_id = message["id"].split("_")[1]
+
+    if tile_id in valid_tile_ids:
+        # Extract URL of the json file
+        urls = [message["links"][0]["href"]]
+        # Add URL of .tif files
+        urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+        for src_url in urls:
+            src_key = extract_src_key(src_url)
+            s3_hook.copy_object(source_bucket_key=src_key,
+                                dest_bucket_key=src_key,
+                                source_bucket_name=default_args['src_bucket_name'],
+                                dest_bucket_name=default_args['dest_bucket_name'])
+
+        scene = urls[0]
+        return(scene[0: scene.rindex("/")])
+
 def copy_s3_objects(ti, **kwargs):
     """
     Copy objects from a s3 bucket to another s3 bucket.
@@ -76,25 +97,30 @@ def copy_s3_objects(ti, **kwargs):
 
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    for rec in messages:
-        body = json.loads(rec)
-        message = json.loads(body['Message'])
-        tile_id = message["id"].split("_")[1]
 
-        if tile_id in valid_tile_ids:
-            # Extract URL of the json file
-            urls = [message["links"][0]["href"]]
-            # Add URL of .tif files
-            urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-            for src_url in urls:
-                src_key = extract_src_key(src_url)
-                s3_hook.copy_object(source_bucket_key=src_key,
-                                    dest_bucket_key=src_key,
-                                    source_bucket_name=default_args['src_bucket_name'],
-                                    dest_bucket_name=default_args['dest_bucket_name'])
+    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
+        for msg in executor.map(copy_scene, messages):
+            print(f'Copied {msg}')
 
-            scene = urls[0]
-            print("Copied: ", scene[0: scene.rindex("/")])
+    # for rec in messages:
+    #     body = json.loads(rec)
+    #     message = json.loads(body['Message'])
+    #     tile_id = message["id"].split("_")[1]
+
+    #     if tile_id in valid_tile_ids:
+    #         # Extract URL of the json file
+    #         urls = [message["links"][0]["href"]]
+    #         # Add URL of .tif files
+    #         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+    #         for src_url in urls:
+    #             src_key = extract_src_key(src_url)
+    #             s3_hook.copy_object(source_bucket_key=src_key,
+    #                                 dest_bucket_key=src_key,
+    #                                 source_bucket_name=default_args['src_bucket_name'],
+    #                                 dest_bucket_name=default_args['dest_bucket_name'])
+
+    #         scene = urls[0]
+    #         print("Copied: ", scene[0: scene.rindex("/")])
 
 def get_queue():
     """
@@ -119,7 +145,7 @@ def trigger_sensor(ti, **kwargs):
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
         max_num_polls = 1
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=5) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
