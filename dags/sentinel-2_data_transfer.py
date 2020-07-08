@@ -66,7 +66,7 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
-def copy_scene(rec, valid_tile_ids):
+def copy_scene(rec, valid_tile_ids, completed_tasks):
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
 
@@ -88,7 +88,7 @@ def copy_scene(rec, valid_tile_ids):
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
         scene = urls[0]
-        return(scene[0: scene.rindex("/")])
+        completed_tasks.put(scene[0: scene.rindex("/")])
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -100,10 +100,20 @@ def copy_s3_objects(ti, **kwargs):
 
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
+    from multiprocessing import Queue, Process
+    procs = []
+    completed_tasks = Queue()
+    for rec in messages:
+        proc = Process(target=copy_scene, args=(rec, valid_tile_ids, completed_tasks))
+        procs.append(proc)
+        proc.start()
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=10) as executor:
-        for msg in executor.map(copy_scene, messages, itertools.repeat(valid_tile_ids)):
-            print(f'Copied {msg}')
+    # complete the processes
+    for proc in procs:
+        proc.join()
+
+    while not completed_tasks.empty():
+        print(f"Copied {completed_tasks.get()}")
 
     # for rec in messages:
     #     body = json.loads(rec)
