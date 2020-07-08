@@ -77,6 +77,7 @@ def copy_scene(rec, valid_tile_ids):
     if tile_id in valid_tile_ids:
         # Extract URL of the json file
         urls = [message["links"][0]["href"]]
+        print(f"Copying {urls[0]}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
         for src_url in urls:
