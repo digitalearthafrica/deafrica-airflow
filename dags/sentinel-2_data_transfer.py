@@ -34,8 +34,10 @@ default_args = {
     "dest_bucket_name": "deafrica-staging-prod",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "* */12 * * *",
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-                  "deafrica-prod-eks-sentinel-2-data-transfer")
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/"
+                  "565417506782/test_africa")
+    #  ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+    #               "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -101,7 +103,7 @@ def copy_s3_objects(ti, **kwargs):
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    max_num_cpus = multiprocessing.cpu_count() - 2
+    max_num_cpus = 8
     pool = multiprocessing.Pool(max_num_cpus)
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
