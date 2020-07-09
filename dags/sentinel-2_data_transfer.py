@@ -103,8 +103,8 @@ def copy_s3_objects(ti, **kwargs):
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    max_num_cpus = 8
-    pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
+    max_num_cpus = 15
+    pool = multiprocessing.Pool(processes=max_num_cpus)
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     print(f"Copied {len(results)} files")
