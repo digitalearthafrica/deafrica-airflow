@@ -104,7 +104,7 @@ def copy_s3_objects(ti, **kwargs):
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
     max_num_cpus = 8
-    pool = multiprocessing.Pool(max_num_cpus)
+    pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     print(f"Copied {len(results)} files")
@@ -132,7 +132,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 100
+        max_num_polls = 20
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
