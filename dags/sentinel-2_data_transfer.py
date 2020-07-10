@@ -90,7 +90,7 @@ def copy_scene(args):
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
         scene = urls[0]
-        return scene[0: scene.rindex("/")]
+        return Path(Path(scene).name).stem
 
 def copy_s3_objects(ti, **kwargs):
     """
