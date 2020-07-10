@@ -105,7 +105,7 @@ def copy_s3_objects(ti, **kwargs):
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
-    print(f"Copied {len(results)/len(messages)} files")
+    print(f"Copied {len(results)} out of {len(messages)} files")
 
 def get_queue():
     """
