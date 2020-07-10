@@ -106,7 +106,6 @@ def copy_s3_objects(ti, **kwargs):
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     print(f"Copied {len(results)/len(messages)} files")
-    print(results)
 
 def get_queue():
     """
