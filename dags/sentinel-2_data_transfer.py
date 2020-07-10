@@ -33,11 +33,9 @@ default_args = {
     "us_conn_id": "deafrica-staging-prod-migration_us",
     "dest_bucket_name": "deafrica-staging-prod",
     "src_bucket_name": "sentinel-cogs",
-    "schedule_interval": "* */12 * * *",
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/"
-                  "565417506782/test_africa")
-    #  ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-    #               "deafrica-prod-eks-sentinel-2-data-transfer")
+    "schedule_interval": "0 */8 * * *",
+    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
+                  "deafrica-prod-eks-sentinel-2-data-transfer")
 }
 
 def extract_src_key(src_url):
@@ -81,7 +79,7 @@ def copy_scene(args):
     if tile_id in valid_tile_ids:
         # Extract URL of the json file
         urls = [message["links"][0]["href"]]
-        print(f"Copying {urls[0]}")
+        print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
         for src_url in urls:
@@ -107,7 +105,7 @@ def copy_s3_objects(ti, **kwargs):
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
-    print(f"Copied {len(results)} files")
+    print(f"Copied {len(results)/len(messages)} files")
     print(results)
 
 def get_queue():
@@ -132,8 +130,8 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 100
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
+        max_num_polls = 1
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=2) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
