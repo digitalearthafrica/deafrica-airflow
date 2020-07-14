@@ -19,6 +19,8 @@ from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
+from airflow.contrib.hooks.aws_sns_hook import AWS
+
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
