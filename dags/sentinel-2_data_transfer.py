@@ -19,6 +19,7 @@ from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
+from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
@@ -29,9 +30,10 @@ default_args = {
     'email_on_retry': False,
     'retries': 0,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
-    'africa_conn_id': "deafrica-staging-prod-migration_africa",
-    "us_conn_id": "deafrica-staging-prod-migration_us",
+    'africa_conn_id': "deafrica-migration_prod_staging",
+    "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-staging-prod",
+    # "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "* */12 * * *",
     "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
@@ -66,6 +68,18 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
+
+def publish_to_sns_topic(message):
+    """
+    Publish a message to a SNS topic
+    param message: message body
+    """
+    topic_name = "TestTopic"
+    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
+    target = sns_hook.get_conn().create_topic(Name=topic_name).get('TopicArn')
+    response = sns_hook.publish_to_target(target, message)
+
+
 def copy_scene(args):
     rec = args[0]
     valid_tile_ids = args[1]
@@ -82,15 +96,16 @@ def copy_scene(args):
         print(f"Copying {urls[0]}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        for src_url in urls:
-            src_key = extract_src_key(src_url)
-            s3_hook.copy_object(source_bucket_key=src_key,
-                                dest_bucket_key=src_key,
-                                source_bucket_name=default_args['src_bucket_name'],
-                                dest_bucket_name=default_args['dest_bucket_name'])
+        # for src_url in urls:
+        #     src_key = extract_src_key(src_url)
+        #     s3_hook.copy_object(source_bucket_key=src_key,
+        #                         dest_bucket_key=src_key,
+        #                         source_bucket_name=default_args['src_bucket_name'],
+        #                         dest_bucket_name=default_args['dest_bucket_name'])
 
+        publish_to_sns_topic(body['Message'])
         scene = urls[0]
-        return scene[0: scene.rindex("/")]
+        return Path(Path(scene).name).stem
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -112,6 +127,7 @@ def get_queue():
     """
     Return the SQS queue object
     """
+
     sqs_hook = SQSHook(aws_conn_id=dag.default_args['us_conn_id'])
     queue_url = default_args['sqs_queue']
     queue_name = queue_url[queue_url.rindex("/") + 1:]
@@ -130,8 +146,8 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 100
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
+        max_num_polls = 2
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=1) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
