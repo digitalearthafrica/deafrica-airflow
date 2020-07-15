@@ -75,7 +75,7 @@ def publish_to_sns_topic(message):
     """
 
     topic_name = "deafrica-sentinel-2-scene-topic"
-    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['us_conn_id'])
+    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
     target = sns_hook.get_conn().create_topic(Name=topic_name).get('TopicArn')
     response = sns_hook.publish_to_target(target, message)
 
