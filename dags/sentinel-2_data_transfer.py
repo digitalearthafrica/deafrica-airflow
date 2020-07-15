@@ -84,7 +84,7 @@ def copy_scene(args):
     valid_tile_ids = args[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-
+    print("Connection details: ", s3_hook._get_credentials('af-south-1'))
     body = json.loads(rec)
     message = json.loads(body['Message'])
     tile_id = message["id"].split("_")[1]
