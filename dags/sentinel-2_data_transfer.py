@@ -76,8 +76,8 @@ def publish_to_sns_topic(message):
     """
 
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['us_conn_id'])
-    topic_ARN = default_args['sentinel2_topic_arn']
-    response = sns_hook.publish_to_target(target_arn=topic_ARN, message=message)
+    target = default_args['sentinel2_topic_arn']
+    response = sns_hook.publish_to_target(target_arn=target, message=message)
 
 def copy_scene(args):
     rec = args[0]
