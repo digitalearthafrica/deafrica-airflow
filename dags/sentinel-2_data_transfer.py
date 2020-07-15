@@ -76,15 +76,14 @@ def publish_to_sns_topic(message):
     """
 
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['us_conn_id'])
-    target = default_args['sentinel2_topic_arn']
-    response = sns_hook.publish_to_target(target_arn=target, message=message)
+    target = sns_hook.get_conn().getTopic(default_args['sentinel2_topic_arn'])
+    response = sns_hook.publish_to_target(target, message)
 
 def copy_scene(args):
     rec = args[0]
     valid_tile_ids = args[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-    print("Connection details: ", s3_hook._get_credentials('af-south-1'))
     body = json.loads(rec)
     message = json.loads(body['Message'])
     tile_id = message["id"].split("_")[1]
