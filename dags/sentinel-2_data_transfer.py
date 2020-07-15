@@ -36,6 +36,8 @@ default_args = {
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "0 */8 * * *",
+    "sentinel2_topic_arn": ("arn:aws:sns:af-south-1:543785577597:"
+                           "deafrica-sentinel-2-scene-topic")
     "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
                   "deafrica-prod-eks-sentinel-2-data-transfer")
 }
@@ -74,10 +76,8 @@ def publish_to_sns_topic(message):
     param message: message body
     """
 
-    topic_name = "deafrica-sentinel-2-scene-topic"
-    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
-    target = sns_hook.get_conn().create_topic(Name=topic_name).get('TopicArn')
-    response = sns_hook.publish_to_target(target, message)
+    topic_ARN = default_args['sentinel2_topic_arn']
+    response = sns_hook.publish_to_target(topic_ARN, message)
 
 def copy_scene(args):
     rec = args[0]
