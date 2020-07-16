@@ -74,7 +74,7 @@ def publish_to_sns_topic(message):
     Publish a message to a SNS topic
     param message: message body
     """
-
+    print("*********", message)
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
     response = sns_hook.publish_to_target(default_args['sentinel2_topic_arn'], message)
     print(response)
