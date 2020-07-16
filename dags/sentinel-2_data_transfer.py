@@ -77,6 +77,7 @@ def publish_to_sns_topic(message):
 
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
     response = sns_hook.publish_to_target(default_args['sentinel2_topic_arn'], message)
+    print(response)
 
 def copy_scene(args):
 
@@ -140,8 +141,8 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 50
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
+        max_num_polls = 1
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=2) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
