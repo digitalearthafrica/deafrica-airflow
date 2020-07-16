@@ -101,7 +101,7 @@ def copy_scene(args):
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
-        publish_to_sns_topic(body['Message'])
+        # publish_to_sns_topic(body['Message'])
         scene = urls[0]
         return Path(Path(scene).name).stem
 
