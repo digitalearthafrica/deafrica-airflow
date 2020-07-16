@@ -141,12 +141,13 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 2
+        max_num_polls = 1
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=1) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
             messages.append(msg.body)
+            print(Path(json.loads(msg.body['Message'])['links'][0]['href']).parent)
             msg.delete()
         ti.xcom_push(key="Messages", value=messages)
         print(f"Read {len(messages)} messages")
