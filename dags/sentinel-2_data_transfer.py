@@ -79,12 +79,10 @@ def publish_to_sns_topic(message):
     response = sns_hook.publish_to_target(default_args['sentinel2_topic_arn'], message)
 
 def copy_scene(args):
-    # rec = args[0]
+
     valid_tile_ids = args[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-    # body = json.loads(rec)
-    # message = json.loads(body['Message'])
     message = args[0]
     tile_id = message["id"].split("_")[1]
 
@@ -101,7 +99,7 @@ def copy_scene(args):
                                 source_bucket_name=default_args['src_bucket_name'],
                                 dest_bucket_name=default_args['dest_bucket_name'])
 
-        # publish_to_sns_topic(body['Message'])
+        publish_to_sns_topic(message)
         scene = urls[0]
         return Path(Path(scene).name).stem
 
@@ -142,8 +140,8 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 1
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=1) for i in range(max_num_polls)]
+        max_num_polls = 50
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
