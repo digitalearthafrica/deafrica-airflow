@@ -93,12 +93,12 @@ def copy_scene(args):
         print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        for src_url in urls:
-            src_key = extract_src_key(src_url)
-            s3_hook.copy_object(source_bucket_key=src_key,
-                                dest_bucket_key=src_key,
-                                source_bucket_name=default_args['src_bucket_name'],
-                                dest_bucket_name=default_args['dest_bucket_name'])
+        # for src_url in urls:
+        #     src_key = extract_src_key(src_url)
+        #     s3_hook.copy_object(source_bucket_key=src_key,
+        #                         dest_bucket_key=src_key,
+        #                         source_bucket_name=default_args['src_bucket_name'],
+        #                         dest_bucket_name=default_args['dest_bucket_name'])
 
         publish_to_sns_topic(message)
         scene = urls[0]
