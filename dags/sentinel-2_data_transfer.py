@@ -148,10 +148,9 @@ def trigger_sensor(ti, **kwargs):
         messages = []
         for msg in msg_list:
             body = json.loads(msg.body)
-            print("***", type(body))
             message = json.loads(body['Message'])
             messages.append(message)
-            print(json.loads(message['id']))
+            print(message['id'])
             msg.delete()
         ti.xcom_push(key="Messages", value=messages)
         print(f"Read {len(messages)} messages")
