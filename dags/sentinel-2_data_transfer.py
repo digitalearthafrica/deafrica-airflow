@@ -81,11 +81,11 @@ def publish_to_sns_topic(message):
 
 def copy_scene(args):
 
+    message = args[0]
     valid_tile_ids = args[1]
+    tile_id = message["id"].split("_")[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-    message = args[0]
-    tile_id = message["id"].split("_")[1]
 
     if tile_id in valid_tile_ids:
         # Extract URL of the json file
@@ -100,7 +100,7 @@ def copy_scene(args):
         #                         source_bucket_name=default_args['src_bucket_name'],
         #                         dest_bucket_name=default_args['dest_bucket_name'])
 
-        publish_to_sns_topic(message)
+        publish_to_sns_topic(json.dumps(message))
         scene = urls[0]
         return Path(Path(scene).name).stem
 
