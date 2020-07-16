@@ -79,12 +79,13 @@ def publish_to_sns_topic(message):
     response = sns_hook.publish_to_target(default_args['sentinel2_topic_arn'], message)
 
 def copy_scene(args):
-    rec = args[0]
+    # rec = args[0]
     valid_tile_ids = args[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-    body = json.loads(rec)
-    message = json.loads(body['Message'])
+    # body = json.loads(rec)
+    # message = json.loads(body['Message'])
+    message = arg[0]
     tile_id = message["id"].split("_")[1]
 
     if tile_id in valid_tile_ids:
@@ -93,12 +94,12 @@ def copy_scene(args):
         print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        # for src_url in urls:
-        #     src_key = extract_src_key(src_url)
-        #     s3_hook.copy_object(source_bucket_key=src_key,
-        #                         dest_bucket_key=src_key,
-        #                         source_bucket_name=default_args['src_bucket_name'],
-        #                         dest_bucket_name=default_args['dest_bucket_name'])
+        for src_url in urls:
+            src_key = extract_src_key(src_url)
+            s3_hook.copy_object(source_bucket_key=src_key,
+                                dest_bucket_key=src_key,
+                                source_bucket_name=default_args['src_bucket_name'],
+                                dest_bucket_name=default_args['dest_bucket_name'])
 
         publish_to_sns_topic(body['Message'])
         scene = urls[0]
@@ -146,8 +147,11 @@ def trigger_sensor(ti, **kwargs):
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         for msg in msg_list:
-            messages.append(msg.body)
-            print(Path(json.loads(msg.body['Message'])['links'][0]['href']).parent)
+            body = json.loads(msg.body)
+            print("***", type(body))
+            message = json.loads(body['Message'])
+            messages.append(message)
+            print(json.loads(message['id'])
             msg.delete()
         ti.xcom_push(key="Messages", value=messages)
         print(f"Read {len(messages)} messages")
