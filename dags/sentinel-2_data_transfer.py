@@ -69,20 +69,22 @@ def africa_tile_ids():
 
     return set(list_of_mgrs)
 
-def publish_to_sns_topic(message):
+def publish_to_sns_topic(message, attribute):
     """
     Publish a message to a SNS topic
     param message: message body
     """
-    print("*********", message)
+
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
-    response = sns_hook.publish_to_target(default_args['sentinel2_topic_arn'], message)
-    print(response)
+    response = sns_hook.publish_to_target(target_arn=default_args['sentinel2_topic_arn'],
+                                          message=message, message_attributes=attribute)
+
 
 def copy_scene(args):
 
     message = args[0]
-    valid_tile_ids = args[1]
+    attribute = args[1]
+    valid_tile_ids = args[2]
     tile_id = message["id"].split("_")[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
@@ -100,7 +102,7 @@ def copy_scene(args):
         #                         source_bucket_name=default_args['src_bucket_name'],
         #                         dest_bucket_name=default_args['dest_bucket_name'])
 
-        publish_to_sns_topic(json.dumps(message))
+        publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
         return Path(Path(scene).name).stem
 
@@ -111,11 +113,12 @@ def copy_s3_objects(ti, **kwargs):
     """
 
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
+    attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
     max_num_cpus = 12
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
-    args = [(tile, msg) for tile, msg in zip(messages, [valid_tile_ids]*len(messages))]
+    args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     print(f"Copied {len(results)} out of {len(messages)} files")
 
@@ -145,13 +148,16 @@ def trigger_sensor(ti, **kwargs):
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=2) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
+        attributes = []
         for msg in msg_list:
             body = json.loads(msg.body)
             message = json.loads(body['Message'])
             messages.append(message)
+            attributes.append(body['MessageAttributes'])
             print(message['id'])
             msg.delete()
         ti.xcom_push(key="Messages", value=messages)
+        ti.xcom_push(key="attributes", value=attributes)
         print(f"Read {len(messages)} messages")
         return "copy_scenes"
     else:
