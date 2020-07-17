@@ -144,7 +144,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 50
+        max_num_polls = 40
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
