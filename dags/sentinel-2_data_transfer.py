@@ -95,12 +95,12 @@ def copy_scene(args):
         print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
-        # for src_url in urls:
-        #     src_key = extract_src_key(src_url)
-        #     s3_hook.copy_object(source_bucket_key=src_key,
-        #                         dest_bucket_key=src_key,
-        #                         source_bucket_name=default_args['src_bucket_name'],
-        #                         dest_bucket_name=default_args['dest_bucket_name'])
+        for src_url in urls:
+            src_key = extract_src_key(src_url)
+            s3_hook.copy_object(source_bucket_key=src_key,
+                                dest_bucket_key=src_key,
+                                source_bucket_name=default_args['src_bucket_name'],
+                                dest_bucket_name=default_args['dest_bucket_name'])
 
         publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
@@ -144,8 +144,8 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 1
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=2) for i in range(max_num_polls)]
+        max_num_polls = 50
+        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
         attributes = []
