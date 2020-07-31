@@ -12,9 +12,9 @@ and configuration installed.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.contrib.kubernetes.secret import Secret
-from airflow.contrib.kubernetes.volume import Volume
-from airflow.contrib.kubernetes.volume_mount import VolumeMount
+from airflow.kubernetes.secret import Secret
+from airflow.kubernetes.volume import Volume
+from airflow.kubernetes.volume_mount import VolumeMount
 from airflow.contrib.operators.kubernetes_pod_operator import \
     KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
