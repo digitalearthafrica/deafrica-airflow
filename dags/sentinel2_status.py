@@ -1,27 +1,16 @@
 """
-# Migrate(copy) data between S3 buckets
+# Generate a gap report between sentinel-cogs and deafica-sentinel-2 buckets
 
-DAG to periodically check a SQS and copy new data to Cape Town
-The SQS is subscribed to the following SNS topic:
-arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
+This DAG runs once a month and creates a gap report in the folowing location:
+s3://deafrica-sentinel-2/monthly-status-report
 """
 import json
-import boto3
-import re
-import itertools
 import csv
-import os
-from pathlib import Path
-from datetime import datetime, timedelta
-import multiprocessing
+from datetime import datetime
 
 from airflow import configuration
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
-from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
-
-from botocore.config import Config
+from airflow.operators.python_operator import PythonOperator
 from utils.inventory import s3
 
 default_args = {
@@ -83,7 +72,7 @@ with DAG('sentinel-2_status', default_args=default_args,
          schedule_interval=default_args["schedule_interval"],
          tags=["Sentinel-2", "status"], catchup=False) as dag:
 
-    READ_INVENTORIES = BranchPythonOperator(
+    READ_INVENTORIES = PythonOperator(
         task_id='read_inventories',
         python_callable=generate_bucket_diffs)
 
