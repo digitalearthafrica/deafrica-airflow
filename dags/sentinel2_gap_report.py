@@ -54,7 +54,7 @@ def generate_bucket_diffs():
     source_keys = set(source_keys)
     destination_keys = set(destination_keys)
 
-    diff =  [x for x in (source_keys - destination_keys)]
+    diff =  [[x] for x in (source_keys - destination_keys)]
 
     output_filename = datetime.today().strftime("%d/%m/%Y %H:%M:%S") + ".json"
     output_filename = output_filename.replace("/", "_").replace(":", "_").replace(" ", "_")
