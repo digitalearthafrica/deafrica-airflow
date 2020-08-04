@@ -88,7 +88,7 @@ class s3:
         """ Split S3 URL into bucket, key, filename """
         _url = deepcopy(url)
         if url[0:5] == 'https':
-            _url = cls.https_to_s3(url)
+            _url = self.https_to_s3(url)
         if _url[0:5] != 's3://':
             raise Exception('Invalid S3 url %s' % _url)
 
