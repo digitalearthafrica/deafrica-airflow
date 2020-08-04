@@ -52,7 +52,7 @@ def generate_bucket_diffs():
             source_keys.append(key)
 
     source_keys = set(source_keys)
-    destination_keys= set(destination_keys)
+    destination_keys = set(destination_keys)
 
     diff =  [x for x in (source_keys - destination_keys)]
 
@@ -63,12 +63,10 @@ def generate_bucket_diffs():
     key = default_args['reporting_prefix'] + output_filename
 
     print(f"{len(diff)} files are missing from {reporting_bucket}")
-    print(len(source_keys), " dest", len(destination_keys))
-
     s3_report = s3(reporting_bucket, default_args['africa_conn_id'], 'af-south-1')
     s3_report.s3.put_object(Bucket=s3_report.bucket, Key=key, Body=str(json.dumps({'Keys': diff})))
 
-with DAG('sentinel-2_status', default_args=default_args,
+with DAG('sentinel-2_gap_detection', default_args=default_args,
          schedule_interval=default_args["schedule_interval"],
          tags=["Sentinel-2", "status"], catchup=False) as dag:
 

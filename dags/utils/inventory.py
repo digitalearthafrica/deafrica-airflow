@@ -74,6 +74,12 @@ class s3:
         else:
             return None
 
+    def https_to_s3(cls, url):
+        """ Convert https s3 URL to an s3 URL """
+        parts = urlparse(url)
+        bucket = parts.netloc.split('.')[0]
+        s3url = f"s3://{bucket}{parts.path}"
+        return s3url
 
     def urlparse(self, url):
         """ Split S3 URL into bucket, key, filename """
