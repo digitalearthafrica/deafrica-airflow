@@ -22,7 +22,7 @@ default_args = {
     'email_on_retry': False,
     'retries': 0,
     'manifest_suffix': "manifest.json",
-    'africa_conn_id': "deafrica_CPT",
+    'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
     "src_bucket_name": "s3://sentinel-cogs-inventory",
