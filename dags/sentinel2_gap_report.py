@@ -23,7 +23,7 @@ default_args = {
     'retries': 0,
     'manifest_suffix': "manifest.json",
     'africa_conn_id': "deafrica_CPT",
-    "us_conn_id": "deafrica_oregon",
+    "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
     "src_bucket_name": "s3://sentinel-cogs-inventory",
     "reporting_bucket": "s3://deafrica-sentinel-2",
