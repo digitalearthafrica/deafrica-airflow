@@ -7,6 +7,9 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from airflow.contrib.hooks.aws_hook import AwsHook
 
+from urllib.parse import urlparse
+
+
 class s3:
     def __init__(self, url, conn, region, suffix=''):
         self.url = url
@@ -76,7 +79,7 @@ class s3:
 
     def https_to_s3(self, url):
         """ Convert https s3 URL to an s3 URL """
-        parts = self.urlparse(url)
+        parts = urlparse(url)
         bucket = parts.netloc.split('.')[0]
         s3url = f"s3://{bucket}{parts.path}"
         return s3url
@@ -85,7 +88,7 @@ class s3:
         """ Split S3 URL into bucket, key, filename """
         _url = deepcopy(url)
         if url[0:5] == 'https':
-            _url = self.https_to_s3(url)
+            _url = cls.https_to_s3(url)
         if _url[0:5] != 's3://':
             raise Exception('Invalid S3 url %s' % _url)
 
