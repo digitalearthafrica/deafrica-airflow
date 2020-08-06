@@ -64,7 +64,7 @@ class s3:
         manifest_url = None
         for dt in [today, today - timedelta(1)]:
             _key = op.join(parts['key'], dt.strftime('%Y-%m-%d'))
-            _url = 's3://%s' % (parts['bucket'])
+            _url = f"s3://{parts['bucket']}"
             manifests = [k for k in self.find(_url, _key)]
             if len(manifests) == 1:
                 manifest_url = manifests[0]

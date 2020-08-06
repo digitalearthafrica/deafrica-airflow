@@ -41,7 +41,7 @@ def generate_bucket_diffs():
     url_source = default_args['src_bucket_name']
     url_destination = default_args['dest_bucket_name']
     suffix = default_args['manifest_suffix']
-    africa_tile_ids_path = tile_ids_filepath = Path(configuration.get('core', 'dags_folder')). \
+    africa_tile_ids_path = Path(configuration.get('core', 'dags_folder')). \
                         parent.joinpath(default_args['africa_tiles'])
     source_keys = []
     destination_keys = []
@@ -66,9 +66,7 @@ def generate_bucket_diffs():
     destination_keys = set(destination_keys)
     diff =  [[x] for x in (source_keys - destination_keys)]
 
-    output_filename = datetime.today().strftime("%d/%m/%Y %H:%M:%S") + ".json"
-    output_filename = output_filename.replace("/", "_").replace(":", "_").replace(" ", "_")
-
+    output_filename = datetime.today().strftime("%d_%m_%Y_%H_%M_%S") + ".json"
     reporting_bucket = default_args['reporting_bucket']
     key = default_args['reporting_prefix'] + output_filename
 
