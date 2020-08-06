@@ -6,6 +6,7 @@ s3://deafrica-sentinel-2/monthly-status-report
 """
 import json
 import csv
+from pathlib import Path
 from datetime import datetime
 
 from airflow import configuration
@@ -22,6 +23,7 @@ default_args = {
     'email_on_retry': False,
     'retries': 0,
     'manifest_suffix': "manifest.json",
+    'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
@@ -39,21 +41,29 @@ def generate_bucket_diffs():
     url_source = default_args['src_bucket_name']
     url_destination = default_args['dest_bucket_name']
     suffix = default_args['manifest_suffix']
-
+    africa_tile_ids_path = tile_ids_filepath = Path(configuration.get('core', 'dags_folder')). \
+                        parent.joinpath(default_args['africa_tiles'])
     source_keys = []
     destination_keys = []
 
+    # Read Africa tile ids
+    africa_tile_ids = []
+    with open(africa_tile_ids_path, 'r') as file:
+        ids = csv.reader(file)
+        africa_tile_ids = [row[0] for row in ids]
+
     s3_inventory = s3(url_destination, default_args['us_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-            destination_keys.append(key)
+        destination_keys.append(key)
 
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
+        if key.startswith('sentinel-s2-l2a-cogs') and len(key.split("/")) > 2 and \
+           key.split("/")[2].split("_")[1] in africa_tile_ids:
             source_keys.append(key)
 
     source_keys = set(source_keys)
     destination_keys = set(destination_keys)
-
     diff =  [[x] for x in (source_keys - destination_keys)]
 
     output_filename = datetime.today().strftime("%d/%m/%Y %H:%M:%S") + ".json"
