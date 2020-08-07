@@ -44,7 +44,7 @@ def generate_buckets_diff():
     suffix = default_args['manifest_suffix']
     africa_tile_ids_path = Path(configuration.get('core', 'dags_folder')). \
                         parent.joinpath(default_args['africa_tiles'])
-    cogs_folder = "sentinel-s2-l2a-cogs"
+    cogs_folder_name = "sentinel-s2-l2a-cogs"
     diff = []
     destination_keys = []
 
@@ -53,14 +53,16 @@ def generate_buckets_diff():
     with open(africa_tile_ids_path, 'r') as file:
         ids = csv.reader(file)
         africa_tile_ids = [row[0] for row in ids]
-        s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
-        for bucket, key, *rest in s3_inventory.list_keys(cogs_folder):
-            destination_keys.append(key)
+
+    s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
+    for bucket, key, *rest in s3_inventory.list_keys(cogs_folder_name):
+        destination_keys.append(key)
 
     destination_keys = set(destination_keys)
+
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
-    for bucket, key, *rest in s3_inventory.list_keys(cogs_folder):
-        if key.startswith('sentinel-s2-l2a-cogs') and len(key.split("/")) > 2 and \
+    for bucket, key, *rest in s3_inventory.list_keys(cogs_folder_name):
+        if len(key.split("/")) > 2 and \
            key.split("/")[2].split("_")[1] in africa_tile_ids and key not in destination_keys:
            diff.append(key)
 
