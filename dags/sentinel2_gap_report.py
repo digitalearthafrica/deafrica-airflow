@@ -33,7 +33,7 @@ default_args = {
     "schedule_interval": "@monthly"
 }
 
-def generate_bucket_diffs():
+def generate_buckets_diff():
     """
     Compare Sentinel-2 buckets in US and Africa and detect differences
     A report containing missing keys will be written to s3://deafrica-sentinel-2/monthly-status-report
@@ -52,7 +52,7 @@ def generate_bucket_diffs():
         ids = csv.reader(file)
         africa_tile_ids = [row[0] for row in ids]
 
-    s3_inventory = s3(url_destination, default_args['us_conn_id'], 'af-south-1', suffix)
+    s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
         destination_keys.append(key)
 
@@ -79,7 +79,7 @@ with DAG('sentinel-2_gap_detection', default_args=default_args,
          tags=["Sentinel-2", "status"], catchup=False) as dag:
 
     READ_INVENTORIES = PythonOperator(
-        task_id='read_inventories',
-        python_callable=generate_bucket_diffs)
+        task_id='compare_s2_inventories',
+        python_callable=generate_buckets_diff)
 
     READ_INVENTORIES
