@@ -25,7 +25,7 @@ default_args = {
     'manifest_suffix': "manifest.json",
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
-    "us_conn_id": "deafrica-migration_us",
+    "us_conn_id": "deafrica_migration_oregon",
     "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
     "src_bucket_name": "s3://sentinel-cogs-inventory",
     "reporting_bucket": "s3://deafrica-sentinel-2",
