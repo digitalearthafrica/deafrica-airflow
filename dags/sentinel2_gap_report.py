@@ -52,15 +52,12 @@ def generate_buckets_diff():
     with open(africa_tile_ids_path, 'r') as file:
         ids = csv.reader(file)
         africa_tile_ids = [row[0] for row in ids]
-    try:
         s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
         for bucket, key, *rest in s3_inventory.list_keys():
             destination_keys.append(key)
-    except:
-        print("Oops!", sys.exc_info()[0], "occurred.")
 
+    destination_keys = set(destination_keys)
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
-
     for bucket, key, *rest in s3_inventory.list_keys():
         if key.startswith('sentinel-s2-l2a-cogs') and len(key.split("/")) > 2 and \
            key.split("/")[2].split("_")[1] in africa_tile_ids and key not in destination_keys:
