@@ -101,7 +101,7 @@ class s3:
             'key': '/'.join(url_obj[1:])
         }
 
-    def list_keys(self, cogs_folder_name):
+    def list_keys(self):
         manifest = self.latest_manifest()
         for obj in manifest['files']:
             print(obj['key'])
@@ -109,5 +109,4 @@ class s3:
             buffer = gzip.open(gzip_obj["Body"], mode='rt')
             reader = csv.reader(buffer)
             for row in reader:
-                if row.startswith(cogs_folder_name):
-                    yield row
+                yield row
