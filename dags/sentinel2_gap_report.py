@@ -6,6 +6,7 @@ s3://deafrica-sentinel-2/monthly-status-report
 """
 import json
 import csv
+import sys
 from pathlib import Path
 from datetime import datetime
 
@@ -51,10 +52,12 @@ def generate_buckets_diff():
     with open(africa_tile_ids_path, 'r') as file:
         ids = csv.reader(file)
         africa_tile_ids = [row[0] for row in ids]
-
-    s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
-    for bucket, key, *rest in s3_inventory.list_keys():
-        destination_keys.append(key)
+    try:
+        s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
+        for bucket, key, *rest in s3_inventory.list_keys():
+            destination_keys.append(key)
+    except:
+        print("Oops!", sys.exc_info()[0], "occurred.")
 
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
