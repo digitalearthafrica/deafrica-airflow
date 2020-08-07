@@ -44,7 +44,7 @@ def generate_buckets_diff():
     suffix = default_args['manifest_suffix']
     africa_tile_ids_path = Path(configuration.get('core', 'dags_folder')). \
                         parent.joinpath(default_args['africa_tiles'])
-    source_keys = []
+    diff = []
     destination_keys = []
 
     # Read Africa tile ids
@@ -60,15 +60,13 @@ def generate_buckets_diff():
         print("Oops!", sys.exc_info()[0], "occurred.")
 
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
+
     for bucket, key, *rest in s3_inventory.list_keys():
         if key.startswith('sentinel-s2-l2a-cogs') and len(key.split("/")) > 2 and \
-           key.split("/")[2].split("_")[1] in africa_tile_ids:
-            source_keys.append(key)
+           key.split("/")[2].split("_")[1] in africa_tile_ids and key not in destination_keys:
+           diff.append(key)
 
-    source_keys = set(source_keys)
-    destination_keys = set(destination_keys)
-    diff =  [[x] for x in (source_keys - destination_keys)]
-
+    diff = [[x] for x in set(diff)]
     output_filename = datetime.today().strftime("%d_%m_%Y_%H_%M_%S") + ".json"
     reporting_bucket = default_args['reporting_bucket']
     key = default_args['reporting_prefix'] + output_filename
