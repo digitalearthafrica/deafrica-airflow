@@ -64,7 +64,7 @@ OWS_BASH_COMMAND = [
     dedent("""
         mkdir -p /env/config;
         curl -s https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
-        datacube-ows-update --views --blocking;
+        datacube-ows-update --views;
         datacube-ows-update s2_l2a;
     """)
 ]
