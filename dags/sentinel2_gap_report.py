@@ -56,18 +56,18 @@ def generate_buckets_diff():
 
     s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-        if key.startswith(cogs_folder_name):
-            destination_keys.append(key)
+        if key.startswith(cogs_folder_name) and len(key.split("/")) > 2 and \
+           key.split("/")[2].split("_")[1] in africa_tile_ids:
+             destination_keys.append(key)
 
     destination_keys = set(destination_keys)
 
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-        if key.startswith(cogs_folder_name) and len(key.split("/")) > 2 and \
-           key.split("/")[2].split("_")[1] in africa_tile_ids and key not in destination_keys:
-           diff.append(key)
+        if key in destination_keys:
+           destination_keys.remove(key)
 
-    diff = [[x] for x in set(diff)]
+    diff = [[x] for x in set(destination_keys)]
     output_filename = datetime.today().strftime("%d_%m_%Y_%H_%M_%S") + ".json"
     reporting_bucket = default_args['reporting_bucket']
     key = default_args['reporting_prefix'] + output_filename
