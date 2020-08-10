@@ -45,7 +45,7 @@ def generate_buckets_diff():
     africa_tile_ids_path = Path(configuration.get('core', 'dags_folder')). \
                         parent.joinpath(default_args['africa_tiles'])
     cogs_folder_name = "sentinel-s2-l2a-cogs"
-    source_keys = []
+    source_keys = set()
 
     # Read Africa tile ids
     africa_tile_ids = []
@@ -57,9 +57,7 @@ def generate_buckets_diff():
     for bucket, key, *rest in s3_inventory.list_keys():
         if key.startswith(cogs_folder_name) and len(key.split("/")) > 2 and \
            key.split("/")[2].split("_")[1] in africa_tile_ids:
-            source_keys.append(key)
-
-    source_keys = set(source_keys)
+            source_keys.add(key)
 
     s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
