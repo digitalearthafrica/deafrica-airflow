@@ -45,8 +45,7 @@ def generate_buckets_diff():
     africa_tile_ids_path = Path(configuration.get('core', 'dags_folder')). \
                         parent.joinpath(default_args['africa_tiles'])
     cogs_folder_name = "sentinel-s2-l2a-cogs"
-    diff = []
-    destination_keys = []
+    source_keys = []
 
     # Read Africa tile ids
     africa_tile_ids = []
@@ -54,20 +53,20 @@ def generate_buckets_diff():
         ids = csv.reader(file)
         africa_tile_ids = [row[0] for row in ids]
 
-    s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
+    s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
         if key.startswith(cogs_folder_name) and len(key.split("/")) > 2 and \
            key.split("/")[2].split("_")[1] in africa_tile_ids:
-             destination_keys.append(key)
+            source_keys.append(key)
 
-    destination_keys = set(destination_keys)
+    source_keys = set(source_keys)
 
-    s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
+    s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-        if key in destination_keys:
-           destination_keys.remove(key)
+        if key in source_keys:
+            source_keys.remove(key)
 
-    diff = [[x] for x in set(destination_keys)]
+    diff = [[x] for x in set(source_keys)]
     output_filename = datetime.today().strftime("%d_%m_%Y_%H_%M_%S") + ".json"
     reporting_bucket = default_args['reporting_bucket']
     key = default_args['reporting_prefix'] + output_filename
