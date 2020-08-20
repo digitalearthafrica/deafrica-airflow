@@ -1,8 +1,8 @@
 """
 # Sentinel-2 indexing automation
 
-DAG to periodically index Sentinel-2 data. Eventually it could 
-update explorer and ows schemas in RDS after a given Dataset has been 
+DAG to periodically index Sentinel-2 data. Eventually it could
+update explorer and ows schemas in RDS after a given Dataset has been
 indexed.
 
 This DAG uses k8s executors and in cluster with relevant tooling
@@ -55,7 +55,7 @@ EXPLORER_SECRETS = [
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.8"
-OWS_IMAGE = "opendatacube/ows:1.8.0"
+OWS_IMAGE = "opendatacube/ows:1.8.1"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
 OWS_BASH_COMMAND = [
