@@ -99,7 +99,6 @@ def copy_scene(args):
 
         s3_filepath = str(Path(urls[0]).parent)
         key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)[0]
-        print("key:", key)
         key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
@@ -107,7 +106,6 @@ def copy_scene(args):
 
         for src_url in urls:
             src_key = extract_src_key(src_url)
-            print("copy key", key)
             key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, "/")
             if key_exist is False:
                 continue
@@ -161,7 +159,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 10
+        max_num_polls = 40
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
