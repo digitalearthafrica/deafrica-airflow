@@ -98,7 +98,7 @@ def copy_scene(args):
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
 
         s3_filepath = str(Path(urls[0]).parent)
-        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']/}", "").split("/", 0)
+        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)
         key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
