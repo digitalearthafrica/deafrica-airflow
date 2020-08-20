@@ -107,6 +107,7 @@ def copy_scene(args):
 
         for src_url in urls:
             src_key = extract_src_key(src_url)
+            print("copy key", key)
             key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, "/")
             if key_exist is False:
                 continue
