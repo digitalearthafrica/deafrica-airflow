@@ -98,7 +98,7 @@ def copy_scene(args):
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
 
         s3_filepath = str(Path(urls[0]).parent)
-        bucket, key = s3_filepath.replace(f"s3://{default_args['src_bucket_name']}", "").split("/", 1)
+        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']/}", "").split("/", 0)
         key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
@@ -117,6 +117,7 @@ def copy_scene(args):
         publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
         return Path(Path(scene).name).stem
+
     print(f"{message['id']} is outside Africa")
 
 def copy_s3_objects(ti, **kwargs):
