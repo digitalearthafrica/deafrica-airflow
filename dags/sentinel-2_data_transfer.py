@@ -95,8 +95,19 @@ def copy_scene(args):
         print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+
+        s3_filepath = str(Path(urls[0]).parent)
+        bucket, key = s3_filepath.replace("s3://", "").split("/", 1)
+        key_exist = s3_hook.check_for_prefix(self, bucket, key)
+        if  key_exist is False:
+            print(f"{key} does not exist in the {bucket} bucket")
+            return
+
         for src_url in urls:
             src_key = extract_src_key(src_url)
+            key_exist = s3_hook.check_for_prefix(self, default_args['src_bucket_name'], key)
+            key_exist is False:
+                continue
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
                                 source_bucket_name=default_args['src_bucket_name'],
@@ -120,7 +131,8 @@ def copy_s3_objects(ti, **kwargs):
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
-    print(f"Copied {len(results)} out of {len(messages)} files")
+    Not_none_values = list(filter(None.__ne__, results)
+    print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
 def get_queue():
     """
@@ -144,7 +156,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 40
+        max_num_polls = 1
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
