@@ -106,7 +106,7 @@ def copy_scene(args):
         for src_url in urls:
             src_key = extract_src_key(src_url)
             key_exist = s3_hook.check_for_prefix(self, default_args['src_bucket_name'], key)
-            key_exist is False:
+            if key_exist is False:
                 continue
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
