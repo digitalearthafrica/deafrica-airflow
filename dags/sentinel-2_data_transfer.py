@@ -98,7 +98,7 @@ def copy_scene(args):
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
 
         s3_filepath = str(Path(urls[0]).parent)
-        bucket, key = s3_filepath.replace("s3://", "").split("/", 1)
+        bucket, key = s3_filepath.replace(f"s3://{default_args['src_bucket_name']}", "").split("/", 1)
         key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
@@ -117,6 +117,7 @@ def copy_scene(args):
         publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
         return Path(Path(scene).name).stem
+    print(f"{message["id"]} is outside Africa"})
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -157,7 +158,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 40
+        max_num_polls = 10
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
