@@ -117,7 +117,7 @@ def copy_scene(args):
         publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
         return Path(Path(scene).name).stem
-    print(f"{message["id"]} is outside Africa")
+    print(f"{message['id']} is outside Africa")
 
 def copy_s3_objects(ti, **kwargs):
     """
