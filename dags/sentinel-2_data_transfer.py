@@ -88,6 +88,7 @@ def copy_scene(args):
     tile_id = message["id"].split("_")[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
+    s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args['us_conn_id'])
 
     if tile_id in valid_tile_ids:
         # Extract URL of the json file
@@ -98,14 +99,14 @@ def copy_scene(args):
 
         s3_filepath = str(Path(urls[0]).parent)
         bucket, key = s3_filepath.replace("s3://", "").split("/", 1)
-        key_exist = s3_hook.check_for_prefix(default_args['src_bucket_name'], key, '/')
+        key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
             return
 
         for src_url in urls:
             src_key = extract_src_key(src_url)
-            key_exist = s3_hook.check_for_prefix(default_args['src_bucket_name'], key, "/")
+            key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, "/")
             if key_exist is False:
                 continue
             s3_hook.copy_object(source_bucket_key=src_key,
