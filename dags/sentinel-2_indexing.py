@@ -1,8 +1,8 @@
 """
 # Sentinel-2 indexing automation
 
-DAG to periodically index Sentinel-2 data. Eventually it could 
-update explorer and ows schemas in RDS after a given Dataset has been 
+DAG to periodically index Sentinel-2 data. Eventually it could
+update explorer and ows schemas in RDS after a given Dataset has been
 indexed.
 
 This DAG uses k8s executors and in cluster with relevant tooling
@@ -34,7 +34,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "database-write.local",
+        "DB_HOSTNAME": "db-writer",
         "DB_DATABASE": "africa",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
