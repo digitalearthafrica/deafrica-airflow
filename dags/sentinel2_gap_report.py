@@ -4,6 +4,7 @@
 This DAG runs once a month and creates a gap report in the folowing location:
 s3://deafrica-sentinel-2/monthly-status-report
 """
+
 import json
 import csv
 import sys
@@ -13,6 +14,7 @@ from datetime import datetime
 from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
+from airflow.hooks.S3_hook import S3Hook
 from utils.inventory import s3
 
 default_args = {
@@ -46,8 +48,7 @@ def generate_buckets_diff():
                         parent.joinpath(default_args['africa_tiles'])
     cogs_folder_name = "sentinel-s2-l2a-cogs"
     source_keys = set()
-
-    # Read Africa tile ids
+      # Read Africa tile ids
     africa_tile_ids = []
     with open(africa_tile_ids_path, 'r') as file:
         ids = csv.reader(file)
@@ -55,14 +56,15 @@ def generate_buckets_diff():
 
     s3_inventory = s3(url_source, default_args['us_conn_id'], 'us-west-2', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-        if key.startswith(cogs_folder_name) and len(key.split("/")) > 2 and \
-           key.split("/")[2].split("_")[1] in africa_tile_ids:
+        if '.json' in key and key.startswith(cogs_folder_name) and \
+           key.split("/")[-2].split("_")[1] in africa_tile_ids:
             source_keys.add(key)
 
     s3_inventory = s3(url_destination, default_args['africa_conn_id'], 'af-south-1', suffix)
     for bucket, key, *rest in s3_inventory.list_keys():
-        if key in source_keys:
-            source_keys.remove(key)
+        if '.json' in key and key.startswith(cogs_folder_name):
+            if key in source_keys:
+                source_keys.remove(key)
 
     diff = [[x] for x in set(source_keys)]
     output_filename = datetime.today().strftime("%d_%m_%Y_%H_%M_%S") + ".json"

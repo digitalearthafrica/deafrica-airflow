@@ -55,7 +55,7 @@ EXPLORER_SECRETS = [
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.8"
-OWS_IMAGE = "opendatacube/ows:1.8.0"
+OWS_IMAGE = "opendatacube/ows:1.8.1"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
 OWS_BASH_COMMAND = [

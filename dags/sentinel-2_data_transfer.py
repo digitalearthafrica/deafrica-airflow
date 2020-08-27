@@ -88,6 +88,7 @@ def copy_scene(args):
     tile_id = message["id"].split("_")[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
+    s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args['us_conn_id'])
 
     if tile_id in valid_tile_ids:
         # Extract URL of the json file
@@ -95,8 +96,19 @@ def copy_scene(args):
         print(f"Copying {Path(urls[0]).parent}")
         # Add URL of .tif files
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+
+        s3_filepath = str(Path(urls[0]).parent)
+        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)[0]
+        key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
+        if  key_exist is False:
+            print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
+            return
+
         for src_url in urls:
             src_key = extract_src_key(src_url)
+            key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, "/")
+            if key_exist is False:
+                continue
             s3_hook.copy_object(source_bucket_key=src_key,
                                 dest_bucket_key=src_key,
                                 source_bucket_name=default_args['src_bucket_name'],
@@ -105,6 +117,8 @@ def copy_scene(args):
         publish_to_sns_topic(json.dumps(message), attribute)
         scene = urls[0]
         return Path(Path(scene).name).stem
+
+    print(f"{message['id']} is outside Africa")
 
 def copy_s3_objects(ti, **kwargs):
     """
@@ -120,7 +134,8 @@ def copy_s3_objects(ti, **kwargs):
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
-    print(f"Copied {len(results)} out of {len(messages)} files")
+    Not_none_values = list(filter(None.__ne__, results))
+    print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
 def get_queue():
     """
