@@ -80,7 +80,7 @@ def publish_to_sns_topic(message, attribute):
                                           message=message, message_attributes=attribute)
 
 
-def copy_scene(index, args):
+def copy_scene(args):
 
     message = args[0]
     attribute = args[1]
@@ -140,7 +140,7 @@ def copy_s3_objects(ti, **kwargs):
     max_num_cpus = 12
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
-    results = pool.map(copy_scene, kwargs['index'], args)
+    results = pool.map(copy_scene, args)
     Not_none_values = list(filter(None.__ne__, results))
     print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
