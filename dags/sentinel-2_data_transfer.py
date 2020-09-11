@@ -125,7 +125,7 @@ def copy_s3_objects(ti, **kwargs):
     Copy objects from a s3 bucket to another s3 bucket.
     :param ti: Task instance
     """
-
+    index = kwargs['index']
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
     num_msg_per_worker = 5
     start_index = index*num_msg_per_worker
