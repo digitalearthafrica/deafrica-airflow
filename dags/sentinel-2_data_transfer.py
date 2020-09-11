@@ -18,9 +18,9 @@ import multiprocessing
 from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
@@ -80,7 +80,7 @@ def publish_to_sns_topic(message, attribute):
                                           message=message, message_attributes=attribute)
 
 
-def copy_scene(index, args):
+def copy_scene(args):
 
     message = args[0]
     attribute = args[1]
@@ -127,20 +127,13 @@ def copy_s3_objects(ti, **kwargs):
     """
 
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
-    num_msg_per_worker = 5
-    start_index = index*num_msg_per_worker
-    end_index = min(start_index+num_msg_per_worker, len(messages)-1) -1
-    print(f"start_index {start_index} and end index {end_index}")
-    messages = messages[start_index : end_index]
     attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
-    attributes = attributes[start_index : end_index]
-
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
     max_num_cpus = 12
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
-    results = pool.map(copy_scene, kwargs['index'], args)
+    results = pool.map(copy_scene, args)
     Not_none_values = list(filter(None.__ne__, results))
     print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
@@ -166,7 +159,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 1
+        max_num_polls = 40
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
@@ -181,7 +174,7 @@ def trigger_sensor(ti, **kwargs):
         ti.xcom_push(key="Messages", value=messages)
         ti.xcom_push(key="attributes", value=attributes)
         print(f"Read {len(messages)} messages")
-        return "kick_off_copy_tasks_dummy"
+        return "copy_scenes"
     else:
          return "end"
 
@@ -197,22 +190,16 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         python_callable=trigger_sensor,
         provide_context=True)
 
+    COPY_OBJECTS = PythonOperator(
+        task_id='copy_scenes',
+        provide_context=True,
+        execution_timeout = timedelta(hours=20),
+        python_callable=copy_s3_objects
+    )
+
     END_DAG = PythonOperator(
         task_id='end',
         python_callable=end_dag
     )
 
-    DUMMPY_OPT = DummyOperator(task_id='kick_off_copy_tasks_dummy')
-
-    for idx in range(0, 2):
-        COPY_OBJECTS = PythonOperator(
-            task_id=f'copy_scenes{idx}',
-            provide_context=True,
-            op_kwargs={'index': idx},
-            execution_timeout = timedelta(hours=20),
-            python_callable=copy_s3_objects
-        )
-        BRANCH_OPT >> DUMMPY_OPT >> [COPY_OBJECTS, END_DAG]
-
-
-
+    BRANCH_OPT >> [COPY_OBJECTS, END_DAG]
