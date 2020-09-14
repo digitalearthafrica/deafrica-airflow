@@ -213,7 +213,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
 
     DUMMPY_OPT = DummyOperator(task_id='kick_off_copy_tasks_dummy')
 
-    num_workers = 30
+    num_workers = 15
     for idx in range(0, num_workers):
         COPY_OBJECTS = PythonOperator(
             task_id=f'copy_scenes{idx}',
