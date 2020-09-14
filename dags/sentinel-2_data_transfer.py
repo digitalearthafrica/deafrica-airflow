@@ -136,9 +136,9 @@ def copy_s3_objects(ti, **kwargs):
     num_msg_per_worker = len(messages) // num_workers
     start_index = index * num_msg_per_worker
 
-    end_index = min(start_index + num_msg_per_worker, len(messages)-1) \
+    end_index = min(start_index + num_msg_per_worker, len(messages)) \
                     if index < last_worker_index \
-                    else len(messages)-1
+                    else len(messages)
 
     print(f"start_index {start_index} and end index {end_index}")
     messages = messages[start_index : end_index]
