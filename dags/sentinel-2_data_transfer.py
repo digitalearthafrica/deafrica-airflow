@@ -125,11 +125,17 @@ def copy_s3_objects(ti, **kwargs):
     Copy objects from a s3 bucket to another s3 bucket.
     :param ti: Task instance
     """
+
+    num_workers = kwargs['num_workers']
+    last_worker_index = num_workers - 1
     index = kwargs['index']
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
-    num_msg_per_worker = 5
-    start_index = index*num_msg_per_worker
-    end_index = min(start_index+num_msg_per_worker, len(messages)-1) -1
+    num_msg_per_worker = len(messages) // num_workers
+    start_index = index * num_msg_per_worker
+    end_index = min(start_index + num_msg_per_worker, len(messages)-1) -1 \
+                    if index < last_worker_index \
+                    else len(messages)-1
+
     print(f"start_index {start_index} and end index {end_index}")
     messages = messages[start_index : end_index]
     attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
@@ -204,11 +210,12 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
 
     DUMMPY_OPT = DummyOperator(task_id='kick_off_copy_tasks_dummy')
 
-    for idx in range(0, 2):
+    num_workers = 4
+    for idx in range(0, num_workers):
         COPY_OBJECTS = PythonOperator(
             task_id=f'copy_scenes{idx}',
             provide_context=True,
-            op_kwargs={'index': idx},
+            op_kwargs={'index': idx, "num_workers": num_workers},
             execution_timeout = timedelta(hours=20),
             python_callable=copy_s3_objects
         )
