@@ -135,7 +135,8 @@ def copy_s3_objects(ti, **kwargs):
     messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
     num_msg_per_worker = len(messages) // num_workers
     start_index = index * num_msg_per_worker
-    end_index = min(start_index + num_msg_per_worker, len(messages)-1) -1 \
+
+    end_index = min(start_index + num_msg_per_worker, len(messages)-1) \
                     if index < last_worker_index \
                     else len(messages)-1
 
