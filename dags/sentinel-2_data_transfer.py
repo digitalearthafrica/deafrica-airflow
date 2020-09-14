@@ -140,7 +140,6 @@ def copy_s3_objects(ti, **kwargs):
                     if index < last_worker_index \
                     else len(messages)
 
-    print(f"start_index {start_index} and end index {end_index}")
     messages = messages[start_index : end_index]
     attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
     attributes = attributes[start_index : end_index]
@@ -214,7 +213,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
 
     DUMMPY_OPT = DummyOperator(task_id='kick_off_copy_tasks_dummy')
 
-    num_workers = 15
+    num_workers = 30
     for idx in range(0, num_workers):
         COPY_OBJECTS = PythonOperator(
             task_id=f'copy_scenes{idx}',
