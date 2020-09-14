@@ -54,7 +54,7 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password")
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:latest"
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.9"
 OWS_IMAGE = "opendatacube/ows:1.8.1"
 EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 
