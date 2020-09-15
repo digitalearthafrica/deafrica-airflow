@@ -30,7 +30,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
-    'num_workers': 13,
+    'num_workers': 12,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
