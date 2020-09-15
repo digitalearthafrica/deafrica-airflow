@@ -30,7 +30,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
-    'num_workers': 14,
+    'num_workers': 2,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
@@ -179,7 +179,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 14
+        max_num_polls = 1
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
@@ -201,8 +201,8 @@ def trigger_sensor(ti, **kwargs):
 def end_dag():
     print("Message queue is empty, terminating DAG")
 
-def terminate(ti):
-    for idx in range(0, dag.default_args['num_workers']):
+def terminate(ti, **kwargs):
+    for idx in range(0, default_args['num_workers']):
         processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
     print(f"Copied total of {processed_msg_counts} messages")
 
@@ -216,14 +216,14 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         provide_context=True)
 
     END_DAG = PythonOperator(
-        task_id='no_messages',
+        task_id='end_with_no_messages',
         python_callable=end_dag
     )
 
     TERMINATE_DAG = PythonOperator(
         task_id='terminate',
-        provide_context=True,
-        python_callable=terminate
+        python_callable=terminate,
+        provide_context=True
     )
 
     RUN_TASKS = DummyOperator(task_id='run_tasks')
