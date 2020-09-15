@@ -30,7 +30,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
-    'num_workers': 2,
+    'num_workers': 13,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
@@ -179,7 +179,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 1
+        max_num_polls = 40
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
@@ -204,8 +204,7 @@ def end_dag():
 def terminate(ti, **kwargs):
     processed_msg_counts = 0
     for idx in range(0, default_args['num_workers']):
-        print("TYPE", type(ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')))
-        processed_msg_counts += int(ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}'))
+        processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
     print(f"Copied total of {processed_msg_counts} messages")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
