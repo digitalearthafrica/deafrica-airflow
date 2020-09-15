@@ -30,6 +30,7 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
+    'num_workers': 14,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
@@ -132,7 +133,7 @@ def copy_s3_objects(ti, **kwargs):
     num_workers = kwargs['num_workers']
     last_worker_index = num_workers - 1
     index = kwargs['index']
-    messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
+    messages = ti.xcom_pull(key='Messages', task_ids='trigger_branching')
     num_msg_per_worker = len(messages) // num_workers
     start_index = index * num_msg_per_worker
 
@@ -141,7 +142,7 @@ def copy_s3_objects(ti, **kwargs):
                     else len(messages)
 
     messages = messages[start_index : end_index]
-    attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
+    attributes = ti.xcom_pull(key='attributes', task_ids='trigger_branching')
     attributes = attributes[start_index : end_index]
 
     # Load Africa tile ids
@@ -151,6 +152,9 @@ def copy_s3_objects(ti, **kwargs):
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     Not_none_values = list(filter(None.__ne__, results))
+
+   # Update context with number of processed messages
+    ti.xcom_push(key='processed_msg_count', value=len(messages))
     print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
 def get_queue():
@@ -175,7 +179,7 @@ def trigger_sensor(ti, **kwargs):
     queue = get_queue()
     print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
     if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 40
+        max_num_polls = 14
         msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
         msg_list  = list(itertools.chain(*msg_list))
         messages = []
@@ -190,36 +194,48 @@ def trigger_sensor(ti, **kwargs):
         ti.xcom_push(key="Messages", value=messages)
         ti.xcom_push(key="attributes", value=attributes)
         print(f"Read {len(messages)} messages")
-        return "kick_off_copy_tasks_dummy"
+        return "run_tasks"
     else:
-         return "end"
+        return "end"
 
 def end_dag():
     print("Message queue is empty, terminating DAG")
+
+def terminate(ti):
+    for idx in range(0, dag.default_args['num_workers']):
+        processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
+    print(f"Copied total of {processed_msg_counts} messages")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
          tags=["Sentinel-2", "transfer"], catchup=False) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
-        task_id='test_trigger_dagrun',
+        task_id='trigger_branching',
         python_callable=trigger_sensor,
         provide_context=True)
 
     END_DAG = PythonOperator(
-        task_id='end',
+        task_id='no_messages',
         python_callable=end_dag
     )
 
-    DUMMPY_OPT = DummyOperator(task_id='kick_off_copy_tasks_dummy')
+    TERMINATE_DAG = PythonOperator(
+        task_id='terminate',
+        provide_context=True,
+        python_callable=terminate
+    )
 
-    num_workers = 15
-    for idx in range(0, num_workers):
+    RUN_TASKS = DummyOperator(task_id='run_tasks')
+
+    for idx in range(0, default_args['num_workers']):
         COPY_OBJECTS = PythonOperator(
-            task_id=f'copy_scenes{idx}',
+            task_id=f'copy_scenes_{idx}',
             provide_context=True,
-            op_kwargs={'index': idx, "num_workers": num_workers},
+            op_kwargs={'index': idx, "num_workers": default_args['num_workers']},
             execution_timeout = timedelta(hours=20),
             python_callable=copy_s3_objects
         )
-        BRANCH_OPT >> DUMMPY_OPT >> [COPY_OBJECTS, END_DAG]
+        BRANCH_OPT >> [RUN_TASKS, END_DAG]
+        RUN_TASKS >> COPY_OBJECTS >> TERMINATE_DAG
+
