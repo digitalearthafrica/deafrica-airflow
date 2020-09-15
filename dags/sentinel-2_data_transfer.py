@@ -133,7 +133,7 @@ def copy_s3_objects(ti, **kwargs):
     num_workers = kwargs['num_workers']
     last_worker_index = num_workers - 1
     index = kwargs['index']
-    messages = ti.xcom_pull(key='Messages', task_ids='trigger_branching')
+    messages = ti.xcom_pull(key='Messages', task_ids='check_for_messages')
     num_msg_per_worker = len(messages) // num_workers
     start_index = index * num_msg_per_worker
 
@@ -142,7 +142,7 @@ def copy_s3_objects(ti, **kwargs):
                     else len(messages)
 
     messages = messages[start_index : end_index]
-    attributes = ti.xcom_pull(key='attributes', task_ids='trigger_branching')
+    attributes = ti.xcom_pull(key='attributes', task_ids='check_for_messages')
     attributes = attributes[start_index : end_index]
 
     # Load Africa tile ids
@@ -202,8 +202,10 @@ def end_dag():
     print("Message queue is empty, terminating DAG")
 
 def terminate(ti, **kwargs):
+    processed_msg_counts = 0
     for idx in range(0, default_args['num_workers']):
-        processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
+        print("TYPE", type(ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')))
+        processed_msg_counts += int(ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}'))
     print(f"Copied total of {processed_msg_counts} messages")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
@@ -211,7 +213,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
          tags=["Sentinel-2", "transfer"], catchup=False) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
-        task_id='trigger_branching',
+        task_id='check_for_messages',
         python_callable=trigger_sensor,
         provide_context=True)
 
