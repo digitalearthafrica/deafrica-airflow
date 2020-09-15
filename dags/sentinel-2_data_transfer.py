@@ -147,7 +147,7 @@ def copy_s3_objects(ti, **kwargs):
 
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    max_num_cpus = 12
+    max_num_cpus = 10
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
