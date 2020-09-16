@@ -109,7 +109,7 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
-            "--region-code-list-uri='https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz'",
+            "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
             "deafrica-prod-eks-sentinel-2-indexing",
             "s2_l2a",
         ],
