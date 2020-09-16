@@ -15,8 +15,7 @@ from airflow import DAG
 from airflow.kubernetes.secret import Secret
 from airflow.kubernetes.volume import Volume
 from airflow.kubernetes.volume_mount import VolumeMount
-from airflow.contrib.operators.kubernetes_pod_operator import \
-    KubernetesPodOperator
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
 
 from textwrap import dedent
@@ -37,21 +36,30 @@ DEFAULT_ARGS = {
         "DB_HOSTNAME": "db-writer",
         "DB_DATABASE": "africa",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
+        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
         Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "indexing-aws-creds-prod", "AWS_SECRET_ACCESS_KEY"),
+        Secret(
+            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
+        ),
+        Secret(
+            "env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            "indexing-aws-creds-prod",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
     ],
 }
 
 EXPLORER_SECRETS = [
     Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password")
+    Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password"),
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.9"
@@ -61,40 +69,50 @@ EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
 OWS_BASH_COMMAND = [
     "bash",
     "-c",
-    dedent("""
+    dedent(
+        """
         mkdir -p /env/config;
         curl -s https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
         datacube-ows-update --views;
         datacube-ows-update s2_l2a;
-    """)
+    """
+    ),
 ]
 
 ARCHIVE_BASH_COMMAND = [
     "bash",
     "-c",
-    dedent("""
+    dedent(
+        """
         datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
         cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
         wc -l /tmp/to_kill.list;
         cat /tmp/to_kill.list | xargs datacube dataset archive
-    """)
+    """
+    ),
 ]
 
 dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval='0 */1 * * *',
+    schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-2"]
+    tags=["k8s", "sentinel-2"],
 )
 
 with dag:
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
-        image_pull_policy='Always',
-        arguments=["sqs-to-dc", "--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
+        image_pull_policy="Always",
+        arguments=[
+            "sqs-to-dc",
+            "--stac",
+            "--region-code-list-uri='https://github.com/digitalearthafrica/deafrica-extent/raw/master/deafrica-mgrs-tiles.csv.gz'",
+            "deafrica-prod-eks-sentinel-2-indexing",
+            "s2_l2a",
+        ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
@@ -132,7 +150,7 @@ with dag:
             "--no-init-database",
             "--refresh-stats",
             "--force-refresh",
-            "s2_l2a"
+            "s2_l2a",
         ],
         secrets=EXPLORER_SECRETS,
         labels={"step": "explorer"},
