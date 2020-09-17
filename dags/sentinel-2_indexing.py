@@ -64,7 +64,7 @@ EXPLORER_SECRETS = [
 
 INDEXER_IMAGE = "opendatacube/datacube-index:latest"
 OWS_IMAGE = "opendatacube/ows:1.8.1"
-EXPLORER_IMAGE = "opendatacube/dashboard:2.1.9"
+EXPLORER_IMAGE = "opendatacube/explorer:2.1.11-159-g0a1e022"
 
 OWS_BASH_COMMAND = [
     "bash",
@@ -79,18 +79,18 @@ OWS_BASH_COMMAND = [
     ),
 ]
 
-ARCHIVE_BASH_COMMAND = [
-    "bash",
-    "-c",
-    dedent(
-        """
-        datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
-        cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
-        wc -l /tmp/to_kill.list;
-        cat /tmp/to_kill.list | xargs datacube dataset archive
-    """
-    ),
-]
+# ARCHIVE_BASH_COMMAND = [
+#     "bash",
+#     "-c",
+#     dedent(
+#         """
+#         datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
+#         cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
+#         wc -l /tmp/to_kill.list;
+#         cat /tmp/to_kill.list | xargs datacube dataset archive
+#     """
+#     ),
+# ]
 
 dag = DAG(
     "sentinel-2_indexing",
@@ -120,16 +120,16 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    ARCHIVE_EXTRANEOUS_DS = KubernetesPodOperator(
-        namespace="processing",
-        image=INDEXER_IMAGE,
-        arguments=ARCHIVE_BASH_COMMAND,
-        labels={"step": "ds-arch"},
-        name="datacube-dataset-archive",
-        task_id="archive-antimeridian-datasets",
-        get_logs=True,
-        is_delete_operator_pod=True,
-    )
+    # ARCHIVE_EXTRANEOUS_DS = KubernetesPodOperator(
+    #     namespace="processing",
+    #     image=INDEXER_IMAGE,
+    #     arguments=ARCHIVE_BASH_COMMAND,
+    #     labels={"step": "ds-arch"},
+    #     name="datacube-dataset-archive",
+    #     task_id="archive-antimeridian-datasets",
+    #     get_logs=True,
+    #     is_delete_operator_pod=True,
+    # )
 
     OWS_UPDATE_EXTENTS = KubernetesPodOperator(
         namespace="processing",
@@ -160,10 +160,5 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    COMPLETE = DummyOperator(task_id="all_done")
-
-    INDEXING >> ARCHIVE_EXTRANEOUS_DS
-    ARCHIVE_EXTRANEOUS_DS >> OWS_UPDATE_EXTENTS
-    ARCHIVE_EXTRANEOUS_DS >> EXPLORER_SUMMARY
-    OWS_UPDATE_EXTENTS >> COMPLETE
-    EXPLORER_SUMMARY >> COMPLETE
+    INDEXING >> OWS_UPDATE_EXTENTS
+    INDEXING >> EXPLORER_SUMMARY
