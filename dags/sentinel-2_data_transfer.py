@@ -196,7 +196,7 @@ def trigger_sensor(ti, **kwargs):
         print(f"Read {len(messages)} messages")
         return "run_tasks"
     else:
-        return "end"
+        return "end_with_no_messages"
 
 def end_dag():
     print("Message queue is empty, terminating DAG")
