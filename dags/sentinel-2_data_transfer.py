@@ -233,6 +233,7 @@ with DAG('sentinel-2_data_transfer', default_args=default_args,
         COPY_OBJECTS = PythonOperator(
             task_id=f'copy_scenes_{idx}',
             provide_context=True,
+            retries=3,
             op_kwargs={'index': idx, "num_workers": default_args['num_workers']},
             execution_timeout = timedelta(hours=20),
             python_callable=copy_s3_objects
