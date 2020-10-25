@@ -94,7 +94,8 @@ with dag:
         namespace="processing",
         image=INDEXER_IMAGE,
         image_pull_policy='Always',
-        arguments=["sqs-to-dc", "--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
+        arguments=["sqs-to-dc", "--stac", "deafrica-prod-af-eks-sentinel-2-indexing", "s2_l2a"],
+
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
