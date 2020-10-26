@@ -54,8 +54,8 @@ dag = DAG(
     tags=["k8s", "Sentinel-2-indexing"],
 )
 
-with DAG('Sentinel-2-backlog-indexing', default_args=default_args,
-         schedule_interval=default_args['schedule_interval'],
+with DAG('Sentinel-2-backlog-indexing', default_args=DEFAULT_ARGS,
+         schedule_interval=DEFAULT_ARGS['schedule_interval'],
          tags=["Sentinel-2", "indexing"], catchup=False) as dag:
 
 
