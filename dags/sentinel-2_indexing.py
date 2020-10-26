@@ -35,7 +35,6 @@ DEFAULT_ARGS = {
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
-        "DB_DATABASE": "odc",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
     },
@@ -46,6 +45,7 @@ DEFAULT_ARGS = {
         Secret("env", "AWS_DEFAULT_REGION", "sentinel-2-indexing-user", "AWS_DEFAULT_REGION"),
         Secret("env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"),
         Secret("env", "AWS_SECRET_ACCESS_KEY", "sentinel-2-indexing-user", "AWS_SECRET_ACCESS_KEY"),
+        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
 
@@ -94,7 +94,8 @@ with dag:
         namespace="processing",
         image=INDEXER_IMAGE,
         image_pull_policy='Always',
-        arguments=["sqs-to-dc", "--stac", "deafrica-prod-eks-sentinel-2-indexing", "s2_l2a"],
+        arguments=["sqs-to-dc", "--stac", "deafrica-prod-af-eks-sentinel-2-indexing", "s2_l2a"],
+
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
