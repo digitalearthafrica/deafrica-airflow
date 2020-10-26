@@ -127,5 +127,5 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    INDEXING >> OWS_UPDATE_EXTENTS
+    # INDEXING >> OWS_UPDATE_EXTENTS
     INDEXING >> EXPLORER_SUMMARY
