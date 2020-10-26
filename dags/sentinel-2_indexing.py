@@ -15,8 +15,7 @@ from airflow import DAG
 from airflow.kubernetes.secret import Secret
 from airflow.kubernetes.volume import Volume
 from airflow.kubernetes.volume_mount import VolumeMount
-from airflow.contrib.operators.kubernetes_pod_operator import \
-    KubernetesPodOperator
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.operators.dummy_operator import DummyOperator
 
 from textwrap import dedent
@@ -36,7 +35,7 @@ DEFAULT_ARGS = {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg"
+        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
@@ -61,55 +60,40 @@ EXPLORER_IMAGE = "opendatacube/explorer:2.2.1"
 OWS_BASH_COMMAND = [
     "bash",
     "-c",
-    dedent("""
+    dedent(
+        """
         mkdir -p /env/config;
         curl -s https://raw.githubusercontent.com/digitalearthafrica/config/master/services/ows_cfg.py --output /env/config/ows_cfg.py;
         datacube-ows-update --views;
         datacube-ows-update s2_l2a;
-    """)
-]
-
-ARCHIVE_BASH_COMMAND = [
-    "bash",
-    "-c",
-    dedent("""
-        datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
-        cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
-        wc -l /tmp/to_kill.list;
-        cat /tmp/to_kill.list | xargs datacube dataset archive
-    """)
+    """
+    ),
 ]
 
 dag = DAG(
     "sentinel-2_indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval='0 */1 * * *',
+    schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-2"]
+    tags=["k8s", "sentinel-2"],
 )
 
 with dag:
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
-        image_pull_policy='Always',
-        arguments=["sqs-to-dc", "--stac", "deafrica-prod-af-eks-sentinel-2-indexing", "s2_l2a"],
-
+        image_pull_policy="Always",
+        arguments=[
+            "sqs-to-dc",
+            "--stac",
+            "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
+            "deafrica-prod-af-eks-sentinel-2-indexing",
+            "s2_l2a",
+        ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
-        get_logs=True,
-        is_delete_operator_pod=True,
-    )
-
-    ARCHIVE_EXTRANEOUS_DS = KubernetesPodOperator(
-        namespace="processing",
-        image=INDEXER_IMAGE,
-        arguments=ARCHIVE_BASH_COMMAND,
-        labels={"step": "ds-arch"},
-        name="datacube-dataset-archive",
-        task_id="archive-antimeridian-datasets",
         get_logs=True,
         is_delete_operator_pod=True,
     )
@@ -133,7 +117,7 @@ with dag:
             "--no-init-database",
             "--refresh-stats",
             "--force-refresh",
-            "s2_l2a"
+            "s2_l2a",
         ],
         secrets=EXPLORER_SECRETS,
         labels={"step": "explorer"},
@@ -143,10 +127,5 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    COMPLETE = DummyOperator(task_id="all_done")
-
-    INDEXING >> ARCHIVE_EXTRANEOUS_DS
-    ARCHIVE_EXTRANEOUS_DS >> OWS_UPDATE_EXTENTS
-    ARCHIVE_EXTRANEOUS_DS >> EXPLORER_SUMMARY
-    OWS_UPDATE_EXTENTS >> COMPLETE
-    EXPLORER_SUMMARY >> COMPLETE
+    INDEXING >> OWS_UPDATE_EXTENTS
+    INDEXING >> EXPLORER_SUMMARY

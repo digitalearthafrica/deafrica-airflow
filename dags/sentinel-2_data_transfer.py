@@ -18,9 +18,9 @@ import multiprocessing
 from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
-
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
@@ -30,12 +30,13 @@ default_args = {
     'email_on_failure': True,
     'email_on_retry': False,
     'retries': 0,
+    'num_workers': 10,
     'africa_tiles': "data/africa-mgrs-tiles.csv",
     'africa_conn_id': "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
-    "schedule_interval": "0 */8 * * *",
+    "schedule_interval": "0 */1 * * *",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
     "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
                   "deafrica-prod-eks-sentinel-2-data-transfer")
@@ -98,7 +99,10 @@ def copy_scene(args):
         urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
 
         s3_filepath = str(Path(urls[0]).parent)
-        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)[0]
+        if "s3:/" in s3_filepath:
+            key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)[0]
+        else:
+            key = s3_filepath.replace(f"https:/{default_args['src_bucket_name']}.s3.us-west-2.amazonaws.com/", "").split("/", 0)[0]
         key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
         if  key_exist is False:
             print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
@@ -126,15 +130,31 @@ def copy_s3_objects(ti, **kwargs):
     :param ti: Task instance
     """
 
-    messages = ti.xcom_pull(key='Messages', task_ids='test_trigger_dagrun')
-    attributes = ti.xcom_pull(key='attributes', task_ids='test_trigger_dagrun')
+    num_workers = kwargs['num_workers']
+    last_worker_index = num_workers - 1
+    index = kwargs['index']
+    messages = ti.xcom_pull(key='Messages', task_ids='check_for_messages')
+    num_msg_per_worker = len(messages) // num_workers
+    start_index = index * num_msg_per_worker
+
+    end_index = min(start_index + num_msg_per_worker, len(messages)) \
+                    if index < last_worker_index \
+                    else len(messages)
+
+    messages = messages[start_index : end_index]
+    attributes = ti.xcom_pull(key='attributes', task_ids='check_for_messages')
+    attributes = attributes[start_index : end_index]
+
     # Load Africa tile ids
     valid_tile_ids = africa_tile_ids()
-    max_num_cpus = 12
+    max_num_cpus = 10
     pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
     args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
     results = pool.map(copy_scene, args)
     Not_none_values = list(filter(None.__ne__, results))
+
+   # Update context with number of processed messages
+    ti.xcom_push(key='processed_msg_count', value=len(messages))
     print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
 
 def get_queue():
@@ -174,32 +194,50 @@ def trigger_sensor(ti, **kwargs):
         ti.xcom_push(key="Messages", value=messages)
         ti.xcom_push(key="attributes", value=attributes)
         print(f"Read {len(messages)} messages")
-        return "copy_scenes"
+        return "run_tasks"
     else:
-         return "end"
+        return "end_with_no_messages"
 
 def end_dag():
     print("Message queue is empty, terminating DAG")
+
+def terminate(ti, **kwargs):
+    processed_msg_counts = 0
+    for idx in range(0, default_args['num_workers']):
+        processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
+    print(f"Copied total of {processed_msg_counts} messages")
 
 with DAG('sentinel-2_data_transfer', default_args=default_args,
          schedule_interval=default_args['schedule_interval'],
          tags=["Sentinel-2", "transfer"], catchup=False) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
-        task_id='test_trigger_dagrun',
+        task_id='check_for_messages',
         python_callable=trigger_sensor,
         provide_context=True)
 
-    COPY_OBJECTS = PythonOperator(
-        task_id='copy_scenes',
-        provide_context=True,
-        execution_timeout = timedelta(hours=20),
-        python_callable=copy_s3_objects
-    )
-
     END_DAG = PythonOperator(
-        task_id='end',
+        task_id='end_with_no_messages',
         python_callable=end_dag
     )
 
-    BRANCH_OPT >> [COPY_OBJECTS, END_DAG]
+    TERMINATE_DAG = PythonOperator(
+        task_id='terminate',
+        python_callable=terminate,
+        provide_context=True
+    )
+
+    RUN_TASKS = DummyOperator(task_id='run_tasks')
+
+    for idx in range(0, default_args['num_workers']):
+        COPY_OBJECTS = PythonOperator(
+            task_id=f'copy_scenes_{idx}',
+            provide_context=True,
+            retries=3,
+            op_kwargs={'index': idx, "num_workers": default_args['num_workers']},
+            execution_timeout = timedelta(hours=20),
+            python_callable=copy_s3_objects
+        )
+        BRANCH_OPT >> [RUN_TASKS, END_DAG]
+        RUN_TASKS >> COPY_OBJECTS >> TERMINATE_DAG
+
