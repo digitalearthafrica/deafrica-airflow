@@ -67,7 +67,6 @@ with DAG('Sentinel-2-backlog-indexing', default_args=default_args,
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
 
-        s3_path =
         arguments=[
             "s3-to-dc",
             "--stac",
