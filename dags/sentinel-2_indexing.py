@@ -34,37 +34,28 @@ DEFAULT_ARGS = {
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
-        "DB_DATABASE": "africa",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
-        Secret(
-            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
-        ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "indexing-aws-creds-prod",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "AWS_DEFAULT_REGION", "sentinel-2-indexing-user", "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", "sentinel-2-indexing-user", "AWS_SECRET_ACCESS_KEY"),
+        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
 
 EXPLORER_SECRETS = [
-    Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password"),
+    Secret("env", "DB_USERNAME", "explorer-writer", "postgres-username"),
+    Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password")
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:latest"
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.11"
 OWS_IMAGE = "opendatacube/ows:1.8.1"
-EXPLORER_IMAGE = "opendatacube/explorer:2.1.11-159-g0a1e022"
+EXPLORER_IMAGE = "opendatacube/explorer:2.2.1"
 
 OWS_BASH_COMMAND = [
     "bash",
@@ -78,19 +69,6 @@ OWS_BASH_COMMAND = [
     """
     ),
 ]
-
-# ARCHIVE_BASH_COMMAND = [
-#     "bash",
-#     "-c",
-#     dedent(
-#         """
-#         datacube dataset search -f csv 'product=s2_l2a lon in [170,200]' > /tmp/to_kill.csv;
-#         cat /tmp/to_kill.csv | awk -F',' '{print $1}' | sed '1d' > /tmp/to_kill.list;
-#         wc -l /tmp/to_kill.list;
-#         cat /tmp/to_kill.list | xargs datacube dataset archive
-#     """
-#     ),
-# ]
 
 dag = DAG(
     "sentinel-2_indexing",
@@ -110,7 +88,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
-            "deafrica-prod-eks-sentinel-2-indexing",
+            "deafrica-prod-af-eks-sentinel-2-indexing",
             "s2_l2a",
         ],
         labels={"step": "sqs-to-rds"},
@@ -119,17 +97,6 @@ with dag:
         get_logs=True,
         is_delete_operator_pod=True,
     )
-
-    # ARCHIVE_EXTRANEOUS_DS = KubernetesPodOperator(
-    #     namespace="processing",
-    #     image=INDEXER_IMAGE,
-    #     arguments=ARCHIVE_BASH_COMMAND,
-    #     labels={"step": "ds-arch"},
-    #     name="datacube-dataset-archive",
-    #     task_id="archive-antimeridian-datasets",
-    #     get_logs=True,
-    #     is_delete_operator_pod=True,
-    # )
 
     OWS_UPDATE_EXTENTS = KubernetesPodOperator(
         namespace="processing",
@@ -160,5 +127,5 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    INDEXING >> OWS_UPDATE_EXTENTS
+    # INDEXING >> OWS_UPDATE_EXTENTS
     INDEXING >> EXPLORER_SUMMARY
