@@ -37,9 +37,21 @@ DEFAULT_ARGS = {
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", "sentinel-2-indexing-user", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "sentinel-2-indexing-user", "AWS_SECRET_ACCESS_KEY"),
+        Secret(
+            "env",
+            "AWS_DEFAULT_REGION",
+            "sentinel-2-indexing-user",
+            "AWS_DEFAULT_REGION",
+        ),
+        Secret(
+            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            "sentinel-2-indexing-user",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
@@ -54,29 +66,31 @@ dag = DAG(
     tags=["k8s", "Sentinel-2-indexing"],
 )
 
-with DAG('Sentinel-2-backlog-indexing', default_args=DEFAULT_ARGS,
-         schedule_interval=DEFAULT_ARGS['schedule_interval'],
-         tags=["Sentinel-2", "indexing"], catchup=False) as dag:
-
+with DAG(
+    "Sentinel-2-backlog-indexing",
+    default_args=DEFAULT_ARGS,
+    schedule_interval=DEFAULT_ARGS["schedule_interval"],
+    tags=["Sentinel-2", "indexing"],
+    catchup=False,
+) as dag:
 
     # This needs to be updated in the future in case more zones have been added
     utm_zones = range(26, 42)
     for utm_zone in utm_zones:
         INDEXING = KubernetesPodOperator(
-        namespace="processing",
-        image=INDEXER_IMAGE,
-        image_pull_policy="Always",
-
-        arguments=[
-            "s3-to-dc",
-            "--stac",
-            "--no-sign-request",
-            f"s3://deafrica-sentinel-2/sentinel-s2-l2a-cogs/{utm_zone}/**/*.json",
-            "s2_l2a",
-        ],
-        labels={"backlog": "s3-to-dc"},
-        name="datacube-index",
-        task_id="Sentinel-2-backlog-indexing-task",
-        get_logs=True,
-        is_delete_operator_pod=True,
-    )
+            namespace="processing",
+            image=INDEXER_IMAGE,
+            image_pull_policy="Always",
+            arguments=[
+                "s3-to-dc",
+                "--stac",
+                "--no-sign-request",
+                f"s3://deafrica-sentinel-2/sentinel-s2-l2a-cogs/{utm_zone}/**/*.json",
+                "s2_l2a",
+            ],
+            labels={"backlog": "s3-to-dc"},
+            name="datacube-index",
+            task_id=f"Sentinel-2-backlog-indexing-task-utm-zone-{utm_zone}",
+            get_logs=True,
+            is_delete_operator_pod=True,
+        )
