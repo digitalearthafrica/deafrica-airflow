@@ -17,6 +17,14 @@ pylint dags plugins
 
 ## Pre-commit setup
 
+Install pip modules
+
+```bash
+    pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.11
+    pip install shapely pyproj
+    pip install pylint pylint-airflow
+```
+
 A [pre-commit](https://pre-commit.com/) config is provided to automatically format
 and check your code changes. This allows you to immediately catch and fix
 issues before you raise a failing pull request (which run the same checks under
