@@ -18,13 +18,14 @@ from textwrap import dedent
 import kubernetes.client.models as k8s
 
 DEFAULT_ARGS = {
-    "owner": "ToktamEbadi",
+    "owner": "Toktam Ebadi",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
     "email": ["toktam.ebadi@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
+    "schedule_interval": "@once",
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
@@ -49,7 +50,6 @@ dag = DAG(
     "Sentinel-2_indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval="@once",
     catchup=False,
     tags=["k8s", "Sentinel-2-indexing"],
 )
