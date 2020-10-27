@@ -70,7 +70,7 @@ with DAG('Sentinel-2-backlog-indexing', default_args=DEFAULT_ARGS,
         arguments=[
             "s3-to-dc",
             "--stac",
-            "---no-sign-request",
+            "--no-sign-request",
             f"s3://deafrica-sentinel-2/sentinel-s2-l2a-cogs/{utm_zone}/**/*.json",
             "s2_l2a",
         ],
