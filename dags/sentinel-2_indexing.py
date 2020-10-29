@@ -98,16 +98,16 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
-        namespace="processing",
-        image=OWS_IMAGE,
-        arguments=OWS_BASH_COMMAND,
-        labels={"step": "ows-mv"},
-        name="ows-update-extents",
-        task_id="ows-update-extents",
-        get_logs=True,
-        is_delete_operator_pod=True,
-    )
+    # OWS_UPDATE_EXTENTS = KubernetesPodOperator(
+    #     namespace="processing",
+    #     image=OWS_IMAGE,
+    #     arguments=OWS_BASH_COMMAND,
+    #     labels={"step": "ows-mv"},
+    #     name="ows-update-extents",
+    #     task_id="ows-update-extents",
+    #     get_logs=True,
+    #     is_delete_operator_pod=True,
+    # )
 
     EXPLORER_SUMMARY = KubernetesPodOperator(
         namespace="processing",
