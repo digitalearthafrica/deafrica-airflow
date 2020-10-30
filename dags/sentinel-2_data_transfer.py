@@ -77,15 +77,14 @@ def publish_to_sns_topic(message, attribute):
     """
 
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
+    "Correct region and bucket name before publishing to indexing notification topic"
+    message = re.sub('us-west-2', 'af-south-1', message)
+    message = re.sub('sentinel-cogs', 'deafrica-sentinel-2', message)
     response = sns_hook.publish_to_target(target_arn=default_args['sentinel2_topic_arn'],
                                           message=message, message_attributes=attribute)
 
-
 def copy_scene(args):
-
-    message = args[0]
-    attribute = args[1]
-    valid_tile_ids = args[2]
+    message, attribute, valid_tile_ids = args
     tile_id = message["id"].split("_")[1]
 
     s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
