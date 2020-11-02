@@ -41,9 +41,21 @@ DEFAULT_ARGS = {
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", "sentinel-2-indexing-user", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "sentinel-2-indexing-user", "AWS_SECRET_ACCESS_KEY"),
+        Secret(
+            "env",
+            "AWS_DEFAULT_REGION",
+            "sentinel-2-indexing-user",
+            "AWS_DEFAULT_REGION",
+        ),
+        Secret(
+            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            "sentinel-2-indexing-user",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
@@ -61,7 +73,7 @@ EXPLORER_SECRETS = [
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.11"
-OWS_IMAGE = "opendatacube/ows:1.8.1"
+OWS_IMAGE = "opendatacube/ows:1.8.2"
 EXPLORER_IMAGE = "opendatacube/explorer:2.2.1"
 
 OWS_BASH_COMMAND = [
