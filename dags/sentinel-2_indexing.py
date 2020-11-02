@@ -48,6 +48,11 @@ DEFAULT_ARGS = {
     ],
 }
 
+OWS_SECRETS = [
+    Secret("env", "DB_USERNAME", "ows-writer", "postgres-username"),
+    Secret("env", "DB_PASSWORD", "ows-writer", "postgres-password")
+]
+
 EXPLORER_SECRETS = [
     Secret("env", "DB_USERNAME", "explorer-writer", "postgres-username"),
     Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password")
@@ -63,7 +68,7 @@ OWS_BASH_COMMAND = [
     dedent(
         """
         mkdir -p /env/config;
-        curl -s https://raw.githubusercontent.com/digitalearthafrica/config/0.1.1/services/ows_cfg.py --output /env/config/ows_cfg.py;
+        curl -s https://raw.githubusercontent.com/digitalearthafrica/config/0.1.5/services/deafrica_prod_af.ows_cfg.py --output /env/config/ows_cfg.py;
         datacube-ows-update --views;
         datacube-ows-update s2_l2a;
     """
@@ -98,16 +103,17 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    # OWS_UPDATE_EXTENTS = KubernetesPodOperator(
-    #     namespace="processing",
-    #     image=OWS_IMAGE,
-    #     arguments=OWS_BASH_COMMAND,
-    #     labels={"step": "ows-mv"},
-    #     name="ows-update-extents",
-    #     task_id="ows-update-extents",
-    #     get_logs=True,
-    #     is_delete_operator_pod=True,
-    # )
+    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
+        namespace="processing",
+        image=OWS_IMAGE,
+        arguments=OWS_BASH_COMMAND,
+        secrets=OWS_SECRETS,
+        labels={"step": "ows-mv"},
+        name="ows-update-extents",
+        task_id="ows-update-extents",
+        get_logs=True,
+        is_delete_operator_pod=True,
+    )
 
     EXPLORER_SUMMARY = KubernetesPodOperator(
         namespace="processing",
@@ -127,5 +133,5 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    # INDEXING >> OWS_UPDATE_EXTENTS
+    INDEXING >> OWS_UPDATE_EXTENTS
     INDEXING >> EXPLORER_SUMMARY
