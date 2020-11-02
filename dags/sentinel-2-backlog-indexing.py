@@ -56,7 +56,7 @@ DEFAULT_ARGS = {
     ],
 }
 
-INDEXER_IMAGE = "opendatacube/datacube-index:latest"
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 
 dag = DAG(
     "Sentinel-2_indexing",
