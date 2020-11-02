@@ -48,6 +48,11 @@ DEFAULT_ARGS = {
     ],
 }
 
+OWS_SECRETS = [
+    Secret("env", "DB_USERNAME", "ows-writer", "postgres-username"),
+    Secret("env", "DB_PASSWORD", "ows-writer", "postgres-password")
+]
+
 EXPLORER_SECRETS = [
     Secret("env", "DB_USERNAME", "explorer-writer", "postgres-username"),
     Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password")
@@ -98,16 +103,17 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    # OWS_UPDATE_EXTENTS = KubernetesPodOperator(
-    #     namespace="processing",
-    #     image=OWS_IMAGE,
-    #     arguments=OWS_BASH_COMMAND,
-    #     labels={"step": "ows-mv"},
-    #     name="ows-update-extents",
-    #     task_id="ows-update-extents",
-    #     get_logs=True,
-    #     is_delete_operator_pod=True,
-    # )
+    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
+        namespace="processing",
+        image=OWS_IMAGE,
+        arguments=OWS_BASH_COMMAND,
+        secrets=OWS_SECRETS,
+        labels={"step": "ows-mv"},
+        name="ows-update-extents",
+        task_id="ows-update-extents",
+        get_logs=True,
+        is_delete_operator_pod=True,
+    )
 
     EXPLORER_SUMMARY = KubernetesPodOperator(
         namespace="processing",
