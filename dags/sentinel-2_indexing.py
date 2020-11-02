@@ -50,12 +50,14 @@ DEFAULT_ARGS = {
 
 OWS_SECRETS = [
     Secret("env", "DB_USERNAME", "ows-writer", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "ows-writer", "postgres-password")
+    Secret("env", "DB_PASSWORD", "ows-writer", "postgres-password"),
+    Secret("env", "DB_DATABASE", "ows-writer", "database-name"),
 ]
 
 EXPLORER_SECRETS = [
     Secret("env", "DB_USERNAME", "explorer-writer", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password")
+    Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password"),
+    Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.11"
