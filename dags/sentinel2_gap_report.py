@@ -11,6 +11,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+import regex as re
+
 import pandas as pd
 from airflow import DAG, configuration
 from airflow.hooks.S3_hook import S3Hook
@@ -61,6 +63,8 @@ def generate_buckets_diff():
             ".json" in key
             and key.startswith(cogs_folder_name)
             and key.split("/")[-2].split("_")[1] in africa_tile_ids
+            # We need to ensure we're ignoring the old format data
+            and re.match("sentinel-s2-l2a-cogs\/\d{4}\/", key) is None
         ):
             source_keys.add(key)
 
