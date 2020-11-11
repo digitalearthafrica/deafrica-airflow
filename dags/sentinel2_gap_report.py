@@ -11,7 +11,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-import regex as re
+import re
 
 import pandas as pd
 from airflow import DAG, configuration
