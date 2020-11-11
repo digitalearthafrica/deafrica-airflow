@@ -72,7 +72,8 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.11"
+
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 OWS_IMAGE = "opendatacube/ows:1.8.2"
 EXPLORER_IMAGE = "opendatacube/explorer:2.2.1"
 
