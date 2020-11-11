@@ -58,6 +58,8 @@ def generate_buckets_diff():
     )
 
     s3_inventory = s3(url_source, default_args["us_conn_id"], "us-west-2", suffix)
+    print(f"Processing keys from the inventory file: {s3_inventory.url}")
+
     for bucket, key, *rest in s3_inventory.list_keys():
         if (
             ".json" in key
@@ -71,23 +73,25 @@ def generate_buckets_diff():
     s3_inventory = s3(
         url_destination, default_args["africa_conn_id"], "af-south-1", suffix
     )
+    print(f"Processing keys from the inventory file: {s3_inventory.url}")
+
     for bucket, key, *rest in s3_inventory.list_keys():
         if ".json" in key and key.startswith(cogs_folder_name):
             if key in source_keys:
                 source_keys.remove(key)
 
-    missing_scenes = list(source_keys)
+    missing_scenes = [f"{default_args['src_bucket_name']}/{key}" for key in source_keys]
 
-    output_filename = datetime.today().strftime("%Y_%m_%d_%H_%M_%S") + ".json"
+    output_filename = datetime.today().isoformat() + ".txt"
     reporting_bucket = default_args["reporting_bucket"]
     key = default_args["reporting_prefix"] + output_filename
 
     print(f"{len(missing_scenes)} files are missing from {reporting_bucket}")
     s3_report = s3(reporting_bucket, default_args["africa_conn_id"], "af-south-1")
     s3_report.s3.put_object(
-        Bucket=s3_report.bucket, Key=key, Body=str(json.dumps(missing_scenes, indent=2))
+        Bucket=s3_report.bucket, Key=key, Body="\n".join(missing_scenes)
     )
-    print(f"Wrote inventory to: s3://{default_args['reporting_bucket']}/{key}")
+    print(f"Wrote inventory to: {default_args['reporting_bucket']}/{key}")
 
 
 with DAG(

@@ -71,7 +71,6 @@ class s3:
                 parts = self.urlparse(manifest_url)
                 break
         if manifest_url:
-            print("Manifest file:", manifest_url)
             s3_clientobj = self.s3.get_object(Bucket=parts['bucket'], Key=parts['key'])
             return json.loads(s3_clientobj['Body'].read().decode('utf-8'))
         else:
@@ -104,7 +103,6 @@ class s3:
     def list_keys(self):
         manifest = self.latest_manifest()
         for obj in manifest['files']:
-            print(obj['key'])
             gzip_obj = self.s3.get_object(Bucket=self.bucket, Key=obj['key'])
             buffer = gzip.open(gzip_obj["Body"], mode='rt')
             reader = csv.reader(buffer)
