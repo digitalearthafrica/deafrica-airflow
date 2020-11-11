@@ -14,6 +14,7 @@ import os
 from pathlib import Path
 from datetime import datetime, timedelta
 import multiprocessing
+import pandas as pd
 
 from airflow import configuration
 from airflow import DAG
@@ -62,13 +63,13 @@ def africa_tile_ids():
     :return: Set of tile ids
     """
 
-    tile_ids_filepath = Path(configuration.get('core', 'dags_folder')). \
-                        parent.joinpath(default_args['africa_tiles'])
-    with open(tile_ids_filepath) as f:
-        reader = csv.reader(f)
-        list_of_mgrs = [x[0] for x in reader]
+    africa_tile_ids = set(
+        pd.read_csv(
+            "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+        ).values.ravel()
+    )
 
-    return set(list_of_mgrs)
+    return africa_tile_ids
 
 def publish_to_sns_topic(message, attribute):
     """
