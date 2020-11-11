@@ -87,7 +87,7 @@ def generate_buckets_diff():
     s3_report.s3.put_object(
         Bucket=s3_report.bucket, Key=key, Body=str(json.dumps(missing_scenes, indent=2))
     )
-    print(f"Wrote inventory to: s3://{default_args["reporting_bucket"]/{key}")
+    print(f"Wrote inventory to: s3://{default_args['reporting_bucket']}/{key}")
 
 
 with DAG(
