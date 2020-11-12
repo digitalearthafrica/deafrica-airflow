@@ -13,7 +13,8 @@ import csv
 import os
 from pathlib import Path
 from datetime import datetime, timedelta
-import multiprocessing
+from typing import Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 from airflow import configuration
@@ -25,23 +26,48 @@ from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
-    'owner': 'Airflow',
+    "owner": "Airflow",
     "start_date": datetime(2020, 6, 12),
-    'email': ['toktam.ebadi@ga.gov.au'],
-    'email_on_failure': True,
-    'email_on_retry': False,
-    'retries': 0,
-    'num_workers': 10,
-    'africa_tiles': "data/africa-mgrs-tiles.csv",
-    'africa_conn_id': "deafrica-prod-migration",
+    "email": ["toktam.ebadi@ga.gov.au"],
+    "email_on_failure": True,
+    "email_on_retry": False,
+    "retries": 0,
+    "num_workers": 10,
+    "africa_tiles": "data/africa-mgrs-tiles.csv",
+    "africa_conn_id": "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
-    "schedule_interval": "0 */1 * * *",
+    "schedule_interval": "@once",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
-    "sqs_queue": ("https://sqs.us-west-2.amazonaws.com/565417506782/"
-                  "deafrica-prod-eks-sentinel-2-data-transfer")
+    "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
 }
+
+
+def get_messages(
+    queue,
+    limit: bool = None,
+    visibility_timeout: int = 60,
+    message_attributes: Iterable[str] = ["All"],
+):
+    """
+    Get messages from a queue resource.
+    """
+    count = 0
+    while True:
+        messages = queue.receive_messages(
+            VisibilityTimeout=visibility_timeout,
+            MaxNumberOfMessages=1,
+            WaitTimeSeconds=10,
+            MessageAttributeNames=message_attributes,
+        )
+        if len(messages) == 0 or (limit and count >= limit):
+            break
+        else:
+            for message in messages:
+                count += 1
+                yield message
+
 
 def extract_src_key(src_url):
     """
@@ -52,10 +78,11 @@ def extract_src_key(src_url):
     :return: Object path relative to the base bucket
     """
 
-    matches = (re.finditer("/", src_url))
+    matches = re.finditer("/", src_url)
     matches_positions = [match.start() for match in matches]
     start = matches_positions[2] + 1
     return src_url[start:]
+
 
 def africa_tile_ids():
     """
@@ -71,100 +98,135 @@ def africa_tile_ids():
 
     return africa_tile_ids
 
-def publish_to_sns_topic(message, attribute):
+
+def publish_to_sns_topic(message):
     """
     Publish a message to a SNS topic
     param message: message body
     """
 
-    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args['africa_conn_id'])
+    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args["africa_conn_id"])
     "Replace https with s3 uri"
-    message = re.sub('https://sentinel-cogs.s3.us-west-2.amazonaws.com', 's3://deafrica-sentinel-2', message)
-    response = sns_hook.publish_to_target(target_arn=default_args['sentinel2_topic_arn'],
-                                          message=message, message_attributes=attribute)
+    message = re.sub(
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+        "s3://deafrica-sentinel-2",
+        message,
+    )
+    response = sns_hook.publish_to_target(
+        target_arn=default_args["sentinel2_topic_arn"],
+        message=message,
+        message_attributes=attribute,
+    )
+
 
 def copy_scene(args):
-    message, attribute, valid_tile_ids = args
-    tile_id = message["id"].split("_")[1]
+    print("Reached scene")
+    s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
+    # for src_key in keys:
+    #     s3_hook.copy_object(
+    #         source_bucket_key=src_key,
+    #         dest_bucket_key=src_key,
+    #         source_bucket_name=default_args["src_bucket_name"],
+    #         dest_bucket_name=default_args["dest_bucket_name"],
+    #     )
+    return "Done"
 
-    s3_hook = S3Hook(aws_conn_id=dag.default_args['africa_conn_id'])
-    s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args['us_conn_id'])
 
-    if tile_id in valid_tile_ids:
-        # Extract URL of the json file
-        urls = [message["links"][0]["href"]]
-        print(f"Copying {Path(urls[0]).parent}")
-        # Add URL of .tif files
-        urls.extend([v["href"] for k, v in message["assets"].items() if "geotiff" in v['type']])
+def start_transfer(message, valid_tile_ids):
 
-        s3_filepath = str(Path(urls[0]).parent)
-        if "s3:/" in s3_filepath:
-            key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split("/", 0)[0]
-        else:
-            key = s3_filepath.replace(f"https:/{default_args['src_bucket_name']}.s3.us-west-2.amazonaws.com/", "").split("/", 0)[0]
-        key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, '/')
-        if  key_exist is False:
-            print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
-            return
+    body = json.loads(message.body)
+    metadata = json.loads(body["Message"])
+    tile_id = metadata["id"].split("_")[1]
 
-        for src_url in urls:
-            src_key = extract_src_key(src_url)
-            key_exist = s3_hook_oregon.check_for_prefix(default_args['src_bucket_name'], key, "/")
-            if key_exist is False:
-                continue
-            s3_hook.copy_object(source_bucket_key=src_key,
-                                dest_bucket_key=src_key,
-                                source_bucket_name=default_args['src_bucket_name'],
-                                dest_bucket_name=default_args['dest_bucket_name'])
+    s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
+    s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
 
-        publish_to_sns_topic(json.dumps(message), attribute)
-        scene = urls[0]
-        return Path(Path(scene).name).stem
+    if not tile_id in valid_tile_ids:
+        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
+        message.delete()
 
-    print(f"{message['id']} is outside Africa")
+    # Extract URL of the json file
+    urls = [metadata["links"][0]["href"]]
+    print(f"Copying {Path(urls[0]).parent}")
+    # Add URL of .tif files
+    urls.extend(
+        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+    )
+
+    s3_filepath = str(Path(urls[0]).parent)
+    if "s3:/" in s3_filepath:
+        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split(
+            "/", 0
+        )[0]
+    else:
+        key = s3_filepath.replace(
+            f"https:/{default_args['src_bucket_name']}.s3.us-west-2.amazonaws.com/",
+            "",
+        ).split("/", 0)[0]
+    key_exists = s3_hook_oregon.check_for_key(
+        key, bucket_name=default_args["src_bucket_name"]
+    )
+    if not key_exists:
+        print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
+        message.delete()
+
+    # Check that all bands and STAC exist
+    if len(urls) != 18:
+        raise ValueError(
+            f"There are less than 18 files in {metadata.get('id')} scene, failing"
+        )
+
+    src_keys = []
+    for src_url in urls:
+        src_key = extract_src_key(src_url)
+        key_exists = s3_hook_oregon.check_for_key(
+            key, bucket_name=default_args["src_bucket_name"]
+        )
+        keys.append(src_key)
+
+        if not key_exist:
+            raise ValueError(
+                f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
+            )
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        task = {executor.submit(copy_scene, key): key for key in src_keys}
+        for future in as_completed(task):
+            scene_to_copy = task[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                print(f"Result failed with error {exc}")
+            else:
+                print(f"Task {scene_to_copy} succeded with {result}")
+
 
 def copy_s3_objects(ti, **kwargs):
     """
     Copy objects from a s3 bucket to another s3 bucket.
     :param ti: Task instance
     """
+    successful = 0
+    failed = 0
 
-    num_workers = kwargs['num_workers']
-    last_worker_index = num_workers - 1
-    index = kwargs['index']
-    messages = ti.xcom_pull(key='Messages', task_ids='check_for_messages')
-    num_msg_per_worker = len(messages) // num_workers
-    start_index = index * num_msg_per_worker
-
-    end_index = min(start_index + num_msg_per_worker, len(messages)) \
-                    if index < last_worker_index \
-                    else len(messages)
-
-    messages = messages[start_index : end_index]
-    attributes = ti.xcom_pull(key='attributes', task_ids='check_for_messages')
-    attributes = attributes[start_index : end_index]
-
-    # Load Africa tile ids
+    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
+    messages = get_messages(queue, visibility_timeout=600)
     valid_tile_ids = africa_tile_ids()
-    max_num_cpus = 10
-    pool = multiprocessing.Pool(processes=max_num_cpus, maxtasksperchild=2)
-    args = [(msg, atr, tile) for msg, atr, tile in zip(messages, attributes, [valid_tile_ids]*len(messages))]
-    results = pool.map(copy_scene, args)
-    Not_none_values = list(filter(None.__ne__, results))
+    for message in messages:
+        try:
+            start_transfer(message, valid_tile_ids)
+            # publish_to_sns_topic(json.dumps(message))
+            message.delete()
+            successful += 1
+        except ValueError as err:
+            failed += 1
+            print(err)
 
-   # Update context with number of processed messages
-    ti.xcom_push(key='processed_msg_count', value=len(messages))
-    print(f"Copied {len(Not_none_values)} out of {len(messages)} files")
+    ti.xcom_push(key="successful", value=successful)
+    ti.xcom_push(key="failed", value=failed)
 
-def get_queue():
-    """
-    Return the SQS queue object
-    """
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args['us_conn_id'])
-    queue_url = default_args['sqs_queue']
-    queue_name = queue_url[queue_url.rindex("/") + 1:]
-    sqs = sqs_hook.get_resource_type('sqs')
-    return sqs.get_queue_by_name(QueueName=queue_name)
 
 def trigger_sensor(ti, **kwargs):
     """
@@ -175,68 +237,58 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    queue = get_queue()
-    print("Queue size:", int(queue.attributes.get("ApproximateNumberOfMessages")))
-    if int(queue.attributes.get("ApproximateNumberOfMessages")) > 0 :
-        max_num_polls = 40
-        msg_list = [queue.receive_messages(WaitTimeSeconds=5, MaxNumberOfMessages=10) for i in range(max_num_polls)]
-        msg_list  = list(itertools.chain(*msg_list))
-        messages = []
-        attributes = []
-        for msg in msg_list:
-            body = json.loads(msg.body)
-            message = json.loads(body['Message'])
-            messages.append(message)
-            attributes.append(body['MessageAttributes'])
-            print(message['id'])
-            msg.delete()
-        ti.xcom_push(key="Messages", value=messages)
-        ti.xcom_push(key="attributes", value=attributes)
-        print(f"Read {len(messages)} messages")
+    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
+    messages = get_messages(queue, visibility_timeout=600)
+    if messages:
         return "run_tasks"
     else:
         return "end_with_no_messages"
 
+
 def end_dag():
     print("Message queue is empty, terminating DAG")
 
+
 def terminate(ti, **kwargs):
     processed_msg_counts = 0
-    for idx in range(0, default_args['num_workers']):
-        processed_msg_counts += ti.xcom_pull(key='processed_msg_count', task_ids=f'copy_scenes_{idx}')
+    for idx in range(0, default_args["num_workers"]):
+        processed_msg_counts += ti.xcom_pull(
+            key="processed_msg_count", task_ids=f"data_transfer_{idx}"
+        )
     print(f"Copied total of {processed_msg_counts} messages")
 
-with DAG('sentinel-2_data_transfer', default_args=default_args,
-         schedule_interval=default_args['schedule_interval'],
-         tags=["Sentinel-2", "transfer"], catchup=False) as dag:
+
+with DAG(
+    "sentinel-2_data_transfer",
+    default_args=default_args,
+    schedule_interval=default_args["schedule_interval"],
+    tags=["Sentinel-2", "transfer"],
+    catchup=False,
+) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
-        task_id='check_for_messages',
+        task_id="check_for_messages",
         python_callable=trigger_sensor,
-        provide_context=True)
-
-    END_DAG = PythonOperator(
-        task_id='end_with_no_messages',
-        python_callable=end_dag
+        provide_context=True,
     )
+
+    END_DAG = PythonOperator(task_id="end_with_no_messages", python_callable=end_dag)
 
     TERMINATE_DAG = PythonOperator(
-        task_id='terminate',
-        python_callable=terminate,
-        provide_context=True
+        task_id="terminate", python_callable=terminate, provide_context=True
     )
 
-    RUN_TASKS = DummyOperator(task_id='run_tasks')
+    RUN_TASKS = DummyOperator(task_id="run_tasks")
 
-    for idx in range(0, default_args['num_workers']):
+    for idx in range(0, default_args["num_workers"]):
         COPY_OBJECTS = PythonOperator(
-            task_id=f'copy_scenes_{idx}',
+            task_id=f"data_transfer_{idx}",
             provide_context=True,
-            retries=3,
-            op_kwargs={'index': idx, "num_workers": default_args['num_workers']},
-            execution_timeout = timedelta(hours=20),
-            python_callable=copy_s3_objects
+            retries=1,
+            execution_timeout=timedelta(hours=20),
+            python_callable=copy_s3_objects,
         )
         BRANCH_OPT >> [RUN_TASKS, END_DAG]
         RUN_TASKS >> COPY_OBJECTS >> TERMINATE_DAG
-
