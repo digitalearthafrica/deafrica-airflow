@@ -121,11 +121,12 @@ def publish_to_sns_topic(message):
     )
 
 
-def write_scene(key):
+def write_scene(args):
     """
     Write a file to destination bucket
     param message: key to write
     """
+    src_key = args[0]
     s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     s3_hook.copy_object(
         source_bucket_key=src_key,
