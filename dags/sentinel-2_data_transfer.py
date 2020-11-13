@@ -33,7 +33,6 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "num_workers": 10,
-    "africa_tiles": "data/africa-mgrs-tiles.csv",
     "africa_conn_id": "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
@@ -105,35 +104,42 @@ def publish_to_sns_topic(message):
     param message: message body
     """
 
+    body = json.loads(message.body)
+    attributes = body.get("MessageAttributes", "")
+    metadata = json.loads(body.get("Message"))
+    metadata = json.dumps(metadata)
+
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args["africa_conn_id"])
     "Replace https with s3 uri"
-    message = re.sub(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-        "s3://deafrica-sentinel-2",
-        message,
+    metadata = metadata.replace(
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
     )
     response = sns_hook.publish_to_target(
         target_arn=default_args["sentinel2_topic_arn"],
-        message=message,
-        message_attributes=attribute,
+        message=metadata,
+        message_attributes=attributes,
     )
 
 
-def copy_scene(args):
-    print("Reached scene")
+def write_scene(key):
+    """
+    Write a file to destination bucket
+    param message: key to write
+    """
     s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
-    # for src_key in keys:
-    #     s3_hook.copy_object(
-    #         source_bucket_key=src_key,
-    #         dest_bucket_key=src_key,
-    #         source_bucket_name=default_args["src_bucket_name"],
-    #         dest_bucket_name=default_args["dest_bucket_name"],
-    #     )
+    s3_hook.copy_object(
+        source_bucket_key=src_key,
+        dest_bucket_key=src_key,
+        source_bucket_name=default_args["src_bucket_name"],
+        dest_bucket_name=default_args["dest_bucket_name"],
+    )
     return "Done"
 
 
 def start_transfer(message, valid_tile_ids):
-
+    """
+    Transfer a scene from source to destination bucket
+    """
     body = json.loads(message.body)
     metadata = json.loads(body["Message"])
     tile_id = metadata["id"].split("_")[1]
@@ -153,7 +159,7 @@ def start_transfer(message, valid_tile_ids):
         [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
     )
 
-    s3_filepath = str(Path(urls[0]).parent)
+    s3_filepath = str(Path(urls[0]))
     if "s3:/" in s3_filepath:
         key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split(
             "/", 0
@@ -182,21 +188,21 @@ def start_transfer(message, valid_tile_ids):
         key_exists = s3_hook_oregon.check_for_key(
             key, bucket_name=default_args["src_bucket_name"]
         )
-        keys.append(src_key)
+        src_keys.append(src_key)
 
-        if not key_exist:
+        if not key_exists:
             raise ValueError(
                 f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
             )
 
     with ThreadPoolExecutor(max_workers=5) as executor:
-        task = {executor.submit(copy_scene, key): key for key in src_keys}
+        task = {executor.submit(write_scene, key): key for key in src_keys}
         for future in as_completed(task):
             scene_to_copy = task[future]
             try:
                 result = future.result()
             except Exception as exc:
-                print(f"Result failed with error {exc}")
+                raise ValueError(f"{scene_to_copy} failed to copy")
             else:
                 print(f"Task {scene_to_copy} succeded with {result}")
 
@@ -217,7 +223,7 @@ def copy_s3_objects(ti, **kwargs):
     for message in messages:
         try:
             start_transfer(message, valid_tile_ids)
-            # publish_to_sns_topic(json.dumps(message))
+            publish_to_sns_topic(message)
             message.delete()
             successful += 1
         except ValueError as err:
@@ -241,10 +247,13 @@ def trigger_sensor(ti, **kwargs):
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
     messages = get_messages(queue, visibility_timeout=600)
+    messages = list(itertools.islice(messages, 1))
+    if len(messages) > 0:
+        return "run_tasks"
     if messages:
         return "run_tasks"
     else:
-        return "end_with_no_messages"
+        return "no_messages__end"
 
 
 def end_dag():
@@ -252,12 +261,18 @@ def end_dag():
 
 
 def terminate(ti, **kwargs):
-    processed_msg_counts = 0
+    successful_msg_counts = 0
+    failed_msg_counts = 0
+
     for idx in range(0, default_args["num_workers"]):
-        processed_msg_counts += ti.xcom_pull(
-            key="processed_msg_count", task_ids=f"data_transfer_{idx}"
+        successful_msg_counts += ti.xcom_pull(
+            key="successful", task_ids=f"data_transfer_{idx}"
         )
-    print(f"Copied total of {processed_msg_counts} messages")
+        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
+
+    print(
+        f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
+    )
 
 
 with DAG(
@@ -274,7 +289,7 @@ with DAG(
         provide_context=True,
     )
 
-    END_DAG = PythonOperator(task_id="end_with_no_messages", python_callable=end_dag)
+    END_DAG = PythonOperator(task_id="no_messages__end", python_callable=end_dag)
 
     TERMINATE_DAG = PythonOperator(
         task_id="terminate", python_callable=terminate, provide_context=True
