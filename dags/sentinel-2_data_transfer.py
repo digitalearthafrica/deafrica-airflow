@@ -30,17 +30,13 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "num_workers": 10,
-    # "africa_conn_id": "deafrica-prod-migration",
-    "africa_conn_id": "deafrica-migration_us",
+    "africa_conn_id": "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
-    "dest_bucket_name": "africa-migration-test",
-    # "dest_bucket_name": "deafrica-sentinel-2",
+    "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "0 */1 * * *",
-    "sentinel2_topic_arn": "arn:aws:sns:us-west-2:565417506782:TestTopic",
-    "sqs_queue": "s2_backfill_test",
-    # "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
-    # "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
+    "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
+    "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
 }
 
 
@@ -173,6 +169,7 @@ def start_transfer(message):
         raise ValueError(
             f"There are less than 18 files in {metadata.get('id')} scene, failing"
         )
+
     scene_path = Path(key).parent
     print(f"Copying {scene_path}")
 
@@ -291,7 +288,7 @@ def terminate(ti, **kwargs):
 
 
 with DAG(
-    "sentinel-2_data_transfer_M",
+    "sentinel-2_data_transfer",
     default_args=default_args,
     schedule_interval=default_args["schedule_interval"],
     tags=["Sentinel-2", "transfer"],
