@@ -201,7 +201,7 @@ def start_transfer(message):
     if len(copied_files) == 18:
         print(f"Succeeded: {scene_path} ")
     else:
-        raise ValueError(f"{scene_id} failed to copy")
+        raise ValueError(f"{scene_path} failed to copy")
 
 
 def is_valid_tile_id(message, valid_tile_ids):
