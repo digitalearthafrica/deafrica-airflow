@@ -30,13 +30,17 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "num_workers": 10,
-    "africa_conn_id": "deafrica-prod-migration",
+    # "africa_conn_id": "deafrica-prod-migration",
+    "africa_conn_id": "deafrica-migration_us",
     "us_conn_id": "deafrica-migration_us",
-    "dest_bucket_name": "deafrica-sentinel-2",
+    "dest_bucket_name": "africa-migration-test",
+    # "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
     "schedule_interval": "0 */1 * * *",
-    "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
-    "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
+    "sentinel2_topic_arn": "arn:aws:sns:us-west-2:565417506782:TestTopic",
+    "sqs_queue": "s2_backfill_test",
+    # "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
+    # "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
 }
 
 
@@ -65,21 +69,6 @@ def get_messages(
                 yield message
 
 
-def extract_src_key(src_url):
-    """
-    Extract object key from specified url path e.g.
-    https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/
-    2020/S2A_38PKS_20200609_0_L2A/B11.tif
-    :param src_url: Full http path of the object
-    :return: Object path relative to the base bucket
-    """
-
-    matches = re.finditer("/", src_url)
-    matches_positions = [match.start() for match in matches]
-    start = matches_positions[2] + 1
-    return src_url[start:]
-
-
 def africa_tile_ids():
     """
     Load Africa tile ids
@@ -95,6 +84,20 @@ def africa_tile_ids():
     return africa_tile_ids
 
 
+def get_self_link(message_content):
+    # Try the first link
+    self_link = message_content["links"][0]["href"]
+    # But replace it with the canonical one if it exists
+    for link in message_content["links"]:
+        if link["rel"] == "canonical":
+            self_link = link["href"]
+
+    return self_link.replace(
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+        f"s3://{default_args['src_bucket_name']}",
+    )
+
+
 def publish_to_sns_topic(message):
     """
     Publish a message to a SNS topic
@@ -103,16 +106,15 @@ def publish_to_sns_topic(message):
 
     body = json.loads(message.body)
     attributes = body.get("MessageAttributes", {})
-    attributes["product"] = attributes.pop("collection")
+    if "collection" in attributes:
+        del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    metadata = json.loads(body.get("Message"))
-    metadata_str = json.dumps(metadata)
-
+    metadata = body.get("Message")
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args["africa_conn_id"])
 
     "Replace https with s3 uri"
-    metadata_str = metadata_str.replace(
+    metadata_str = metadata.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
     )
     response = sns_hook.publish_to_target(
@@ -135,7 +137,7 @@ def write_scene(src_key):
         source_bucket_name=default_args["src_bucket_name"],
         dest_bucket_name=default_args["dest_bucket_name"],
     )
-    return "Done"
+    return True
 
 
 def start_transfer(message):
@@ -147,17 +149,11 @@ def start_transfer(message):
     metadata = json.loads(body["Message"])
     tile_id = metadata["id"].split("_")[1]
 
-    s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
-
-    s3_filepath = (
-        metadata.get("links")[1]["href"]
-        if metadata.get("links")[1].get("rel") == "canonical"
-        else metadata["links"][0]["href"]
-    )
+    s3_filepath = get_self_link(metadata)
 
     # Check file exists
-    key = extract_src_key(s3_filepath)
+    bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(
         key, bucket_name=default_args["src_bucket_name"]
     )
@@ -167,8 +163,6 @@ def start_transfer(message):
         )
 
     urls = [s3_filepath]
-
-    print(f"Copying {Path(s3_filepath).parent}")
     # Add URL of .tif files
     urls.extend(
         [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
@@ -179,10 +173,12 @@ def start_transfer(message):
         raise ValueError(
             f"There are less than 18 files in {metadata.get('id')} scene, failing"
         )
+    scene_path = Path(key).parent
+    print(f"Copying {scene_path}")
 
     src_keys = []
     for src_url in urls:
-        src_key = extract_src_key(src_url)
+        bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
         key_exists = s3_hook_oregon.check_for_key(
             key, bucket_name=default_args["src_bucket_name"]
         )
@@ -193,7 +189,8 @@ def start_transfer(message):
                 f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
             )
 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    copied_files = []
+    with ThreadPoolExecutor(max_workers=20) as executor:
         task = {executor.submit(write_scene, key): key for key in src_keys}
         for future in as_completed(task):
             scene_to_copy = task[future]
@@ -202,16 +199,20 @@ def start_transfer(message):
             except Exception as exc:
                 raise ValueError(f"{scene_to_copy} failed to copy")
             else:
-                print(f"Task {scene_to_copy} succeeded with {result}")
+                copied_files.append(result)
+
+    if len(copied_files) == 18:
+        print(f"Succeeded: {scene_path} ")
+    else:
+        raise ValueError(f"{scene_id} failed to copy")
 
 
-def is_valid_tile_id(message):
+def is_valid_tile_id(message, valid_tile_ids):
 
     body = json.loads(message.body)
     metadata = json.loads(body["Message"])
     tile_id = metadata["id"].split("_")[1]
 
-    valid_tile_ids = africa_tile_ids()
     if tile_id not in valid_tile_ids:
         print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
         return False
@@ -230,10 +231,11 @@ def copy_s3_objects(ti, **kwargs):
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
     messages = get_messages(queue, visibility_timeout=600)
+    valid_tile_ids = africa_tile_ids()
 
     for message in messages:
         try:
-            if not is_valid_tile_id(message):
+            if not is_valid_tile_id(message, valid_tile_ids):
                 message.delete()
                 continue
             start_transfer(message)
@@ -289,7 +291,7 @@ def terminate(ti, **kwargs):
 
 
 with DAG(
-    "sentinel-2_data_transfer",
+    "sentinel-2_data_transfer_M",
     default_args=default_args,
     schedule_interval=default_args["schedule_interval"],
     tags=["Sentinel-2", "transfer"],
