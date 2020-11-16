@@ -8,9 +8,6 @@ arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 import json
 import boto3
 import re
-import itertools
-import csv
-import os
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -26,6 +23,8 @@ from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
 default_args = {
+    "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
+    "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
     "owner": "Airflow",
     "start_date": datetime(2020, 6, 12),
     "email": ["toktam.ebadi@ga.gov.au"],
@@ -37,7 +36,7 @@ default_args = {
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-data-dev",
     "src_bucket_name": "sentinel-cogs",
-    "schedule_interval": "@once",
+    "schedule_interval": "0 */1 * * *",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
     "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
 }
@@ -105,33 +104,32 @@ def publish_to_sns_topic(message):
     """
 
     body = json.loads(message.body)
+    attributes = body.get("MessageAttributes", {})
+    # attributes["product"] = attributes.pop("collection")
+    # attributes["product"] = "s2_l2a"
 
-    # TODO: We need to change attributes, like 'collection'
-    attributes = body.get("MessageAttributes", "")
     metadata = json.loads(body.get("Message"))
-    metadata = json.dumps(metadata)
+    metadata_str = json.dumps(metadata)
 
     sns_hook = AwsSnsHook(aws_conn_id=dag.default_args["africa_conn_id"])
 
-    # Why is this a string?
     "Replace https with s3 uri"
-    metadata = metadata.replace(
+    metadata_str = metadata_str.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
     )
     response = sns_hook.publish_to_target(
         target_arn=default_args["sentinel2_topic_arn"],
-        message=metadata,
+        message=metadata_str,
         message_attributes=attributes,
     )
 
 
-# TODO: We don't need to do args here. Just use normal function arguments
-def write_scene(args):
+def write_scene(src_key):
     """
     Write a file to destination bucket
     param message: key to write
     """
-    src_key = args[0]
+    src_key = src_key
     s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     s3_hook.copy_object(
         source_bucket_key=src_key,
@@ -142,10 +140,11 @@ def write_scene(args):
     return "Done"
 
 
-def start_transfer(message, valid_tile_ids):
+def start_transfer(message):
     """
     Transfer a scene from source to destination bucket
     """
+
     body = json.loads(message.body)
     metadata = json.loads(body["Message"])
     tile_id = metadata["id"].split("_")[1]
@@ -153,41 +152,29 @@ def start_transfer(message, valid_tile_ids):
     s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
 
-    # TODO: if X not in LIST is clearer syntax
-    if not tile_id in valid_tile_ids:
-        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
-        # Reckon we should do this test in the function outside here.
-        message.delete()
-
-    # Extract URL of the json file
-    urls = [metadata["links"][0]["href"]]
-    # TODO: Can we use the 'canonical' link, and not just assume the first one is the
-    # one we want. Default to 'self' if there's no canonical.
-    print(f"Copying {Path(urls[0]).parent}")
-    # Add URL of .tif files
-    urls.extend(
-        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+    s3_filepath = (
+        metadata.get("links")[1]["href"]
+        if metadata.get("links")[1].get("rel") == "canonical"
+        else metadata["links"][0]["href"]
     )
 
-    # TODO: Path to a string to replace to... can we make this simpler and cleaner?
-    s3_filepath = str(Path(urls[0]))
-    if "s3:/" in s3_filepath:
-        key = s3_filepath.replace(f"s3:/{default_args['src_bucket_name']}/", "").split(
-            "/", 0
-        )[0]
-    else:
-        key = s3_filepath.replace(
-            f"https:/{default_args['src_bucket_name']}.s3.us-west-2.amazonaws.com/",
-            "",
-        ).split("/", 0)[0]
+    # Check file exists
+    key = extract_src_key(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(
         key, bucket_name=default_args["src_bucket_name"]
     )
     if not key_exists:
-        print(f"{key} does not exist in the {default_args['src_bucket_name']} bucket")
-        # TODO: Let's not actively delete messages except for the tile_id exclusion
-        # Just raise an exception here, no print statement
-        message.delete()
+        raise ValueError(
+            f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
+        )
+
+    urls = [s3_filepath]
+
+    print(f"Copying {Path(s3_filepath).parent}")
+    # Add URL of .tif files
+    urls.extend(
+        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+    )
 
     # Check that all bands and STAC exist
     if len(urls) != 18:
@@ -215,11 +202,22 @@ def start_transfer(message, valid_tile_ids):
             try:
                 result = future.result()
             except Exception as exc:
-                # TODO: What happens when we do this?
-                # Really we're catching an exception to raise an exception...
                 raise ValueError(f"{scene_to_copy} failed to copy")
             else:
-                print(f"Task {scene_to_copy} succeded with {result}")
+                print(f"Task {scene_to_copy} succeeded with {result}")
+
+
+def is_valid_tile_id(message):
+
+    body = json.loads(message.body)
+    metadata = json.loads(body["Message"])
+    tile_id = metadata["id"].split("_")[1]
+
+    valid_tile_ids = africa_tile_ids()
+    if tile_id not in valid_tile_ids:
+        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
+        return False
+    return True
 
 
 def copy_s3_objects(ti, **kwargs):
@@ -234,11 +232,13 @@ def copy_s3_objects(ti, **kwargs):
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
     messages = get_messages(queue, visibility_timeout=600)
-    valid_tile_ids = africa_tile_ids()
+
     for message in messages:
         try:
-            # TODO: Check for valid tile and delete the message here.
-            start_transfer(message, valid_tile_ids)
+            if not is_valid_tile_id(message):
+                message.delete()
+                continue
+            start_transfer(message)
             publish_to_sns_topic(message)
             message.delete()
             successful += 1
@@ -262,13 +262,10 @@ def trigger_sensor(ti, **kwargs):
     sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
+    queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
+    print("Queue size:", queue_size)
 
-    # TODO: Change this to 'get approx messages' so we're not wasting a retry :-) 
-    messages = get_messages(queue, visibility_timeout=600)
-    messages = list(itertools.islice(messages, 1))
-    if len(messages) > 0:
-        return "run_tasks"
-    if messages:
+    if queue_size > 0:
         return "run_tasks"
     else:
         return "no_messages__end"
