@@ -103,8 +103,8 @@ def publish_to_sns_topic(message):
 
     body = json.loads(message.body)
     attributes = body.get("MessageAttributes", {})
-    # attributes["product"] = attributes.pop("collection")
-    # attributes["product"] = "s2_l2a"
+    attributes["product"] = attributes.pop("collection")
+    attributes["product"] = "s2_l2a"
 
     metadata = json.loads(body.get("Message"))
     metadata_str = json.dumps(metadata)
