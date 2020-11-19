@@ -27,7 +27,7 @@ default_args = {
     "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
     "report_bucket": "deafrica-sentinel-2",
     "schedule_interval": "@once",
-    "us_conn_id": "deafrica-migration_us",
+    "us_conn_id": "prod-eks-s2-data-transfer",
     "africa_conn_id": "deafrica-prod-migration",
     "src_bucket_name": "sentinel-cogs",
     "queue_name": "deafrica-prod-eks-sentinel-2-data-transfer",
@@ -118,17 +118,19 @@ def publish_messages(messages):
     param message: list of messages
     """
 
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args["africa_conn_id"])
+    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("queue_name"))
     queue.send_messages(Entries=messages)
+
+    return []
 
 
 def get_contents_and_attributes(hook, s3_filepath):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
     contents = hook.read_key(key=key, bucket_name=default_args["src_bucket_name"])
-    contents = json.loads(contents)
-    attributes = get_common_message_attributes(contents)
+    contents_dict = json.loads(contents)
+    attributes = get_common_message_attributes(contents_dict)
     return contents, attributes
 
 
@@ -157,15 +159,11 @@ def prepare_and_send_messages():
 
         messages.append(message)
         counter += 1
-        if counter == 10:
-            publish_messages(messages)
-            counter = 0
-            messages = []
+        if counter % 10 == 0:
+            messages = publish_messages(messages)
     # Post the remaining messages
     if messages:
-        publish_messages(messages)
-
-    print("f{failed} files no longer exist")
+        messages = publish_messages(messages)
 
 
 with DAG(
