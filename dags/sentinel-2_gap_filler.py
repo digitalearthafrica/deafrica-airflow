@@ -16,6 +16,9 @@ from airflow.operators.python_operator import PythonOperator
 
 from utils.inventory import s3
 
+OFFSET = 824
+LIMIT = 1224
+
 default_args = {
     "owner": "Airflow",
     "start_date": datetime(2020, 7, 24),
@@ -138,18 +141,23 @@ def prepare_and_send_messages():
 
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
-    files = get_missing_stac_files(0, 2)
+    files = get_missing_stac_files(OFFSET, LIMIT)
 
     counter = 0
     messages = []
     # counter for files that no longet exist
     failed = 0
     for s3_path in files:
+        s = time.time()
         key_exists = hook.check_for_key(s3_path)
+        print(f" Took {time.time()-s} to check scene exists")
         if not key_exists:
             failed += 1
-            raise ValueError(f"{s3_path} does not exist")
+            print(f"{s3_path} does not exist")
+
+        s = time.time()
         contents, attributes = get_contents_and_attributes(hook, s3_path)
+        print(f" Took {time.time()-s} to load file")
         message = {
             "Id": str(counter),
             "MessageBody": json.dumps(
@@ -160,10 +168,14 @@ def prepare_and_send_messages():
         messages.append(message)
         counter += 1
         if counter % 10 == 0:
+            s = time.time()
             messages = publish_messages(messages)
+            print(f" Took {time.time()-s} to publish messages")
     # Post the remaining messages
     if messages:
         messages = publish_messages(messages)
+
+    print(f"{failed} files did not exist in the source bucket")
 
 
 with DAG(
