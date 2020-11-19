@@ -80,7 +80,7 @@ def generate_buckets_diff():
             if key in source_keys:
                 source_keys.remove(key)
 
-    missing_scenes = [f"{default_args['src_bucket_name']}/{key}" for key in source_keys]
+    missing_scenes = [f"s3://sentinel-cogs/{key}" for key in source_keys]
 
     output_filename = datetime.today().isoformat() + ".txt"
     reporting_bucket = default_args["reporting_bucket"]
