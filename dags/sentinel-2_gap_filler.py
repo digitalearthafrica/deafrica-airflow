@@ -1,3 +1,13 @@
+"""
+# Republish STAC SQS messages from a report of missing S3 objects
+
+This DAG is intended to be run manually, and must be passed a configuration JSON object
+specifying `offset` and `limit` line numbers of the report.
+
+Eg:
+```json
+{"offset": 824, "limit": 1224}
+"""
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -146,10 +156,10 @@ def prepare_message(hook, s3_path):
     return message
 
 
-def prepare_and_send_messages():
+def prepare_and_send_messages(dag_run, **kwargs):
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
-    files = get_missing_stac_files(OFFSET, LIMIT)
+    files = get_missing_stac_files(dag_run.conf['offset'], dag_run.conf['limit'])
 
     max_workers = 10
     # counter for files that no longer exist
@@ -164,6 +174,7 @@ def prepare_and_send_messages():
             try:
                 batch.append(future.result())
                 if len(batch) == 10:
+                    executor.submit(publish_messages, batch)
                     publish_messages(batch)
                     batch = []
             except Exception as exc:
@@ -182,8 +193,10 @@ with DAG(
         schedule_interval=default_args["schedule_interval"],
         tags=["Sentinel-2", "gap-fill"],
         catchup=False,
+        doc_md=__doc__,
 ) as dag:
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
+        provide_context=True
     )
