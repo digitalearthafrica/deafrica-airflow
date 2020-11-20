@@ -2,11 +2,12 @@
 # Republish STAC SQS messages from a report of missing S3 objects
 
 This DAG is intended to be run manually, and must be passed a configuration JSON object
-specifying `offset` and `limit` line numbers of the report.
+specifying `offset`, `limit` line numbers of the report and `s3_report_path` specifying
+the path to the gap report file.
 
 Eg:
 ```json
-{"offset": 824, "limit": 1224}
+{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt"}
 """
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -18,9 +19,9 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
-OFFSET = 824
-LIMIT = 1224
-REPORT_BUCKET = "deafrica-sentinel-2"
+SRC_BUCKET_NAME = "sentinel-cogs"
+QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
+PRODUCT_NAME = "s2_l2a"
 
 default_args = {
     "owner": "Airflow",
@@ -29,14 +30,9 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
-    "report_bucket": "deafrica-sentinel-2",
     "schedule_interval": "@once",
     "us_conn_id": "prod-eks-s2-data-transfer",
     "africa_conn_id": "deafrica-prod-migration",
-    "src_bucket_name": "sentinel-cogs",
-    "queue_name": "deafrica-prod-eks-sentinel-2-data-transfer",
-    "product_name": "s2_l2a",
 }
 
 
@@ -47,7 +43,7 @@ def get_common_message_attributes(stac_doc: Dict) -> Dict:
     :return: common message attributes dict
     """
     msg_attributes = {}
-    product = default_args["product_name"]
+    product = PRODUCT_NAME
     msg_attributes["product"] = {
         "DataType": "String",
         "StringValue": product,
@@ -96,20 +92,20 @@ def get_common_message_attributes(stac_doc: Dict) -> Dict:
     return msg_attributes
 
 
-def get_missing_stac_files(offset=0, limit=None):
+def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     """
     read the gap report
     """
 
     hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
-    bucket_name, key = hook.parse_s3_url(default_args["s3_report_path"])
-    print(f"Reading the gap report took {default_args['s3_report_path']} Seconds")
+    bucket_name, key = hook.parse_s3_url(s3_report_path)
+    print(f"Reading the gap report took {s3_report_path} Seconds")
 
     # ToDo: changing the bucket name was due to a bug. Remove this when new data is available.
     files = (
         hook.read_key(key=key, bucket_name=bucket_name)
-            .replace("sentinel-cogs-inventory", f"{default_args['src_bucket_name']}")
-            .splitlines()
+        .replace("sentinel-cogs-inventory", f"{SRC_BUCKET_NAME}")
+        .splitlines()
     )
 
     for f in files[offset:limit]:
@@ -123,16 +119,16 @@ def publish_messages(messages):
     """
 
     for num, message in enumerate(messages):
-        message['Id'] = str(num)
+        message["Id"] = str(num)
     sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=default_args.get("queue_name"))
+    queue = sqs.get_queue_by_name(QueueName=QUEUE_NAME)
     queue.send_messages(Entries=messages)
 
 
 def get_contents_and_attributes(hook, s3_filepath):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
-    contents = hook.read_key(key=key, bucket_name=default_args["src_bucket_name"])
+    contents = hook.read_key(key=key, bucket_name=SRC_BUCKET_NAME)
     contents_dict = json.loads(contents)
     attributes = get_common_message_attributes(contents_dict)
     return contents, attributes
@@ -159,7 +155,9 @@ def prepare_message(hook, s3_path):
 def prepare_and_send_messages(dag_run, **kwargs):
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
-    files = get_missing_stac_files(dag_run.conf['offset'], dag_run.conf['limit'])
+    files = get_missing_stac_files(
+        dag_run.conf["s3_report_path"], dag_run.conf["offset"], dag_run.conf["limit"]
+    )
 
     max_workers = 10
     # counter for files that no longer exist
@@ -188,15 +186,15 @@ def prepare_and_send_messages(dag_run, **kwargs):
 
 
 with DAG(
-        "sentinel-2-gap-fill",
-        default_args=default_args,
-        schedule_interval=default_args["schedule_interval"],
-        tags=["Sentinel-2", "gap-fill"],
-        catchup=False,
-        doc_md=__doc__,
+    "sentinel-2-gap-fill",
+    default_args=default_args,
+    schedule_interval=default_args["schedule_interval"],
+    tags=["Sentinel-2", "gap-fill"],
+    catchup=False,
+    doc_md=__doc__,
 ) as dag:
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
-        provide_context=True
+        provide_context=True,
     )
