@@ -101,10 +101,8 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     bucket_name, key = hook.parse_s3_url(s3_report_path)
     print(f"Reading the gap report took {s3_report_path} Seconds")
 
-    # ToDo: changing the bucket name was due to a bug. Remove this when new data is available.
     files = (
         hook.read_key(key=key, bucket_name=bucket_name)
-        .replace("sentinel-cogs-inventory", f"{SRC_BUCKET_NAME}")
         .splitlines()
     )
 
@@ -155,6 +153,7 @@ def prepare_message(hook, s3_path):
 def prepare_and_send_messages(dag_run, **kwargs):
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
+    print(f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from dag_run.conf["s3_report_path"]")
     files = get_missing_stac_files(
         dag_run.conf["s3_report_path"], dag_run.conf["offset"], dag_run.conf["limit"]
     )
