@@ -1,23 +1,16 @@
-import csv
 import json
-import sys
-import time
-import boto3
-from datetime import datetime
-from pathlib import Path
-from typing import Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+from typing import Dict
 
-from airflow import DAG, configuration
-from airflow.hooks.S3_hook import S3Hook
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
+from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
-
-from utils.inventory import s3
 
 OFFSET = 824
 LIMIT = 1224
+REPORT_BUCKET = "deafrica-sentinel-2"
 
 default_args = {
     "owner": "Airflow",
@@ -105,8 +98,8 @@ def get_missing_stac_files(offset=0, limit=None):
     # ToDo: changing the bucket name was due to a bug. Remove this when new data is available.
     files = (
         hook.read_key(key=key, bucket_name=bucket_name)
-        .replace("sentinel-cogs-inventory", f"{default_args['src_bucket_name']}")
-        .splitlines()
+            .replace("sentinel-cogs-inventory", f"{default_args['src_bucket_name']}")
+            .splitlines()
     )
 
     for f in files[offset:limit]:
@@ -119,11 +112,12 @@ def publish_messages(messages):
     param message: list of messages
     """
 
+    for num, message in enumerate(messages):
+        message['Id'] = str(num)
     sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("queue_name"))
     queue.send_messages(Entries=messages)
-    return []
 
 
 def get_contents_and_attributes(hook, s3_filepath):
@@ -134,7 +128,7 @@ def get_contents_and_attributes(hook, s3_filepath):
     return contents, attributes
 
 
-def prepare_message(hook, s3_path, uid):
+def prepare_message(hook, s3_path):
     """
     Prepare a single message for each stac file
     """
@@ -145,7 +139,6 @@ def prepare_message(hook, s3_path, uid):
 
     contents, attributes = get_contents_and_attributes(hook, s3_path)
     message = {
-        "Id": str(uid),
         "MessageBody": json.dumps(
             {"Message": contents, "MessageAttributes": attributes}
         ),
@@ -154,62 +147,43 @@ def prepare_message(hook, s3_path, uid):
 
 
 def prepare_and_send_messages():
-
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
     files = get_missing_stac_files(OFFSET, LIMIT)
 
     max_workers = 10
-    counter = 0
-    to_process = []
-    messages = []
     # counter for files that no longer exist
     failed = 0
 
-    for s3_path in files:
-        to_process.append(s3_path)
+    batch = []
 
-        if len(to_process) == 10:
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(prepare_message, hook, s3_path) for s3_path in files]
 
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                uids = [
-                    x
-                    for x in range(
-                        max_workers * counter, max_workers * counter + max_workers
-                    )
-                ]
-                task = [
-                    executor.submit(prepare_message, hook, key, uid)
-                    for key, uid in zip(to_process, uids)
-                ]
+        for future in as_completed(futures):
+            try:
+                batch.append(future.result())
+                if len(batch) == 10:
+                    publish_messages(batch)
+                    batch = []
+            except Exception as exc:
+                failed += 1
+                print(f"File no longer exists: {exc}")
 
-                for future in as_completed(task):
-                    try:
-                        result = future.result()
-                    except Exception as exc:
-                        failed += 1
-                    else:
-                        messages.append(result)
-
-            if len(messages) > 0:
-                messages = publish_messages(messages)
-                to_process = []
-                counter += 1
+    if len(batch) > 0:
+        publish_messages(batch)
 
     print(f"Total of {failed} files failed")
 
 
 with DAG(
-    "sentinel-2-gap-fill",
-    default_args=default_args,
-    schedule_interval=default_args["schedule_interval"],
-    tags=["Sentinel-2", "gap-fill"],
-    catchup=False,
+        "sentinel-2-gap-fill",
+        default_args=default_args,
+        schedule_interval=default_args["schedule_interval"],
+        tags=["Sentinel-2", "gap-fill"],
+        catchup=False,
 ) as dag:
-
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
     )
-
-    PUBLISH_MESSAGES_FOR_MISSING_SCENES
