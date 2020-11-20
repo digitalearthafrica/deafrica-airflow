@@ -102,6 +102,7 @@ def get_missing_stac_files(offset=0, limit=None):
     bucket_name, key = hook.parse_s3_url(default_args["s3_report_path"])
     print(f"Reading the gap report took {default_args['s3_report_path']} Seconds")
 
+    # ToDo: changing the bucket name was due to a bug. Remove this when new data is available.
     files = (
         hook.read_key(key=key, bucket_name=bucket_name)
         .replace("sentinel-cogs-inventory", f"{default_args['src_bucket_name']}")
