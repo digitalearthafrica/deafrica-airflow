@@ -26,7 +26,7 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    # "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
+    "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
     "report_bucket": "deafrica-sentinel-2",
     "schedule_interval": "@once",
     "us_conn_id": "prod-eks-s2-data-transfer",
