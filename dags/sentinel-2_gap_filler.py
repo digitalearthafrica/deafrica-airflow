@@ -109,7 +109,6 @@ def get_missing_stac_files(offset=0, limit=None):
         .splitlines()
     )
 
-    print(f"Read took {time.time()-s} seconds")
     for f in files[offset:limit]:
         yield f
 
