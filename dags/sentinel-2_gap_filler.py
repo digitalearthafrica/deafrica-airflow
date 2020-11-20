@@ -6,7 +6,7 @@ import boto3
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from airflow import DAG, configuration
 from airflow.hooks.S3_hook import S3Hook
@@ -24,10 +24,9 @@ default_args = {
     "start_date": datetime(2020, 7, 24),
     "email": ["toktam.ebadi@ga.gov.au"],
     "email_on_failure": True,
-    "email_on_success": True,
     "email_on_retry": False,
     "retries": 0,
-    "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
+    # "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt",
     "report_bucket": "deafrica-sentinel-2",
     "schedule_interval": "@once",
     "us_conn_id": "prod-eks-s2-data-transfer",
@@ -101,9 +100,8 @@ def get_missing_stac_files(offset=0, limit=None):
 
     hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     bucket_name, key = hook.parse_s3_url(default_args["s3_report_path"])
-    print(f"Reading  {default_args['s3_report_path']}")
+    print(f"Reading the gap report took {default_args['s3_report_path']} Seconds")
 
-    s = time.time()
     files = (
         hook.read_key(key=key, bucket_name=bucket_name)
         .replace("sentinel-cogs-inventory", f"{default_args['src_bucket_name']}")
@@ -125,7 +123,6 @@ def publish_messages(messages):
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=default_args.get("queue_name"))
     queue.send_messages(Entries=messages)
-
     return []
 
 
@@ -137,45 +134,69 @@ def get_contents_and_attributes(hook, s3_filepath):
     return contents, attributes
 
 
+def prepare_message(hook, s3_path, uid):
+    """
+    Prepare a single message for each stac file
+    """
+
+    key_exists = hook.check_for_key(s3_path)
+    if not key_exists:
+        raise ValueError(f"{s3_path} does not exist")
+
+    contents, attributes = get_contents_and_attributes(hook, s3_path)
+    message = {
+        "Id": str(uid),
+        "MessageBody": json.dumps(
+            {"Message": contents, "MessageAttributes": attributes}
+        ),
+    }
+    return message
+
+
 def prepare_and_send_messages():
 
     hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
     # Read the missing stac files from the gap report file
     files = get_missing_stac_files(OFFSET, LIMIT)
 
+    max_workers = 10
     counter = 0
+    to_process = []
     messages = []
-    # counter for files that no longet exist
+    # counter for files that no longer exist
     failed = 0
+
     for s3_path in files:
-        s = time.time()
-        key_exists = hook.check_for_key(s3_path)
-        print(f" Took {time.time()-s} to check scene exists")
-        if not key_exists:
-            failed += 1
-            print(f"{s3_path} does not exist")
+        to_process.append(s3_path)
 
-        s = time.time()
-        contents, attributes = get_contents_and_attributes(hook, s3_path)
-        print(f" Took {time.time()-s} to load file")
-        message = {
-            "Id": str(counter),
-            "MessageBody": json.dumps(
-                {"Message": contents, "MessageAttributes": attributes}
-            ),
-        }
+        if len(to_process) == 10:
 
-        messages.append(message)
-        counter += 1
-        if counter % 10 == 0:
-            s = time.time()
-            messages = publish_messages(messages)
-            print(f" Took {time.time()-s} to publish messages")
-    # Post the remaining messages
-    if messages:
-        messages = publish_messages(messages)
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                uids = [
+                    x
+                    for x in range(
+                        max_workers * counter, max_workers * counter + max_workers
+                    )
+                ]
+                task = [
+                    executor.submit(prepare_message, hook, key, uid)
+                    for key, uid in zip(to_process, uids)
+                ]
 
-    print(f"{failed} files did not exist in the source bucket")
+                for future in as_completed(task):
+                    try:
+                        result = future.result()
+                    except Exception as exc:
+                        failed += 1
+                    else:
+                        messages.append(result)
+
+            if len(messages) > 0:
+                messages = publish_messages(messages)
+                to_process = []
+                counter += 1
+
+    print(f"Total of {failed} files failed")
 
 
 with DAG(
