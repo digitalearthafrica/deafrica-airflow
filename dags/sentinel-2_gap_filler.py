@@ -104,7 +104,7 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     files = hook.read_key(key=key, bucket_name=bucket_name).splitlines()
 
     for f in files[offset:limit]:
-        yield f
+        yield f.strip()
 
 
 def publish_messages(messages):
