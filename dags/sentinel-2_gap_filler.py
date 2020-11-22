@@ -99,7 +99,7 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
 
     hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
     bucket_name, key = hook.parse_s3_url(s3_report_path)
-    print(f"Reading the gap report took {s3_report_path} Seconds")
+    print(f"Reading the gap report {s3_report_path}")
 
     files = hook.read_key(key=key, bucket_name=bucket_name).splitlines()
 
