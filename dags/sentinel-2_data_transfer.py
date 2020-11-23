@@ -33,7 +33,7 @@ default_args = {
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
-    "dag_concurrency": 32,
+    "concurrency": 32,
     "schedule_interval": "0 */1 * * *",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
     "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
@@ -276,7 +276,7 @@ def terminate(ti, **kwargs):
     successful_msg_counts = 0
     failed_msg_counts = 0
 
-    for idx in range(0, default_args["dag_concurrency"]):
+    for idx in range(0, default_args["concurrency"]):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
@@ -292,6 +292,7 @@ with DAG(
     default_args=default_args,
     schedule_interval=default_args["schedule_interval"],
     tags=["Sentinel-2", "transfer"],
+    concurrency=default_args["concurrency"],
     catchup=False,
 ) as dag:
 
@@ -309,13 +310,14 @@ with DAG(
 
     RUN_TASKS = DummyOperator(task_id="run_tasks")
 
-    for idx in range(0, default_args["dag_concurrency"]):
+    for idx in range(0, default_args["concurrency"]):
         COPY_OBJECTS = PythonOperator(
             task_id=f"data_transfer_{idx}",
             provide_context=True,
             retries=1,
             execution_timeout=timedelta(hours=20),
             python_callable=copy_s3_objects,
+            task_concurrency=default_args["concurrency"],
             dag=dag,
         )
         BRANCH_OPT >> [RUN_TASKS, END_DAG]
