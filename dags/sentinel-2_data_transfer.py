@@ -316,6 +316,7 @@ with DAG(
             retries=1,
             execution_timeout=timedelta(hours=20),
             python_callable=copy_s3_objects,
+            dag=dag,
         )
         BRANCH_OPT >> [RUN_TASKS, END_DAG]
         RUN_TASKS >> COPY_OBJECTS >> TERMINATE_DAG
