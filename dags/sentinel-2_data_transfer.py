@@ -29,7 +29,7 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "num_workers": 15,
+    "num_workers": 32,
     "africa_conn_id": "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
