@@ -170,7 +170,6 @@ def prepare_and_send_messages(dag_run, **kwargs):
             try:
                 batch.append(future.result())
                 if len(batch) == 10:
-                    executor.submit(publish_messages, batch)
                     publish_messages(batch)
                     batch = []
             except Exception as exc:
