@@ -29,11 +29,11 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "num_workers": 32,
     "africa_conn_id": "deafrica-prod-migration",
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
+    "concurrency": 32,
     "schedule_interval": "0 */1 * * *",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
     "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
@@ -276,7 +276,7 @@ def terminate(ti, **kwargs):
     successful_msg_counts = 0
     failed_msg_counts = 0
 
-    for idx in range(0, default_args["num_workers"]):
+    for idx in range(0, default_args["concurrency"]):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
@@ -309,7 +309,7 @@ with DAG(
 
     RUN_TASKS = DummyOperator(task_id="run_tasks")
 
-    for idx in range(0, default_args["num_workers"]):
+    for idx in range(0, default_args["concurrency"]):
         COPY_OBJECTS = PythonOperator(
             task_id=f"data_transfer_{idx}",
             provide_context=True,
