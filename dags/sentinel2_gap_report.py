@@ -2,7 +2,7 @@
 # Generate a gap report between sentinel-cogs and deafica-sentinel-2 buckets
 
 This DAG runs once a month and creates a gap report in the folowing location:
-s3://deafrica-sentinel-2/monthly-status-report
+s3://deafrica-sentinel-2/status-report
 """
 
 import csv
@@ -17,6 +17,7 @@ import pandas as pd
 from airflow import DAG, configuration
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.email_operator import EmailOperator
 
 from utils.inventory import s3
 
@@ -35,15 +36,15 @@ default_args = {
     "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
     "src_bucket_name": "s3://sentinel-cogs-inventory",
     "reporting_bucket": "s3://deafrica-sentinel-2",
-    "reporting_prefix": "monthly-status-report/",
-    "schedule_interval": "@monthly",
+    "reporting_prefix": "status-report/",
+    "schedule_interval": "@weekly",
 }
 
 
 def generate_buckets_diff():
     """
     Compare Sentinel-2 buckets in US and Africa and detect differences
-    A report containing missing keys will be written to s3://deafrica-sentinel-2/monthly-status-report
+    A report containing missing keys will be written to s3://deafrica-sentinel-2/status-report
     """
     url_source = default_args["src_bucket_name"]
     url_destination = default_args["dest_bucket_name"]
@@ -93,6 +94,9 @@ def generate_buckets_diff():
     )
     print(f"Wrote inventory to: {default_args['reporting_bucket']}/{key}")
 
+    if len(missing_scenes) > 0:
+        return "notify"
+
 
 with DAG(
     "sentinel-2_gap_detection",
@@ -106,4 +110,12 @@ with DAG(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
 
-    READ_INVENTORIES
+    NOTIFY = EmailOperator(
+        task_id="send_email",
+        to=["toktam.ebadi@ga.gov.au", "alex.Leith@ga.gov.au"],
+        subject="deafrica-sentinel-2 has missing scenes",
+        html_content=""" <h3>See the latest report under s3://deafrica-sentinel-2/status-report</h3> """,
+        dag=dag,
+    )
+
+    READ_INVENTORIES >> [NOTIFY]
