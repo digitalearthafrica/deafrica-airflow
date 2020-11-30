@@ -18,6 +18,7 @@ from airflow import DAG, configuration
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.email_operator import EmailOperator
+from airflow import DAG, AirflowException
 
 from utils.inventory import s3
 
@@ -90,11 +91,6 @@ def generate_buckets_diff():
     reporting_bucket = default_args["reporting_bucket"]
     key = default_args["reporting_prefix"] + output_filename
 
-    print(
-        f"{len(missing_scenes)} scenes are missing from {reporting_bucket}, \
-        and {len(orphaned_keys)} scenes no longer exist in s3://sentinel-cogs"
-    )
-
     s3_report = s3(reporting_bucket, default_args["africa_conn_id"], "af-south-1")
     s3_report.s3.put_object(
         Bucket=s3_report.bucket, Key=key, Body="\n".join(missing_scenes)
@@ -109,8 +105,12 @@ def generate_buckets_diff():
         )
         print(f"Wrote orphaned scenes to: {default_args['reporting_bucket']}/{key}")
 
+    message = f"{len(missing_scenes)} scenes are missing from {reporting_bucket} and \
+                {len(orphaned_keys)} scenes no longer exist in s3://sentinel-cogs"
+    print(message)
+
     if len(missing_scenes) > 0 or len(orphaned_keys) > 0:
-        return "notify"
+        raise AirflowException(message)
 
 
 with DAG(
@@ -125,12 +125,4 @@ with DAG(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
 
-    NOTIFY = EmailOperator(
-        task_id="send_email",
-        to=["toktam.ebadi@ga.gov.au", "alex.Leith@ga.gov.au"],
-        subject="deafrica-sentinel-2 has missing/orphaned scenes",
-        html_content=""" <h3>See the latest report(s) under s3://deafrica-sentinel-2/status-report</h3> """,
-        dag=dag,
-    )
-
-    READ_INVENTORIES >> [NOTIFY]
+    READ_INVENTORIES
