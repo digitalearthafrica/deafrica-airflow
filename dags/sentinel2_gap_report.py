@@ -128,7 +128,7 @@ with DAG(
     NOTIFY = EmailOperator(
         task_id="send_email",
         to=["toktam.ebadi@ga.gov.au", "alex.Leith@ga.gov.au"],
-        subject="deafrica-sentinel-2 has missing/orphaned scenes",
+        subject="deafrica-sentinel-2 has missing or orphaned scenes",
         html_content=""" <h3>See the latest report(s) under s3://deafrica-sentinel-2/status-report</h3> """,
         dag=dag,
     )
