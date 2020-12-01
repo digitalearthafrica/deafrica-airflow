@@ -124,5 +124,5 @@ with DAG(
     READ_INVENTORIES = PythonOperator(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
-
+              
     READ_INVENTORIES
