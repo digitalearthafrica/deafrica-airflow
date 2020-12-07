@@ -64,7 +64,7 @@ EXPLORER_SECRETS = [
 
 INDEXER_IMAGE = "opendatacube/datacube-index:latest"
 OWS_IMAGE = "opendatacube/ows:1.8.1"
-EXPLORER_IMAGE = "opendatacube/explorer:2.1.11-159-g0a1e022"
+EXPLORER_IMAGE = "opendatacube/explorer:2.2.3"
 
 OWS_BASH_COMMAND = [
     "bash",
