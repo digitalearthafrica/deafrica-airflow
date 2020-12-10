@@ -25,7 +25,7 @@ from utils.inventory import s3
 default_args = {
     "owner": "Airflow",
     "start_date": datetime(2020, 7, 24),
-    "email": ["toktam.ebadi@ga.gov.au"],
+    "email": ["toktam.ebadi@ga.gov.au", "alex.leith@ga.gov.au"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,
@@ -124,5 +124,5 @@ with DAG(
     READ_INVENTORIES = PythonOperator(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
-              
+
     READ_INVENTORIES
