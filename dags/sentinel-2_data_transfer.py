@@ -33,7 +33,7 @@ default_args = {
     "us_conn_id": "deafrica-migration_us",
     "dest_bucket_name": "deafrica-sentinel-2",
     "src_bucket_name": "sentinel-cogs",
-    "concurrency": 32,
+    "concurrency": 16,
     "schedule_interval": "0 */1 * * *",
     "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
     "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
