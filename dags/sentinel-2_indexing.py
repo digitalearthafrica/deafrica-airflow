@@ -63,7 +63,7 @@ EXPLORER_SECRETS = [
 ]
 
 INDEXER_IMAGE = "opendatacube/datacube-index:latest"
-OWS_IMAGE = "opendatacube/ows:1.8.3"
+OWS_IMAGE = "opendatacube/ows:1.8.2"
 EXPLORER_IMAGE = "opendatacube/explorer:2.4.0"
 
 affinity = {
