@@ -72,9 +72,30 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.11"
+
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 OWS_IMAGE = "opendatacube/ows:1.8.2"
-EXPLORER_IMAGE = "opendatacube/explorer:2.2.1"
+EXPLORER_IMAGE = "opendatacube/explorer:2.2.3"
+
+affinity = {
+    "nodeAffinity": {
+        "requiredDuringSchedulingIgnoredDuringExecution": {
+            "nodeSelectorTerms": [
+                {
+                    "matchExpressions": [
+                        {
+                            "key": "nodetype",
+                            "operator": "In",
+                            "values": [
+                                "ondemand",
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
 
 OWS_BASH_COMMAND = [
     "bash",
@@ -114,6 +135,7 @@ with dag:
         name="datacube-index",
         task_id="indexing-task",
         get_logs=True,
+        affinity=affinity,
         is_delete_operator_pod=True,
     )
 
@@ -126,6 +148,7 @@ with dag:
         name="ows-update-extents",
         task_id="ows-update-extents",
         get_logs=True,
+        affinity=affinity,
         is_delete_operator_pod=True,
     )
 
@@ -144,6 +167,7 @@ with dag:
         name="explorer-summary",
         task_id="explorer-summary-task",
         get_logs=True,
+        affinity=affinity,
         is_delete_operator_pod=True,
     )
 
