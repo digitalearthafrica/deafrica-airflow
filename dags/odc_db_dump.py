@@ -74,11 +74,11 @@ DUMP_TO_S3_COMMAND = [
     "-c",
     dedent(
         """
-            pg_dump -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
+            pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
             ls -la | grep {0}
             aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod-af/{0}
         """
-    ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.sql", DB_DUMP_S3_BUCKET),
+    ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
 
 # THE DAG
