@@ -1,3 +1,18 @@
+"""
+# odc database in RDS backup and store to s3
+
+DAG to periodically backup ODC database data.
+
+This DAG uses k8s executors and in cluster with relevant tooling
+and configuration installed.
+"""
+from datetime import date, datetime, timedelta
+
+from airflow import DAG
+from airflow.kubernetes.secret import Secret
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
+from textwrap import dedent
+
 from airflow.models import Variable
 
 DB_DUMP_S3_ROLE = Variable.get("db_dump_s3_role", "deafrica-prod-af-eks-db-dump-to-s3")
@@ -24,21 +39,6 @@ NODE_AFFINITY = {
         }
     }
 }
-
-"""
-# odc database in RDS backup and store to s3
-
-DAG to periodically backup ODC database data.
-
-This DAG uses k8s executors and in cluster with relevant tooling
-and configuration installed.
-"""
-from datetime import date, datetime, timedelta
-
-from airflow import DAG
-from airflow.kubernetes.secret import Secret
-from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from textwrap import dedent
 
 DAG_NAME = "odc_db_dump_to_s3"
 
