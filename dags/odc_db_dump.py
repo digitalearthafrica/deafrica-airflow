@@ -68,19 +68,6 @@ DEFAULT_ARGS = {
     ],
 }
 
-# TEST_COMMAND = [
-#     "bash",
-#     "-c",
-#     dedent(
-#         """
-#             psql -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) -t -A -F"," -c "select count(*) from cubedash.product;" > output.csv
-#             cat output.csv
-#             aws s3 cp output.csv s3://%s/deafrica-prod-af/
-#         """
-#     )
-#     % (DB_DUMP_S3_BUCKET),
-# ]
-
 
 DUMP_TO_S3_COMMAND = [
     "bash",
@@ -117,15 +104,3 @@ with dag:
         affinity=NODE_AFFINITY,
         is_delete_operator_pod=True,
     )
-    # DB_DUMP_TEST = KubernetesPodOperator(
-    #     namespace="processing",
-    #     image=INDEXER_IMAGE,
-    #     arguments=TEST_COMMAND,
-    #     annotations={"iam.amazonaws.com/role": DB_DUMP_S3_ROLE},
-    #     labels={"step": "ds-arch"},
-    #     name="dump-odc-db",
-    #     task_id="dump-odc-db",
-    #     get_logs=True,
-    #     affinity=NODE_AFFINITY,
-    #     is_delete_operator_pod=True,
-    # )
