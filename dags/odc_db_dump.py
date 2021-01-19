@@ -78,7 +78,7 @@ DUMP_TO_S3_COMMAND = [
             ls -la | grep {0}
             aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod/{0}
         """
-    ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
+    ).format(f"africa_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
 
 # THE DAG
