@@ -76,7 +76,7 @@ DUMP_TO_S3_COMMAND = [
         """
             pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
             ls -la | grep {0}
-            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod/{0}
+            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod/{0} --region af-south-1
         """
     ).format(f"africa_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
