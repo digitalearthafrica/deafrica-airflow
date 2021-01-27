@@ -63,7 +63,7 @@ default_args = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "tutorial",
+    "landsat-scenes-sync",
     default_args=default_args,
     description="A simple tutorial DAG",
     schedule_interval=timedelta(days=1),
@@ -73,6 +73,12 @@ dag = DAG(
 
 with dag:
     START = DummyOperator(task_id="start-tasks")
+
+    ALL_COPIES = []
+    for i in range(10):
+        copy = DummyOperator(task_id=f"copy-tasks-{i}")
+        ALL_COPIES.append(copy)
+
     END = DummyOperator(task_id="end-tasks")
 
-    START >> END
+    START >> ALL_COPIES >> END
