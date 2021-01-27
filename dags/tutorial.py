@@ -37,13 +37,14 @@ from airflow.operators.dummy_operator import DummyOperator
 # These args will get passed on to each operator
 # You can override them on a per-task basis during operator initialization
 default_args = {
-    "owner": "airflow",
+    "owner": "rodrigo.carvalho",
     "depends_on_past": False,
-    "email": ["airflow@example.com"],
+    "email": ["rodrigo.carvalho@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
+    "start_date": datetime(2020, 1, 27)}
     # 'queue': 'bash_queue',
     # 'pool': 'backfill',
     # 'priority_weight': 10,
@@ -73,3 +74,5 @@ dag = DAG(
 with dag:
     START = DummyOperator(task_id="start-tasks")
     END = DummyOperator(task_id="end-tasks")
+
+    START >> END
