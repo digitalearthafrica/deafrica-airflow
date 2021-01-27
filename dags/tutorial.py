@@ -29,8 +29,7 @@ from datetime import timedelta
 from airflow import DAG
 
 # Operators; we need this to operate!
-from airflow.operators.bash import BashOperator
-from airflow.utils.dates import days_ago
+from airflow.operators.dummy_operator import DummyOperator
 
 # [END import_module]
 
@@ -38,13 +37,13 @@ from airflow.utils.dates import days_ago
 # These args will get passed on to each operator
 # You can override them on a per-task basis during operator initialization
 default_args = {
-    'owner': 'airflow',
-    'depends_on_past': False,
-    'email': ['airflow@example.com'],
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 1,
-    'retry_delay': timedelta(minutes=5),
+    "owner": "airflow",
+    "depends_on_past": False,
+    "email": ["airflow@example.com"],
+    "email_on_failure": False,
+    "email_on_retry": False,
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
     # 'queue': 'bash_queue',
     # 'pool': 'backfill',
     # 'priority_weight': 10,
@@ -63,61 +62,14 @@ default_args = {
 
 # [START instantiate_dag]
 dag = DAG(
-    'tutorial',
+    "tutorial",
     default_args=default_args,
-    description='A simple tutorial DAG',
+    description="A simple tutorial DAG",
     schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
-    tags=['example'],
+    tags=["example"],
 )
 # [END instantiate_dag]
 
-# t1, t2 and t3 are examples of tasks created by instantiating operators
-# [START basic_task]
-t1 = BashOperator(
-    task_id='print_date',
-    bash_command='date',
-    dag=dag,
-)
-
-t2 = BashOperator(
-    task_id='sleep',
-    depends_on_past=False,
-    bash_command='sleep 5',
-    retries=3,
-    dag=dag,
-)
-# [END basic_task]
-
-# [START documentation]
-dag.doc_md = __doc__
-
-t1.doc_md = """\
-#### Task Documentation
-You can document your task using the attributes `doc_md` (markdown),
-`doc` (plain text), `doc_rst`, `doc_json`, `doc_yaml` which gets
-rendered in the UI's Task Instance Details page.
-![img](http://montcs.bloomu.edu/~bobmon/Semesters/2012-01/491/import%20soul.png)
-"""
-# [END documentation]
-
-# [START jinja_template]
-templated_command = """
-{% for i in range(5) %}
-    echo "{{ ds }}"
-    echo "{{ macros.ds_add(ds, 7)}}"
-    echo "{{ params.my_param }}"
-{% endfor %}
-"""
-
-t3 = BashOperator(
-    task_id='templated',
-    depends_on_past=False,
-    bash_command=templated_command,
-    params={'my_param': 'Parameter I passed in'},
-    dag=dag,
-)
-# [END jinja_template]
-
-t1 >> [t2, t3]
-# [END tutorial]
+with dag:
+    START = DummyOperator(task_id="start-tasks")
+    END = DummyOperator(task_id="end-tasks")
