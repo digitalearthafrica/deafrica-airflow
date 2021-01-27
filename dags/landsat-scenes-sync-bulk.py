@@ -36,6 +36,20 @@ from airflow.operators.dummy_operator import DummyOperator
 # [START default_args]
 # These args will get passed on to each operator
 # You can override them on a per-task basis during operator initialization
+DEFAULT_ARGS = {
+    "owner": "rodrigo.carvalho",
+    "email": ["rodrigo.carvalho@ga.gov.au"],
+    "email_on_failure": True,
+    "email_on_retry": False,
+    "retries": 4,
+    "retry_delay": timedelta(minutes=5),
+    "depends_on_past": False,
+    "start_date": datetime(2020, 1, 27),
+    # "schedule_interval": "@once",
+    "us_conn_id": "prod-eks-s2-data-transfer",
+    "africa_conn_id": "deafrica-prod-migration",
+}
+
 default_args = {
     "owner": "rodrigo.carvalho",
     "depends_on_past": False,
