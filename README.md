@@ -45,3 +45,12 @@ Now install the pre-commit hook to the current repository:
 
 Your code will now be formatted and validated before each commit. You can also
 invoke it manually by running `pre-commit run --all-files`
+
+## Branch Deployment Layout
+
+
+| Airflow Instance          | Branch          |
+| --------------------------|:---------------:|
+| [Airflow Oregon](https://airflow.digitalearth.africa)        | develop         |
+| [Airflow Cape Town Prod](https://airflow-af.digitalearth.africa)| main            |
+| [Airflow Cape Town Dev](https://airflow.dev.digitalearth.africa) | develop         |
