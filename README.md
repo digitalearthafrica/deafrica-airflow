@@ -20,7 +20,7 @@ pylint dags plugins
 Install pip modules
 
 ```bash
-    pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.11
+    pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.14
     pip install shapely pyproj
     pip install pylint pylint-airflow
 ```

@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   postgres:
-    image: postgres:9.6
+    image: postgres:11.5
     environment:
       - POSTGRES_USER=airflow
       - POSTGRES_PASSWORD=airflow
@@ -12,7 +12,7 @@ services:
         max-size: 10m
         max-file: "3"
   webserver:
-    image: geoscienceaustralia/airflow
+    image: apache/airflow:1.10.14
     restart: always
     depends_on:
       - postgres
