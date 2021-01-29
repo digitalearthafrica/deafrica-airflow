@@ -36,12 +36,16 @@ from airflow.operators.dummy_operator import DummyOperator
 # [START default_args]
 # These args will get passed on to each operator
 # You can override them on a per-task basis during operator initialization
+from airflow.operators.python_operator import PythonOperator
+
+from scripts.rodrigo import retrieve_bulk_data
+
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 4,
+    "retries": 0,
     "retry_delay": timedelta(minutes=5),
     "depends_on_past": False,
     "start_date": datetime(2020, 1, 27),
@@ -49,50 +53,39 @@ DEFAULT_ARGS = {
     "us_conn_id": "prod-eks-s2-data-transfer",
     "africa_conn_id": "deafrica-prod-migration",
 }
-
-default_args = {
-    "owner": "rodrigo.carvalho",
-    "depends_on_past": False,
-    "email": ["rodrigo.carvalho@ga.gov.au"],
-    "email_on_failure": False,
-    "email_on_retry": False,
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
-    "start_date": datetime(2020, 1, 27)
-    # 'queue': 'bash_queue',
-    # 'pool': 'backfill',
-    # 'priority_weight': 10,
-    # 'end_date': datetime(2016, 1, 1),
-    # 'wait_for_downstream': False,
-    # 'dag': dag,
-    # 'sla': timedelta(hours=2),
-    # 'execution_timeout': timedelta(seconds=300),
-    # 'on_failure_callback': some_function,
-    # 'on_success_callback': some_other_function,
-    # 'on_retry_callback': another_function,
-    # 'sla_miss_callback': yet_another_function,
-    # 'trigger_rule': 'all_success'
-}
 # [END default_args]
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-sync",
-    default_args=default_args,
-    description="A simple tutorial DAG",
+    "landsat-scenes-sync-bulk",
+    default_args=DEFAULT_ARGS,
+    description="Sync bulk files",
     schedule_interval=timedelta(days=1),
-    tags=["example"],
+    tags=["Scene", "bulk"],
 )
 # [END instantiate_dag]
 
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
-    ALL_COPIES = []
-    for i in range(10):
-        copy = DummyOperator(task_id=f"copy-tasks-{i}")
-        ALL_COPIES.append(copy)
+    processes = []
+    files = {
+        'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+        'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+        'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+    }
+
+    for sat, file in files.items():
+
+        processes.append(
+            PythonOperator(
+                task_id=sat,
+                python_callable=retrieve_bulk_data,
+                op_kwargs=dict(file_name=file),
+                dag=dag,
+            )
+        )
 
     END = DummyOperator(task_id="end-tasks")
 
-    START >> ALL_COPIES >> END
+    START >> processes >> END
