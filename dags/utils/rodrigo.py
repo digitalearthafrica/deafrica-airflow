@@ -16,9 +16,10 @@ QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 
 DATA_DIR = '../data'
 ALLOWED_PATHROWS_FILE_NAME = 'deafrica-usgs-pathrows.csv.gz'
-ALLOWED_PATHROWS = pd.read_csv(
-    os.path.join(DATA_DIR, ALLOWED_PATHROWS_FILE_NAME)
-).values.ravel().tolist()
+ALLOWED_PATHROWS = []
+# ALLOWED_PATHROWS = pd.read_csv(
+#    os.path.join(DATA_DIR, ALLOWED_PATHROWS_FILE_NAME)
+# ).values.ravel().tolist()
 
 
 # def get_contents_and_attributes(hook, s3_filepath):
