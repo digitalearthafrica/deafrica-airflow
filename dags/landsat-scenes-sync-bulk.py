@@ -38,7 +38,7 @@ from airflow.operators.dummy_operator import DummyOperator
 # You can override them on a per-task basis during operator initialization
 from airflow.operators.python_operator import PythonOperator
 
-from scripts.rodrigo import retrieve_bulk_data
+from utils.rodrigo import retrieve_bulk_data
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
