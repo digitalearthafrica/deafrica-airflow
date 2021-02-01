@@ -8,11 +8,13 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
-from dags.utils.rodrigo import retrieve_json_data_and_send
+
+from dags.utils.scenes_sync import retrieve_json_data_and_send
 
 # [END import_module]
 
 # [START default_args]
+
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",

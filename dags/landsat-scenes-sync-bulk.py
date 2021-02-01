@@ -8,11 +8,14 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
-from dags.utils.rodrigo import retrieve_bulk_data
+
+from dags.utils.scenes_sync import retrieve_bulk_data
 
 # [END import_module]
 
 # [START default_args]
+
+
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -49,7 +52,6 @@ with dag:
     }
 
     for sat, file in files.items():
-
         processes.append(
             PythonOperator(
                 task_id=sat,
