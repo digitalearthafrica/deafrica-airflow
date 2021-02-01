@@ -9,7 +9,7 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from dags.utils.scenes_sync import retrieve_bulk_data
+from utils.scenes_sync import retrieve_bulk_data
 
 # [END import_module]
 
