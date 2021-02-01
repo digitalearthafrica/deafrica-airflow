@@ -1,3 +1,6 @@
+"""
+    Script to sync Africa scenes from bulk gzip files or API JSON date request
+"""
 import gzip
 import json
 import threading
