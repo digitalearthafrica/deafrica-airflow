@@ -163,7 +163,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
         if not date and not display_ids:
             raise Exception(
-                'Start_date and End_date are required for daily JSON request. '
+                'Date is required for daily JSON request. '
                 'For a bulk CSV request, Display_ids is required'
             )
 
