@@ -67,7 +67,7 @@ with dag:
             requested_date -= timedelta(days=1)
             count_tasks -= 1
     else:
-        raise Exception('Start_date and End_date are required for daily JSON request.')
+        raise Exception(f'Start_date and End_date are required for daily JSON request. {start_date} - {end_date}')
 
     END = DummyOperator(task_id="end-tasks")
 
