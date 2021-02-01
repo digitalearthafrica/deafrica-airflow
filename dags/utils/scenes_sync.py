@@ -5,6 +5,7 @@ import gzip
 import json
 import threading
 from datetime import datetime
+import logging
 
 import pandas as pd
 import requests
@@ -93,7 +94,7 @@ def send(api_return, validate=False):
             messages = api_return
 
         if messages:
-            print('messages sent: {number}'.format(number=len(messages)))
+            logging.info('messages sent: {number}'.format(number=len(messages)))
 
     except Exception as error:
         raise error
@@ -118,8 +119,8 @@ def request_api_and_send(url: str, params=None):
     # Check return 200
     test_http_return(resp)
     returned = json.loads(resp.content)
-    print(returned['meta']['found'])
-    print(url)
+    logging.debug(f"Found {returned['meta']['found']}")
+    logging.debug(f"url {url}")
 
     # Retrieve daily requests
     if params:
@@ -172,7 +173,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
         if not display_ids:
 
-            print(f'Requesting date {date.date().isoformat()}')
+            logging.debug(f'Requesting date {date.date().isoformat()}')
             json_url = f'{main_url}/stac/search'
 
             # Request daily JSON API
@@ -214,7 +215,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 count_tasks -= num_of_threads
 
     except Exception as error:
-        print(error)
+        logging.error(error)
         raise error
 
 
@@ -290,7 +291,7 @@ def download_csv_files(url, file_name):
 
         file_path = f'/tmp/{file_name}'
         with open(file_path, "wb") as f:
-            print(f"Downloading {file_name}")
+            logging.info(f"Downloading {file_name}")
             downloaded = requests.get(url, stream=True)
             f.write(downloaded.content)
 
@@ -338,7 +339,7 @@ def retrieve_bulk_data(file_name):
         retrieve_json_data_and_send(display_ids=display_id_list)
 
     except Exception as error:
-        print(error)
+        logging.error(error)
         raise error
 
 
