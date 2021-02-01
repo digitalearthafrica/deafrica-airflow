@@ -1,26 +1,27 @@
 import gzip
 import json
-import os
-import sys
 import threading
-from datetime import timedelta, datetime
+from datetime import datetime
 
 import pandas as pd
 import requests
-
 
 # ######### S3 CONFIG ############
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 
+ALLOWED_PATHROWS = [
+    int(row.values[0][0])
+    for row in pd.read_csv(
+        'https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true',
+        compression='gzip',
+        header=0,
+        chunksize=1
+    )
+]
 
-DATA_DIR = '../data'
-ALLOWED_PATHROWS_FILE_NAME = 'deafrica-usgs-pathrows.csv.gz'
-ALLOWED_PATHROWS = []
-# ALLOWED_PATHROWS = pd.read_csv(
-#    os.path.join(DATA_DIR, ALLOWED_PATHROWS_FILE_NAME)
-# ).values.ravel().tolist()
 
+# https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz
 
 # def get_contents_and_attributes(hook, s3_filepath):
 #     bucket_name, key = hook.parse_s3_url(s3_filepath)
@@ -74,6 +75,14 @@ def get_allowed_features_json(retrieved_json):
 
 
 def send(api_return, validate=False):
+    """
+        Send returned value to the queue
+        When the api return comes from the bulk process, it's likely that won't need validate. When come from the daily
+        process, it will be validate.
+        :param api_return: (list) list of values returned from the API
+        :param validate: (bool) Specify if the returned value has to be validated against the valid Pathrows
+        :return:
+    """
     try:
         if validate:
             messages = get_allowed_features_json(retrieved_json=api_return)
@@ -87,15 +96,12 @@ def send(api_return, validate=False):
         raise error
 
 
-def request_api_and_send(url: str, params=None, next_page=False):
+def request_api_and_send(url: str, params=None):
     """
         Function to request the API and send the returned value to the queue.
-        If parameters are sent, means we are requesting daily JSON API
+        If parameters are sent, means we are requesting daily JSON API, or part of its recursion
         If parameters are empty, means we are using bulk CSV files to retrieve the information
-        If the next_page parameter is sent, indicates that's part of the a previous request which is
-        using pagination, this will repeatedly happen until the last page which won't have the next page link.
 
-        :param next_page:(bool) boolean to indicate that is part of the same request just using pagination.
         :param url: (String) API URL
         :param params: (Dict) Parameters to add to the URL
         :return: None
@@ -113,14 +119,23 @@ def request_api_and_send(url: str, params=None, next_page=False):
     print(url)
 
     # Retrieve daily requests
-    if params or next_page:
+    if params:
         # TODO to speed up the process, it's possible to create threads to execute the send function at this point
         send(api_return=returned, validate=True)
 
-        if returned.get('links'):
-            for link in returned['links']:
-                if link.get('rel') and link['rel'] == "next" and link.get('href'):
-                    request_api_and_send(url=link['href'], next_page=True)
+        if (
+            returned.get('meta')
+                and returned['meta'].get('page')
+                and returned['meta'].get('limit')
+                and returned['meta'].get('found')
+                and returned['meta'].get('returned')
+        ):
+            if (
+                    returned['meta']['returned'] == returned['meta']['limit']
+                    and (returned['meta']['page'] * returned['meta']['limit']) < returned['meta']['found']
+            ):
+                params.update({'page': returned['meta']['page'] + 1})
+                request_api_and_send(url=url, params=params)
 
     else:
         # Came from the bulk CSV file
@@ -161,11 +176,11 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
             request_api_and_send(
                 url=json_url,
                 params={
-                        'collection': 'landsat-c2l2-sr',
-                        'limit': 100,
-                        'bbox': json.dumps(africa_bbox),
-                        'time': date.date().isoformat()
-                    }
+                    'collection': 'landsat-c2l2-sr',
+                    'limit': 100,
+                    'bbox': json.dumps(africa_bbox),
+                    'time': date.date().isoformat()
+                }
             )
 
         else:
@@ -197,47 +212,6 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
     except Exception as error:
         print(error)
-        raise error
-
-
-def download_csv_files(url, file_name):
-    """
-        Function to download bulk CSV file from the informed server.
-
-        :param url:(String) URL path for the API
-        :param file_name: (String) File name which will be downloaded
-        :return: (String) File path where it was downloaded. Hardcoded for /tmp/
-    """
-    try:
-        url = f'{url}{file_name}'
-
-        file_path = f'/tmp/{file_name}'
-        with open(file_path, "wb") as f:
-            print(f"Downloading {file_name}")
-            downloaded = requests.get(url, stream=True)
-            f.write(downloaded.content)
-
-        # ########## Code to add downloading progress bar ###########
-        # with open(file_path, "wb") as f:
-        #     print(f"Downloading {file_name}")
-        #     downloaded = requests.get(url, stream=True)
-        #     total_length = downloaded.headers.get('content-length')
-        #
-        #     # Percentage bar to show download progress
-        #     if total_length is None:  # no content length header
-        #         f.write(downloaded.content)
-        #     else:
-        #         dl = 0
-        #         total_length = int(total_length)
-        #         for data in downloaded.iter_content(chunk_size=4096):
-        #             dl += len(data)
-        #             f.write(data)
-        #             done = int(50 * dl / total_length)
-        #             sys.stdout.write("\r[{0}{1}]".format('=' * done, ' ' * (50 - done)))
-        #             sys.stdout.flush()
-
-        return file_path
-    except Exception as error:
         raise error
 
 
@@ -296,6 +270,47 @@ def filter_africa_location(file_path):
                     or not int('{path}{row}'.format(path=row['WRS Path'], row=row['WRS Row'])) in ALLOWED_PATHROWS
             )
         ]
+    except Exception as error:
+        raise error
+
+
+def download_csv_files(url, file_name):
+    """
+        Function to download bulk CSV file from the informed server.
+
+        :param url:(String) URL path for the API
+        :param file_name: (String) File name which will be downloaded
+        :return: (String) File path where it was downloaded. Hardcoded for /tmp/
+    """
+    try:
+        url = f'{url}{file_name}'
+
+        file_path = f'/tmp/{file_name}'
+        with open(file_path, "wb") as f:
+            print(f"Downloading {file_name}")
+            downloaded = requests.get(url, stream=True)
+            f.write(downloaded.content)
+
+        # ########## Code to add downloading progress bar ###########
+        # with open(file_path, "wb") as f:
+        #     print(f"Downloading {file_name}")
+        #     downloaded = requests.get(url, stream=True)
+        #     total_length = downloaded.headers.get('content-length')
+        #
+        #     # Percentage bar to show download progress
+        #     if total_length is None:  # no content length header
+        #         f.write(downloaded.content)
+        #     else:
+        #         dl = 0
+        #         total_length = int(total_length)
+        #         for data in downloaded.iter_content(chunk_size=4096):
+        #             dl += len(data)
+        #             f.write(data)
+        #             done = int(50 * dl / total_length)
+        #             sys.stdout.write("\r[{0}{1}]".format('=' * done, ' ' * (50 - done)))
+        #             sys.stdout.flush()
+
+        return file_path
     except Exception as error:
         raise error
 
