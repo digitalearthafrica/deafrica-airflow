@@ -53,21 +53,18 @@ with dag:
     requested_date = start_date
     processes = []
 
-    if not start_date or not end_date:
-        count_tasks = ((end_date - start_date).days + 1)
-        while count_tasks > 0:
-            processes.append(
-                PythonOperator(
-                    task_id=f'Task-Day-{requested_date.date().isoformat()}',
-                    python_callable=retrieve_json_data_and_send,
-                    op_kwargs=dict(date=requested_date),
-                    dag=dag,
-                )
+    count_tasks = ((end_date - start_date).days + 1)
+    while count_tasks > 0:
+        processes.append(
+            PythonOperator(
+                task_id=f'Task-Day-{requested_date.date().isoformat()}',
+                python_callable=retrieve_json_data_and_send,
+                op_kwargs=dict(date=requested_date),
+                dag=dag,
             )
-            requested_date -= timedelta(days=1)
-            count_tasks -= 1
-    else:
-        raise Exception(f'Start_date and End_date are required for daily JSON request. {start_date} - {end_date}')
+        )
+        requested_date -= timedelta(days=1)
+        count_tasks -= 1
 
     END = DummyOperator(task_id="end-tasks")
 
