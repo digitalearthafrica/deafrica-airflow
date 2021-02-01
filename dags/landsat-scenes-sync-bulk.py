@@ -8,8 +8,8 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
+from dags.utils.rodrigo import retrieve_bulk_data
 
-from scripts.rodrigo import retrieve_bulk_data
 # [END import_module]
 
 # [START default_args]
