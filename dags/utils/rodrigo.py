@@ -38,7 +38,19 @@ def test_http_return(returned):
     """
     if hasattr(returned, 'status_code') and returned.status_code != 200:
         # TODO Implement dead queue here
-        raise Exception(f'API return is not 200: {returned}')
+        url = returned.url if hasattr(returned, 'url') else 'Not informed'
+        content = returned.content if hasattr(returned, 'content') else 'Not informed'
+        text = returned.text if hasattr(returned, 'text') else 'Not informed'
+        status_code = returned.status_code if hasattr(returned, 'status_code') else 'Not informed'
+        reason = returned.reason if hasattr(returned, 'reason') else 'Not informed'
+        raise Exception(
+            f'API return is not 200: \n'
+            f'-url: {url} \n'
+            f'-content: {content} \n'
+            f'-text: {text} \n'
+            f'-status_code: {status_code} \n'
+            f'-reason: {reason} \n'
+        )
 
 
 def get_allowed_features_json(retrieved_json):
@@ -61,9 +73,16 @@ def get_allowed_features_json(retrieved_json):
     return []
 
 
-def send(messages):
+def send(api_return, validate=False):
     try:
-        print('messages sent: {number}'.format(number=len(messages)))
+        if validate:
+            messages = get_allowed_features_json(retrieved_json=api_return)
+        else:
+            messages = api_return
+
+        if messages:
+            print('messages sent: {number}'.format(number=len(messages)))
+
     except Exception as error:
         raise error
 
@@ -90,12 +109,13 @@ def request_api_and_send(url: str, params=None, next_page=False):
     # Check return 200
     test_http_return(resp)
     returned = json.loads(resp.content)
+    print(returned['meta']['found'])
+    print(url)
 
     # Retrieve daily requests
     if params or next_page:
-        allowed_list = get_allowed_features_json(retrieved_json=returned)
-        if allowed_list:
-            send(allowed_list)
+        # TODO to speed up the process, it's possible to create threads to execute the send function at this point
+        send(api_return=returned, validate=True)
 
         if returned.get('links'):
             for link in returned['links']:
@@ -104,76 +124,68 @@ def request_api_and_send(url: str, params=None, next_page=False):
 
     else:
         # Came from the bulk CSV file
-        send([returned])
+        send(api_return=[returned])
 
 
-def retrieve_json_data_and_send(start_date=None, end_date=None, display_ids=None):
+def retrieve_json_data_and_send(date=None, display_ids=None):
     """
         Function to create Python threads which will request the API simultaneously
         If start_date and end_date are sent, means we are requesting daily JSON API
         If display_ids is sent, means we are using bulk CSV files to retrieve the information
 
-        :param start_date: (datetime) start range of dates which the system will use to retrieve information
-        :param end_date: (datetime) end range of dates which the system will use to retrieve information
+        :param date: (datetime) Date to request the API
         :param display_ids: (list) id list from the bulk CSV file
         :return:
     """
+    # Example of API URLs
     # https://landsatlook.usgs.gov/sat-api/stac/search?collection=landsat-c2l2-sr&time=2020-12-07
     # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items/LC08_L1GT_166112_20210123_20210123_02_RT
 
     try:
-        if not display_ids:
-            if start_date and not end_date:
-                end_date = datetime.now()
-            elif end_date and not start_date:
-                start_date = datetime.now()
 
-        if (start_date and end_date) or display_ids:
-            main_url = 'https://landsatlook.usgs.gov/sat-api'
+        if not date and not display_ids:
+            raise Exception(
+                'Start_date and End_date are required for daily JSON request. '
+                'For a bulk CSV request, Display_ids is required'
+            )
+
+        main_url = 'https://landsatlook.usgs.gov/sat-api'
+        africa_bbox = [-26.359944882003788, -47.96476498374171, 64.4936701740102, 38.34459242512347]
+
+        if not display_ids:
+
+            print(f'Requesting date {date.date().isoformat()}')
             json_url = f'{main_url}/stac/search'
+
+            # Request daily JSON API
+            request_api_and_send(
+                url=json_url,
+                params={
+                        'collection': 'landsat-c2l2-sr',
+                        'limit': 100,
+                        'bbox': json.dumps(africa_bbox),
+                        'time': date.date().isoformat()
+                    }
+            )
+
+        else:
+            # Limit number of threads
             num_of_threads = 16
-            count_tasks = ((end_date - start_date).days + 1) if not display_ids else len(display_ids)
-            requested_date = start_date
-            africa_bbox = [-26.359944882003788, -47.96476498374171, 64.4936701740102, 38.34459242512347]
+            count_tasks = len(display_ids)
 
             while count_tasks > 0:
 
                 if count_tasks < num_of_threads:
                     num_of_threads = count_tasks
 
-                if not display_ids:
-                    print(f'num threads {num_of_threads}')
-                    print(f'count_tasks {count_tasks}')
-                    print(f'start_date {start_date}')
-                    print(f'end_date {end_date}')
-                    # Create threads for the daily JSON request
-                    thread_list = [
-                        threading.Thread(
-                            target=request_api_and_send,
-                            args=(
-                                json_url,
-                                {
-                                    'collection': 'landsat-c2l2-sr',
-                                    'limit': 100,
-                                    'bbox': json.dumps(africa_bbox),
-                                    'time': (requested_date + timedelta(days=thread)).date().isoformat()
-                                }
-                            )
-                        ) for thread in range(num_of_threads)
-                    ]
-
-                    requested_date += timedelta(days=num_of_threads)
-
-                else:
-
-                    # Create threads for the ids from the bulk CSV file
-                    thread_list = [
-                        threading.Thread(
-                            target=request_api_and_send,
-                            args=(f'{main_url}/collections/landsat-c2l2-sr/items/{display_id}',)
-                        )
-                        for display_id in display_ids[count_tasks:(count_tasks + num_of_threads)]
-                    ]
+                # Create threads for the ids from the bulk CSV file
+                thread_list = [
+                    threading.Thread(
+                        target=request_api_and_send,
+                        args=(f'{main_url}/collections/landsat-c2l2-sr/items/{display_id}',)
+                    )
+                    for display_id in display_ids[count_tasks:(count_tasks + num_of_threads)]
+                ]
 
                 # Start Threads
                 [start_thread.start() for start_thread in thread_list]
@@ -182,11 +194,6 @@ def retrieve_json_data_and_send(start_date=None, end_date=None, display_ids=None
                 [join_thread.join() for join_thread in thread_list]
 
                 count_tasks -= num_of_threads
-        else:
-            raise Exception(
-                'Start_date and End_date are required for daily JSON request. '
-                'For a bulk CSV request, Display_ids is required'
-            )
 
     except Exception as error:
         print(error)
@@ -208,20 +215,26 @@ def download_csv_files(url, file_name):
         with open(file_path, "wb") as f:
             print(f"Downloading {file_name}")
             downloaded = requests.get(url, stream=True)
-            total_length = downloaded.headers.get('content-length')
+            f.write(downloaded.content)
 
-            # Percentage bar to show download progress
-            if total_length is None:  # no content length header
-                f.write(downloaded.content)
-            else:
-                dl = 0
-                total_length = int(total_length)
-                for data in downloaded.iter_content(chunk_size=4096):
-                    dl += len(data)
-                    f.write(data)
-                    done = int(50 * dl / total_length)
-                    sys.stdout.write("\r[{0}{1}]".format('=' * done, ' ' * (50 - done)))
-                    sys.stdout.flush()
+        # ########## Code to add downloading progress bar ###########
+        # with open(file_path, "wb") as f:
+        #     print(f"Downloading {file_name}")
+        #     downloaded = requests.get(url, stream=True)
+        #     total_length = downloaded.headers.get('content-length')
+        #
+        #     # Percentage bar to show download progress
+        #     if total_length is None:  # no content length header
+        #         f.write(downloaded.content)
+        #     else:
+        #         dl = 0
+        #         total_length = int(total_length)
+        #         for data in downloaded.iter_content(chunk_size=4096):
+        #             dl += len(data)
+        #             f.write(data)
+        #             done = int(50 * dl / total_length)
+        #             sys.stdout.write("\r[{0}{1}]".format('=' * done, ' ' * (50 - done)))
+        #             sys.stdout.flush()
 
         return file_path
     except Exception as error:
@@ -312,7 +325,7 @@ def retrieve_bulk_data(file_name):
 
 
 if __name__ == "__main__":
-    retrieve_json_data_and_send(start_date=datetime.now().replace(day=28, month=1, year=2021), end_date=datetime.now())
+    retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
