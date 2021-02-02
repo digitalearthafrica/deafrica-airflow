@@ -49,14 +49,16 @@ def publish_messages(messages):
     Publish messages
     param message: list of messages
     """
+    try:
+        sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
+        sqs = sqs_hook.get_resource_type("sqs")
+        queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"], region='af-south-1')
 
-    sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
-    sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
+        queue.send_messages(Entries=messages)
 
-    queue.send_messages(Entries=messages)
-
-    logging.debug(messages)
+        logging.debug(messages)
+    except Exception as error:
+        logging.error(error)
 
 
 def test_http_return(returned):

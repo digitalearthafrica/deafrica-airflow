@@ -24,7 +24,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2020, 1, 27),
+    "start_date": datetime(2021, 2, 3),
     "catchup": False
 }
 # [END default_args]
