@@ -3,12 +3,22 @@
 """
 import gzip
 import json
+import logging
 import threading
 from datetime import datetime
-import logging
 
 import pandas as pd
 import requests
+from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+
+# ######### AWS CONFIG ############
+from airflow.contrib.hooks.aws_sqs_hook import SQSHook
+
+AWS_CONFIG = {
+    'africa_dev_conn_id': 'conn_sync_landsat_scene',
+    'sqs_queue': 'deafrica-dev-eks-sync-landsat-scene',
+    'arn': 'arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test'
+}
 
 # ######### S3 CONFIG ############
 SRC_BUCKET_NAME = "sentinel-cogs"
@@ -33,6 +43,20 @@ ALLOWED_PATHROWS = [
 #     contents_dict = json.loads(contents)
 #     attributes = get_common_message_attributes(contents_dict)
 #     return contents, attributes
+
+def publish_messages(messages):
+    """
+    Publish messages
+    param message: list of messages
+    """
+
+    sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
+
+    queue.send_messages(Entries=messages)
+
+    logging.debug(messages)
 
 
 def test_http_return(returned):
@@ -95,6 +119,7 @@ def send(api_return, validate=False):
 
         if messages:
             logging.info('messages sent: {number}'.format(number=len(messages)))
+            publish_messages(messages=messages)
 
     except Exception as error:
         raise error
