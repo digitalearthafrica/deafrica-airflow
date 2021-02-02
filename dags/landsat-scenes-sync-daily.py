@@ -22,12 +22,10 @@ DEFAULT_ARGS = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "retry_delay": timedelta(minutes=5),
+    "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2020, 1, 27),
-    # "schedule_interval": "@once",
-    "us_conn_id": "prod-eks-s2-data-transfer",
-    "africa_conn_id": "deafrica-prod-migration",
+    "catchup": False
 }
 # [END default_args]
 
