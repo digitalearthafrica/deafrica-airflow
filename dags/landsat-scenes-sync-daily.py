@@ -24,7 +24,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 3),
+    "start_date": datetime(2021, 2, 2),
     "catchup": False
 }
 # [END default_args]
@@ -34,7 +34,7 @@ dag = DAG(
     "landsat-scenes-sync-daily",
     default_args=DEFAULT_ARGS,
     description="Sync Daily",
-    schedule_interval=timedelta(days=1),
+    schedule_interval=None,
     tags=["Scene", "Daily", "API"],
 )
 # [END instantiate_dag]
@@ -43,7 +43,7 @@ with dag:
     START = DummyOperator(task_id="start-tasks")
 
     # Test Start and End dates
-    start_date = datetime.now().replace(day=28, month=1, year=2021)
+    start_date = datetime.now().replace(day=1, month=2, year=2021)
     end_date = datetime.now()
 
     # start_date = DEFAULT_ARGS['start_date']

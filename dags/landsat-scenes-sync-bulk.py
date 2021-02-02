@@ -24,7 +24,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=5),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 3),
+    "start_date": datetime(2021, 2, 2),
     "catchup": False
 }
 # [END default_args]
@@ -34,7 +34,7 @@ dag = DAG(
     "landsat-scenes-sync-bulk",
     default_args=DEFAULT_ARGS,
     description="Sync bulk files",
-    schedule_interval=timedelta(days=1),
+    schedule_interval=None,
     tags=["Scene", "bulk"],
 )
 # [END instantiate_dag]
