@@ -6,15 +6,12 @@ The SQS is subscribed to the following SNS topic:
 arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 """
 import json
-import boto3
-import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Iterable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
-from airflow import configuration
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
 from airflow.operators.dummy_operator import DummyOperator
@@ -22,21 +19,20 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
+AFRICA_CONN_ID = "deafrica-prod-migration"
+US_CONN_ID = "deafrica-migration_us"
+DEST_BUCKET_NAME = "deafrica-sentinel-2"
+SRC_BUCKET_NAME = "sentinel-cogs"
+SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
+CONCURRENCY = 16
+
 default_args = {
     "owner": "Airflow",
-    "start_date": datetime(2020, 6, 12),
     "email": ["toktam.ebadi@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "africa_conn_id": "deafrica-prod-migration",
-    "us_conn_id": "deafrica-migration_us",
-    "dest_bucket_name": "deafrica-sentinel-2",
-    "src_bucket_name": "sentinel-cogs",
-    "concurrency": 16,
-    "schedule_interval": "0 */1 * * *",
-    "sentinel2_topic_arn": "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
-    "sqs_queue": "deafrica-prod-eks-sentinel-2-data-transfer",
 }
 
 
@@ -90,7 +86,7 @@ def get_self_link(message_content):
 
     return self_link.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-        f"s3://{default_args['src_bucket_name']}",
+        f"s3://{SRC_BUCKET_NAME}",
     )
 
 
@@ -107,14 +103,14 @@ def publish_to_sns_topic(message):
     attributes["product"] = "s2_l2a"
 
     metadata = body.get("Message")
-    sns_hook = AwsSnsHook(aws_conn_id=dag.default_args["africa_conn_id"])
+    sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
     metadata_str = metadata.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
     )
     response = sns_hook.publish_to_target(
-        target_arn=default_args["sentinel2_topic_arn"],
+        target_arn=SENTINEL2_TOPIC_ARN,
         message=metadata_str,
         message_attributes=attributes,
     )
@@ -125,13 +121,12 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    src_key = src_key
-    s3_hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
+    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
-        source_bucket_name=default_args["src_bucket_name"],
-        dest_bucket_name=default_args["dest_bucket_name"],
+        source_bucket_name=SRC_BUCKET_NAME,
+        dest_bucket_name=DEST_BUCKET_NAME,
     )
     return True
 
@@ -143,19 +138,18 @@ def start_transfer(message):
 
     body = json.loads(message.body)
     metadata = json.loads(body["Message"])
-    tile_id = metadata["id"].split("_")[1]
 
-    s3_hook_oregon = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
+    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_self_link(metadata)
 
     # Check file exists
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(
-        key, bucket_name=default_args["src_bucket_name"]
+        key, bucket_name=SRC_BUCKET_NAME
     )
     if not key_exists:
         raise ValueError(
-            f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
+            f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
     urls = [s3_filepath]
@@ -177,13 +171,13 @@ def start_transfer(message):
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
         key_exists = s3_hook_oregon.check_for_key(
-            key, bucket_name=default_args["src_bucket_name"]
+            key, bucket_name=SRC_BUCKET_NAME
         )
         src_keys.append(src_key)
 
         if not key_exists:
             raise ValueError(
-                f"{key} does not exist in the {default_args['src_bucket_name']} bucket"
+                f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
             )
 
     copied_files = []
@@ -224,9 +218,9 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
+    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
+    queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
     valid_tile_ids = africa_tile_ids()
 
@@ -256,9 +250,9 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
+    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=default_args.get("sqs_queue"))
+    queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
     print("Queue size:", queue_size)
 
@@ -276,7 +270,7 @@ def terminate(ti, **kwargs):
     successful_msg_counts = 0
     failed_msg_counts = 0
 
-    for idx in range(0, default_args["concurrency"]):
+    for idx in range(CONCURRENCY):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
@@ -290,10 +284,11 @@ def terminate(ti, **kwargs):
 with DAG(
     "sentinel-2_data_transfer",
     default_args=default_args,
-    schedule_interval=default_args["schedule_interval"],
     tags=["Sentinel-2", "transfer"],
-    concurrency=default_args["concurrency"],
     catchup=False,
+    start_date=datetime(2020, 6, 12),
+    concurrency=CONCURRENCY,
+    schedule_interval="0 */1 * * *",
 ) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
@@ -310,14 +305,14 @@ with DAG(
 
     RUN_TASKS = DummyOperator(task_id="run_tasks")
 
-    for idx in range(0, default_args["concurrency"]):
+    for idx in range(CONCURRENCY):
         COPY_OBJECTS = PythonOperator(
             task_id=f"data_transfer_{idx}",
             provide_context=True,
             retries=1,
             execution_timeout=timedelta(hours=20),
             python_callable=copy_s3_objects,
-            task_concurrency=default_args["concurrency"],
+            task_concurrency=CONCURRENCY,
             dag=dag,
         )
         BRANCH_OPT >> [RUN_TASKS, END_DAG]
