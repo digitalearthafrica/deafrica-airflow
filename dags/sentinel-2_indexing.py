@@ -13,14 +13,10 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.kubernetes.secret import Secret
-from airflow.kubernetes.volume import Volume
-from airflow.kubernetes.volume_mount import VolumeMount
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from airflow.operators.dummy_operator import DummyOperator
 
 from textwrap import dedent
 
-import kubernetes.client.models as k8s
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",

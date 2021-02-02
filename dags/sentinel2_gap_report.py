@@ -5,22 +5,25 @@ This DAG runs once a month and creates a gap report in the folowing location:
 s3://deafrica-sentinel-2/status-report
 """
 
-import csv
-import json
-import sys
 from datetime import datetime
-from pathlib import Path
 
 import re
 
 import pandas as pd
-from airflow import DAG, configuration
-from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.email_operator import EmailOperator
 from airflow import DAG, AirflowException
 
 from utils.inventory import s3
+
+MANIFEST_SUFFIX = "manifest.json"
+AFRICA_TILES = "data/africa-mgrs-tiles.csv"
+AFRICA_CONN_ID = "deafrica-prod-migration"
+US_CONN_ID = "deafrica_migration_oregon"
+DEST_BUCKET_NAME = "s3://deafrica-sentinel-2-inventory"
+SRC_BUCKET_NAME = "s3://sentinel-cogs-inventory"
+REPORTING_BUCKET = "s3://deafrica-sentinel-2"
+REPORTING_PREFIX = "status-report/"
+SCHEDULE_INTERVAL = "@weekly"
 
 default_args = {
     "owner": "Airflow",
@@ -30,15 +33,6 @@ default_args = {
     "email_on_success": True,
     "email_on_retry": False,
     "retries": 0,
-    "manifest_suffix": "manifest.json",
-    "africa_tiles": "data/africa-mgrs-tiles.csv",
-    "africa_conn_id": "deafrica-prod-migration",
-    "us_conn_id": "deafrica_migration_oregon",
-    "dest_bucket_name": "s3://deafrica-sentinel-2-inventory",
-    "src_bucket_name": "s3://sentinel-cogs-inventory",
-    "reporting_bucket": "s3://deafrica-sentinel-2",
-    "reporting_prefix": "status-report/",
-    "schedule_interval": "@weekly",
 }
 
 
@@ -47,9 +41,6 @@ def generate_buckets_diff():
     Compare Sentinel-2 buckets in US and Africa and detect differences
     A report containing missing keys will be written to s3://deafrica-sentinel-2/status-report
     """
-    url_source = default_args["src_bucket_name"]
-    url_destination = default_args["dest_bucket_name"]
-    suffix = default_args["manifest_suffix"]
     cogs_folder_name = "sentinel-s2-l2a-cogs"
     source_keys = set()
 
@@ -59,7 +50,7 @@ def generate_buckets_diff():
         ).values.ravel()
     )
 
-    s3_inventory = s3(url_source, default_args["us_conn_id"], "us-west-2", suffix)
+    s3_inventory = s3(SRC_BUCKET_NAME, US_CONN_ID, "us-west-2", MANIFEST_SUFFIX)
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
     for bucket, key, *rest in s3_inventory.list_keys():
@@ -68,12 +59,12 @@ def generate_buckets_diff():
             and key.startswith(cogs_folder_name)
             and key.split("/")[-2].split("_")[1] in africa_tile_ids
             # We need to ensure we're ignoring the old format data
-            and re.match("sentinel-s2-l2a-cogs\/\d{4}\/", key) is None
+            and re.match(r"sentinel-s2-l2a-cogs/\d{4}/", key) is None
         ):
             source_keys.add(key)
 
     s3_inventory = s3(
-        url_destination, default_args["africa_conn_id"], "af-south-1", suffix
+        DEST_BUCKET_NAME, AFRICA_CONN_ID, "af-south-1", MANIFEST_SUFFIX
     )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
@@ -88,24 +79,23 @@ def generate_buckets_diff():
     missing_scenes = [f"s3://sentinel-cogs/{key}" for key in source_keys]
 
     output_filename = datetime.today().isoformat() + ".txt"
-    reporting_bucket = default_args["reporting_bucket"]
-    key = default_args["reporting_prefix"] + output_filename
+    key = REPORTING_PREFIX + output_filename
 
-    s3_report = s3(reporting_bucket, default_args["africa_conn_id"], "af-south-1")
+    s3_report = s3(REPORTING_BUCKET, AFRICA_CONN_ID, "af-south-1")
     s3_report.s3.put_object(
         Bucket=s3_report.bucket, Key=key, Body="\n".join(missing_scenes)
     )
-    print(f"Wrote inventory to: {default_args['reporting_bucket']}/{key}")
+    print(f"Wrote inventory to: {REPORTING_BUCKET}/{key}")
 
     if len(orphaned_keys) > 0:
         output_filename = datetime.today().isoformat() + "_orphaned.txt"
-        key = default_args["reporting_prefix"] + output_filename
+        key = REPORTING_PREFIX + output_filename
         s3_report.s3.put_object(
             Bucket=s3_report.bucket, Key=key, Body="\n".join(orphaned_keys)
         )
-        print(f"Wrote orphaned scenes to: {default_args['reporting_bucket']}/{key}")
+        print(f"Wrote orphaned scenes to: {REPORTING_BUCKET}/{key}")
 
-    message = f"{len(missing_scenes)} scenes are missing from {reporting_bucket} and \
+    message = f"{len(missing_scenes)} scenes are missing from {REPORTING_BUCKET} and \
                 {len(orphaned_keys)} scenes no longer exist in s3://sentinel-cogs"
     print(message)
 
@@ -116,7 +106,7 @@ def generate_buckets_diff():
 with DAG(
     "sentinel-2_gap_detection",
     default_args=default_args,
-    schedule_interval=default_args["schedule_interval"],
+    schedule_interval=SCHEDULE_INTERVAL,
     tags=["Sentinel-2", "status"],
     catchup=False,
 ) as dag:
@@ -125,4 +115,3 @@ with DAG(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
 
-    READ_INVENTORIES
