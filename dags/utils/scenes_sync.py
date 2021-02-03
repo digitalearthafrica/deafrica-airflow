@@ -5,15 +5,12 @@ import gzip
 import json
 import logging
 import threading
-from datetime import datetime
 
 import pandas as pd
 import requests
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
-
-# ######### AWS CONFIG ############
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
+# ######### AWS CONFIG ############
 AWS_CONFIG = {
     'africa_dev_conn_id': 'conn_sync_landsat_scene',
     'sqs_queue': 'deafrica-dev-eks-sync-landsat-scene',
@@ -44,19 +41,41 @@ ALLOWED_PATHROWS = [
 #     attributes = get_common_message_attributes(contents_dict)
 #     return contents, attributes
 
-def publish_messages(messages):
+def publish_messages(datasets):
     """
     Publish messages
     param message: list of messages
     """
     try:
+
+        def post_messages(messages_to_send):
+            queue.send_messages(Entries=messages_to_send)
+            logging.debug(messages_to_send)
+
         sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
         sqs = sqs_hook.get_resource_type("sqs")
         queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
 
-        queue.send_messages(Entries=messages)
+        count = 0
+        messages = []
+        logging.info("Adding messages...")
+        for dataset in datasets:
+            message = {
+                "Id": str(count),
+                "MessageBody": json.dumps(dataset),
+            }
+            messages.append(message)
 
-        logging.debug(messages)
+            count += 1
+            if count % 10 == 0:
+                post_messages(messages)
+
+        # Post the last messages if there are any
+        if len(messages) > 0:
+            post_messages(messages)
+
+        return count
+
     except Exception as error:
         logging.error(error)
         raise error
@@ -108,7 +127,7 @@ def get_allowed_features_json(retrieved_json):
         raise error
 
 
-def send(api_return, validate=False):
+def validate_and_send(api_return, validate=False):
     """
         Send returned value to the queue
         When the api return comes from the bulk process, it's likely that won't need validate. When come from the daily
@@ -119,13 +138,13 @@ def send(api_return, validate=False):
     """
     try:
         if validate:
-            messages = get_allowed_features_json(retrieved_json=api_return)
+            datasets = get_allowed_features_json(retrieved_json=api_return)
         else:
-            messages = api_return
+            datasets = api_return
 
-        if messages:
-            publish_messages(messages=messages)
-            logging.info('messages sent: {number}'.format(number=len(messages)))
+        if datasets:
+            publish_messages(datasets=datasets)
+            logging.info('messages sent: {number}'.format(number=len(datasets)))
 
     except Exception as error:
         raise error
@@ -156,10 +175,10 @@ def request_api_and_send(url: str, params=None):
         # Retrieve daily requests
         if params:
             # TODO to speed up the process, it's possible to create threads to execute the send function at this point
-            send(api_return=returned, validate=True)
+            validate_and_send(api_return=returned, validate=True)
 
             if (
-                returned.get('meta')
+                    returned.get('meta')
                     and returned['meta'].get('page')
                     and returned['meta'].get('limit')
                     and returned['meta'].get('found')
@@ -174,9 +193,10 @@ def request_api_and_send(url: str, params=None):
 
         else:
             # Came from the bulk CSV file
-            send(api_return=[returned])
+            validate_and_send(api_return=[returned])
     except Exception as error:
         raise error
+
 
 def retrieve_json_data_and_send(date=None, display_ids=None):
     """
@@ -374,23 +394,22 @@ def retrieve_bulk_data(file_name):
         logging.error(error)
         raise error
 
-
 # if __name__ == "__main__":
 #     retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
-    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
-    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
+# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
+# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
 
-    # TODO start DAG here to have each process downloading
-    # TODO add all files just level 2, ignore Landsat 4
-    # files = {
-    #     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-    #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-    # }
-    #
-    # for sat, file in files.items():
-    #     retrieve_bulk_data(file_name=file)
+# TODO start DAG here to have each process downloading
+# TODO add all files just level 2, ignore Landsat 4
+# files = {
+#     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+#     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+#     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+# }
+#
+# for sat, file in files.items():
+#     retrieve_bulk_data(file_name=file)
