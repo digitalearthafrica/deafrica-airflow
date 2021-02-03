@@ -3,8 +3,10 @@ from airflow.operators.python_operator import PythonOperator
 from datetime import timedelta, datetime
 from airflow import DAG
 
+
 def test_ssm_conn_and_var():
     sqs_hook = SQSHook(aws_conn_id="sync_landsat_scenes")
+    print(sqs_hook.get_conn())
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName="deafrica-dev-eks-sync-landsat-scene")
     queue.send_messages(Entries="testing")
@@ -19,7 +21,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
-    "catchup": False
+    "catchup": False,
 }
 # [END default_args]
 
