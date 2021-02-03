@@ -59,6 +59,7 @@ def publish_messages(messages):
         logging.debug(messages)
     except Exception as error:
         logging.error(error)
+        raise error
 
 
 def test_http_return(returned):
@@ -90,18 +91,21 @@ def get_allowed_features_json(retrieved_json):
         :param retrieved_json: (dict) retrieved value
         :return: (list)
     """
-    if retrieved_json.get('features') and retrieved_json['features']:
-        return [
-            feature
-            for feature in retrieved_json['features']
-            if (
-                    feature.get('properties')
-                    and feature['properties'].get('landsat:wrs_path')
-                    and int(f"{feature['properties']['landsat:wrs_path']}"
-                            f"{feature['properties']['landsat:wrs_row']}") in ALLOWED_PATHROWS
-            )
-        ]
-    return []
+    try:
+        if retrieved_json.get('features') and retrieved_json['features']:
+            return [
+                feature
+                for feature in retrieved_json['features']
+                if (
+                        feature.get('properties')
+                        and feature['properties'].get('landsat:wrs_path')
+                        and int(f"{feature['properties']['landsat:wrs_path']}"
+                                f"{feature['properties']['landsat:wrs_row']}") in ALLOWED_PATHROWS
+                )
+            ]
+        return []
+    except Exception as error:
+        raise error
 
 
 def send(api_return, validate=False):
@@ -137,41 +141,42 @@ def request_api_and_send(url: str, params=None):
         :param params: (Dict) Parameters to add to the URL
         :return: None
     """
+    try:
+        if params is None:
+            params = {}
 
-    if params is None:
-        params = {}
+        # Request API
+        resp = requests.get(url=url, params=params)
+        # Check return 200
+        test_http_return(resp)
+        returned = json.loads(resp.content)
+        logging.debug(f"Found {returned['meta']['found']}")
+        logging.debug(f"url {url}")
 
-    # Request API
-    resp = requests.get(url=url, params=params)
-    # Check return 200
-    test_http_return(resp)
-    returned = json.loads(resp.content)
-    logging.debug(f"Found {returned['meta']['found']}")
-    logging.debug(f"url {url}")
+        # Retrieve daily requests
+        if params:
+            # TODO to speed up the process, it's possible to create threads to execute the send function at this point
+            send(api_return=returned, validate=True)
 
-    # Retrieve daily requests
-    if params:
-        # TODO to speed up the process, it's possible to create threads to execute the send function at this point
-        send(api_return=returned, validate=True)
-
-        if (
-            returned.get('meta')
-                and returned['meta'].get('page')
-                and returned['meta'].get('limit')
-                and returned['meta'].get('found')
-                and returned['meta'].get('returned')
-        ):
             if (
-                    returned['meta']['returned'] == returned['meta']['limit']
-                    and (returned['meta']['page'] * returned['meta']['limit']) < returned['meta']['found']
+                returned.get('meta')
+                    and returned['meta'].get('page')
+                    and returned['meta'].get('limit')
+                    and returned['meta'].get('found')
+                    and returned['meta'].get('returned')
             ):
-                params.update({'page': returned['meta']['page'] + 1})
-                request_api_and_send(url=url, params=params)
+                if (
+                        returned['meta']['returned'] == returned['meta']['limit']
+                        and (returned['meta']['page'] * returned['meta']['limit']) < returned['meta']['found']
+                ):
+                    params.update({'page': returned['meta']['page'] + 1})
+                    request_api_and_send(url=url, params=params)
 
-    else:
-        # Came from the bulk CSV file
-        send(api_return=[returned])
-
+        else:
+            # Came from the bulk CSV file
+            send(api_return=[returned])
+    except Exception as error:
+        raise error
 
 def retrieve_json_data_and_send(date=None, display_ids=None):
     """
@@ -370,8 +375,8 @@ def retrieve_bulk_data(file_name):
         raise error
 
 
-if __name__ == "__main__":
-    retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
+# if __name__ == "__main__":
+#     retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
