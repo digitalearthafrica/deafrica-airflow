@@ -43,6 +43,7 @@ with dag:
     # )
 
     TEST = SQSPublishOperator(
+        task_id="test-conn",
         aws_conn_id="sync_landsat_scenes",
         sqs_queue="deafrica-dev-eks-sync-landsat-scene",
         message_content="test",
