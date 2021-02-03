@@ -406,13 +406,13 @@ def retrieve_bulk_data(file_name):
 # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
 # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
 
-# TODO start DAG here to have each process downloading
-# TODO add all files just level 2, ignore Landsat 4
-files = {
-    'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-    'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-    'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-}
-
-for sat, file in files.items():
-    retrieve_bulk_data(file_name=file)
+    # TODO start DAG here to have each process downloading
+    # TODO add all files just level 2, ignore Landsat 4
+    # files = {
+    #     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+    #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+    # }
+    #
+    # for sat, file in files.items():
+    #     retrieve_bulk_data(file_name=file)
