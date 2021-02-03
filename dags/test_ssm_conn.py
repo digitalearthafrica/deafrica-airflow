@@ -1,5 +1,6 @@
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.operators.python_operator import PythonOperator
+from airflow.contrib.operators.aws_sqs_publish_operator import SQSPublishOperator
 from datetime import timedelta, datetime
 from airflow import DAG
 
@@ -35,8 +36,14 @@ dag = DAG(
 )
 
 with dag:
-    TEST = PythonOperator(
-        task_id="test-conn",
-        python_callable=test_ssm_conn_and_var,
-        dag=dag,
+    # TEST = PythonOperator(
+    #     task_id="test-conn",
+    #     python_callable=test_ssm_conn_and_var,
+    #     dag=dag,
+    # )
+
+    TEST = SQSPublishOperator(
+        aws_conn_id="sync_landsat_scenes",
+        sqs_queue="deafrica-dev-eks-sync-landsat-scene",
+        message_content="test",
     )
