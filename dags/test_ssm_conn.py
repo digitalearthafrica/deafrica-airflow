@@ -1,7 +1,7 @@
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.operators.python_operator import PythonOperator
 from datetime import timedelta, datetime
-
+from airflow import DAG
 
 def test_ssm_conn_and_var():
     sqs_hook = SQSHook(aws_conn_id="sync_landsat_scenes")
