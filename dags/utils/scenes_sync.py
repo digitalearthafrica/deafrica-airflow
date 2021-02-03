@@ -69,6 +69,7 @@ def publish_messages(datasets):
             count += 1
             if count % 10 == 0:
                 post_messages(messages)
+                messages = []
 
         # Post the last messages if there are any
         if len(messages) > 0:
