@@ -170,11 +170,13 @@ def request_api_and_send(url: str, params=None):
         # Check return 200
         test_http_return(resp)
         returned = json.loads(resp.content)
-        logging.debug(f"Found {returned['meta']['found']}")
         logging.debug(f"url {url}")
 
         # Retrieve daily requests
         if params:
+
+            logging.debug(f"Found {returned['meta']['found']}")
+
             # TODO to speed up the process, it's possible to create threads to execute the send function at this point
             validate_and_send(api_return=returned, validate=True)
 
@@ -406,11 +408,11 @@ def retrieve_bulk_data(file_name):
 
 # TODO start DAG here to have each process downloading
 # TODO add all files just level 2, ignore Landsat 4
-# files = {
-#     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-#     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-#     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-# }
-#
-# for sat, file in files.items():
-#     retrieve_bulk_data(file_name=file)
+files = {
+    'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+    'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+    'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+}
+
+for sat, file in files.items():
+    retrieve_bulk_data(file_name=file)

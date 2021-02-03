@@ -22,7 +22,7 @@ DEFAULT_ARGS = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "retry_delay": timedelta(minutes=5),
+    "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False
