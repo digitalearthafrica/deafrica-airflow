@@ -52,7 +52,7 @@ def publish_messages(messages):
     try:
         sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
         sqs = sqs_hook.get_resource_type("sqs")
-        queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"], region='af-south-1')
+        queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
 
         queue.send_messages(Entries=messages)
 
@@ -124,8 +124,8 @@ def send(api_return, validate=False):
             messages = api_return
 
         if messages:
-            logging.info('messages sent: {number}'.format(number=len(messages)))
             publish_messages(messages=messages)
+            logging.info('messages sent: {number}'.format(number=len(messages)))
 
     except Exception as error:
         raise error
