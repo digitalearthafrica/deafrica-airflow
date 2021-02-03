@@ -50,7 +50,6 @@ def publish_messages(datasets):
 
         def post_messages(messages_to_send):
             queue.send_messages(Entries=messages_to_send)
-            logging.debug(messages_to_send)
 
         sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
         sqs = sqs_hook.get_resource_type("sqs")
@@ -145,7 +144,6 @@ def validate_and_send(api_return, validate=False):
 
         if datasets:
             publish_messages(datasets=datasets)
-            logging.info('messages sent: {number}'.format(number=len(datasets)))
 
     except Exception as error:
         raise error
@@ -246,7 +244,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
             # Limit number of threads
             num_of_threads = 16
             count_tasks = len(display_ids)
-
+            logging.info('Starting process to send {number} messages'.format(number=count_tasks))
             while count_tasks > 0:
 
                 if count_tasks < num_of_threads:
@@ -258,12 +256,13 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                         target=request_api_and_send,
                         args=(f'{main_url}/collections/landsat-c2l2-sr/items/{display_id}',)
                     )
-                    for display_id in display_ids[count_tasks:(count_tasks + num_of_threads)]
+                    for display_id in display_ids[(count_tasks - num_of_threads):count_tasks]
                 ]
 
                 # Start Threads
                 [start_thread.start() for start_thread in thread_list]
 
+                logging.info('Running threads to retrieve and send '.format(number=count_tasks))
                 # Wait all {num_of_threads} threads finish to start {num_of_threads} more
                 [join_thread.join() for join_thread in thread_list]
 
