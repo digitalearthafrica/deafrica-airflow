@@ -22,6 +22,9 @@ from airflow.operators.python_operator import PythonOperator
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 PRODUCT_NAME = "s2_l2a"
+SCHEDULE_INTERVAL = "@once"
+US_CONN_ID = "prod-eks-s2-data-transfer"
+AFRICA_CONN_ID = "deafrica-prod-migration"
 
 default_args = {
     "owner": "Airflow",
@@ -30,9 +33,6 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "schedule_interval": "@once",
-    "us_conn_id": "prod-eks-s2-data-transfer",
-    "africa_conn_id": "deafrica-prod-migration",
 }
 
 
@@ -97,7 +97,7 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     read the gap report
     """
 
-    hook = S3Hook(aws_conn_id=dag.default_args["africa_conn_id"])
+    hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
     bucket_name, key = hook.parse_s3_url(s3_report_path)
     print(f"Reading the gap report {s3_report_path}")
 
@@ -115,7 +115,7 @@ def publish_messages(messages):
 
     for num, message in enumerate(messages):
         message["Id"] = str(num)
-    sqs_hook = SQSHook(aws_conn_id=dag.default_args["us_conn_id"])
+    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=QUEUE_NAME)
     queue.send_messages(Entries=messages)
@@ -148,7 +148,7 @@ def prepare_message(hook, s3_path):
 
 
 def prepare_and_send_messages(dag_run, **kwargs):
-    hook = S3Hook(aws_conn_id=dag.default_args["us_conn_id"])
+    hook = S3Hook(aws_conn_id=US_CONN_ID)
     # Read the missing stac files from the gap report file
     print(
         f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
@@ -185,7 +185,7 @@ def prepare_and_send_messages(dag_run, **kwargs):
 with DAG(
     "sentinel-2-gap-fill",
     default_args=default_args,
-    schedule_interval=default_args["schedule_interval"],
+    schedule_interval=SCHEDULE_INTERVAL,
     tags=["Sentinel-2", "gap-fill"],
     catchup=False,
     doc_md=__doc__,
