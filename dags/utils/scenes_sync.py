@@ -409,7 +409,7 @@ def retrieve_bulk_data(file_name):
         raise error
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
 
     # retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
@@ -421,11 +421,11 @@ if __name__ == "__main__":
 
     # TODO start DAG here to have each process downloading
     # TODO add all files just level 2, ignore Landsat 4
-    files = {
-        'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-        'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-        'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-    }
-
-    for sat, file in files.items():
-        retrieve_bulk_data(file_name=file)
+    # files = {
+    #     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+    #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+    # }
+    #
+    # for sat, file in files.items():
+    #     retrieve_bulk_data(file_name=file)
