@@ -21,25 +21,24 @@ AWS_CONFIG = {
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 
-ALLOWED_PATHROWS = [
-    int(row.values[0][0])
+ALLOWED_PATHROWS = set(
+    str(row.values[0][0])
     for row in pd.read_csv(
         'https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true',
         compression='gzip',
         header=0,
         chunksize=1
     )
-]
+)
 
 
-# https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz
-
-# def get_contents_and_attributes(hook, s3_filepath):
-#     bucket_name, key = hook.parse_s3_url(s3_filepath)
-#     contents = hook.read_key(key=key, bucket_name=SRC_BUCKET_NAME)
-#     contents_dict = json.loads(contents)
-#     attributes = get_common_message_attributes(contents_dict)
-#     return contents, attributes
+# ALLOWED_PATHROWS = set(
+#     pd.read_csv(
+#         "https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true",
+#         compression='gzip',
+#         header=0,
+#     ).values.ravel()
+# )
 
 def publish_messages(datasets):
     """
@@ -115,25 +114,28 @@ def get_allowed_features_json(retrieved_json):
             return [
                 feature
                 for feature in retrieved_json['features']
+                # :03d
                 if (
                         feature.get('properties')
                         and feature['properties'].get('landsat:wrs_path')
-                        and int(f"{feature['properties']['landsat:wrs_path']}"
-                                f"{feature['properties']['landsat:wrs_row']}") in ALLOWED_PATHROWS
+                        and f"{feature['properties']['landsat:wrs_path']}"
+                            f"{feature['properties']['landsat:wrs_row']}" in ALLOWED_PATHROWS
                 )
             ]
+        # Re-test over the API result
         # elif (
         #         retrieved_json
         #         and retrieved_json.get('properties')
         #         and retrieved_json['properties'].get('landsat:wrs_path')
         #         and retrieved_json['properties'].get('landsat:wrs_row')
         # ):
-        #     if int(
-        #             f"{retrieved_json['properties']['landsat:wrs_path']}"
-        #             f"{retrieved_json['properties']['landsat:wrs_row']}"
-        #     ) in ALLOWED_PATHROWS:
+        #     # TODO the conversion to INT and correction of :03d is applied because of a issue with the API return
+        #     if (
+        #             f"{int(retrieved_json['properties']['landsat:wrs_path']):03d}"
+        #             f"{int(retrieved_json['properties']['landsat:wrs_row']):03d}" in ALLOWED_PATHROWS
+        #     ):
         #         return retrieved_json
-        elif not retrieved_json.get('features'):
+        elif not retrieved_json.get('features') and retrieved_json.get('properties'):
             return [retrieved_json]
 
         return []
@@ -233,11 +235,11 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
         if not display_ids:
             json_url = f'{main_url}/stac/search'
             params = {
-                    'collection': 'landsat-c2l2-sr',
-                    'limit': 100,
-                    'bbox': json.dumps(africa_bbox),
-                    'time': date.date().isoformat()
-                }
+                'collection': 'landsat-c2l2-sr',
+                'limit': 100,
+                'bbox': json.dumps(africa_bbox),
+                'time': date.date().isoformat()
+            }
 
             logging.info(f'Requesting URL {json_url} with parameters {params}')
 
@@ -271,7 +273,10 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 # Start Threads
                 [start_thread.start() for start_thread in thread_list]
 
-                logging.info('Running threads to retrieve and send '.format(number=count_tasks))
+                logging.info(
+                    f'Running threads to retrieve and send '
+                    f'ids {display_ids[(count_tasks - num_of_threads):count_tasks]}'
+                )
                 # Wait all {num_of_threads} threads finish to start {num_of_threads} more
                 [join_thread.join() for join_thread in thread_list]
 
@@ -329,13 +334,32 @@ def filter_africa_location(file_path):
     """
     try:
         logging.info(f"Unzipping and filtering file according to Africa Pathrows")
+        # list_test = []
+        # return_list = []
+        # for row in read_csv(file_path):
+        #     if (
+        #             row.get('Satellite')
+        #             and row['Satellite'] != "LANDSAT_4"
+        #     ) and (
+        #             row.get('WRS Path')
+        #             and row.get('WRS Row')
+        #             and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
+        #     ):
+        #         list_test.append(row)
+        #         return_list.append(row['Display ID'])
+        #
+        # return return_list
+
         return [
             row['Display ID']
             for row in read_csv(file_path)
-            if (
-                    not row.get('WRS Path')
-                    or not row.get('WRS Row')
-                    or not int('{path}{row}'.format(path=row['WRS Path'], row=row['WRS Row'])) in ALLOWED_PATHROWS
+            if(
+                row.get('Satellite')
+                and row['Satellite'] != "LANDSAT_4"
+            ) and (
+                row.get('WRS Path')
+                and row.get('WRS Row')
+                and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
             )
         ]
     except Exception as error:
@@ -395,8 +419,8 @@ def retrieve_bulk_data(file_name):
         main_url = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'
 
         # Download GZIP file
-        file_path = download_csv_files(main_url, file_name)
-
+        # file_path = download_csv_files(main_url, file_name)
+        file_path = f'/tmp/{file_name}'
         # Read file and retrieve the Display ids
         display_id_list = filter_africa_location(file_path)
         logging.info(f"{len(display_id_list)} found after being filtered")
@@ -422,8 +446,8 @@ def retrieve_bulk_data(file_name):
     # TODO start DAG here to have each process downloading
     # TODO add all files just level 2, ignore Landsat 4
     # files = {
-    #     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+    #     # 'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+    #     # 'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
     #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
     # }
     #
