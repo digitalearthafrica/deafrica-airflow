@@ -122,17 +122,17 @@ def get_allowed_features_json(retrieved_json):
                                 f"{feature['properties']['landsat:wrs_row']}") in ALLOWED_PATHROWS
                 )
             ]
-        elif (
-                retrieved_json
-                and retrieved_json.get('properties')
-                and retrieved_json['properties'].get('landsat:wrs_path')
-                and retrieved_json['properties'].get('landsat:wrs_row')
-        ):
-            if int(
-                    f"{retrieved_json['properties']['landsat:wrs_path']}"
-                    f"{retrieved_json['properties']['landsat:wrs_row']}"
-            ) in ALLOWED_PATHROWS:
-                return retrieved_json
+        # elif (
+        #         retrieved_json
+        #         and retrieved_json.get('properties')
+        #         and retrieved_json['properties'].get('landsat:wrs_path')
+        #         and retrieved_json['properties'].get('landsat:wrs_row')
+        # ):
+        #     if int(
+        #             f"{retrieved_json['properties']['landsat:wrs_path']}"
+        #             f"{retrieved_json['properties']['landsat:wrs_row']}"
+        #     ) in ALLOWED_PATHROWS:
+        #         return retrieved_json
         elif not retrieved_json.get('features'):
             return [retrieved_json]
 
