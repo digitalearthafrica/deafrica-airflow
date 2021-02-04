@@ -3,13 +3,15 @@ from airflow.operators.python_operator import PythonOperator
 from airflow.contrib.operators.aws_sqs_publish_operator import SQSPublishOperator
 from datetime import timedelta, datetime
 from airflow import DAG
+from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 
 def test_ssm_conn_and_var():
-    sqs_hook = SQSHook(aws_conn_id="sync_landsat_scenes")
+    sqs_hook = SQSHook(aws_conn_id=SYNC_LANDSAT_CONNECTION_ID)
     print(sqs_hook.get_conn())
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName="deafrica-dev-eks-sync-landsat-scene")
+    queue = sqs.get_queue_by_name(QueueName=SYNC_LANDSAT_CONNECTION_SQS_QUEUE)
     queue.send_messages(Entries="testing")
 
 
