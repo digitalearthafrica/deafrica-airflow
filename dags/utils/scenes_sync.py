@@ -122,26 +122,33 @@ def get_allowed_features_json(retrieved_json):
                                 f"{feature['properties']['landsat:wrs_row']}") in ALLOWED_PATHROWS
                 )
             ]
+        elif (
+                retrieved_json
+                and retrieved_json.get('properties')
+                and retrieved_json['properties'].get('landsat:wrs_path')
+                and retrieved_json['properties'].get('landsat:wrs_row')
+        ):
+            if int(
+                    f"{retrieved_json['properties']['landsat:wrs_path']}"
+                    f"{retrieved_json['properties']['landsat:wrs_row']}"
+            ) in ALLOWED_PATHROWS:
+                return retrieved_json
+        elif not retrieved_json.get('features'):
+            return [retrieved_json]
+
         return []
     except Exception as error:
         raise error
 
 
-def validate_and_send(api_return, validate=False):
+def validate_and_send(api_return):
     """
-        Send returned value to the queue
-        When the api return comes from the bulk process, it's likely that won't need validate. When come from the daily
-        process, it will be validate.
+        Validates pathrow and, when valid, send returned value to the queue
         :param api_return: (list) list of values returned from the API
-        :param validate: (bool) Specify if the returned value has to be validated against the valid Pathrows
         :return:
     """
     try:
-        if validate:
-            datasets = get_allowed_features_json(retrieved_json=api_return)
-        else:
-            datasets = api_return
-
+        datasets = get_allowed_features_json(retrieved_json=api_return)
         if datasets:
             publish_messages(datasets=datasets)
 
@@ -168,7 +175,6 @@ def request_api_and_send(url: str, params=None):
         # Check return 200
         test_http_return(resp)
         returned = json.loads(resp.content)
-        logging.debug(f"url {url}")
 
         # Retrieve daily requests
         if params:
@@ -176,7 +182,7 @@ def request_api_and_send(url: str, params=None):
             logging.debug(f"Found {returned['meta']['found']}")
 
             # TODO to speed up the process, it's possible to create threads to execute the send function at this point
-            validate_and_send(api_return=returned, validate=True)
+            validate_and_send(api_return=returned)
 
             if (
                     returned.get('meta')
@@ -194,7 +200,7 @@ def request_api_and_send(url: str, params=None):
 
         else:
             # Came from the bulk CSV file
-            validate_and_send(api_return=[returned])
+            validate_and_send(api_return=returned)
     except Exception as error:
         raise error
 
@@ -225,26 +231,29 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
         africa_bbox = [-26.359944882003788, -47.96476498374171, 64.4936701740102, 38.34459242512347]
 
         if not display_ids:
-
-            logging.debug(f'Requesting date {date.date().isoformat()}')
             json_url = f'{main_url}/stac/search'
-
-            # Request daily JSON API
-            request_api_and_send(
-                url=json_url,
-                params={
+            params = {
                     'collection': 'landsat-c2l2-sr',
                     'limit': 100,
                     'bbox': json.dumps(africa_bbox),
                     'time': date.date().isoformat()
                 }
-            )
+
+            logging.info(f'Requesting URL {json_url} with parameters {params}')
+
+            # Request daily JSON API
+            request_api_and_send(url=json_url, params=params)
 
         else:
             # Limit number of threads
             num_of_threads = 16
             count_tasks = len(display_ids)
-            logging.info('Starting process to send {number} messages'.format(number=count_tasks))
+            id_request_url = f'{main_url}/collections/landsat-c2l2-sr/items/'
+            logging.info(
+                f'Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages'
+            )
+            logging.info(f'Requesting URL {id_request_url} adding the display id by the end of the url')
+
             while count_tasks > 0:
 
                 if count_tasks < num_of_threads:
@@ -254,7 +263,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 thread_list = [
                     threading.Thread(
                         target=request_api_and_send,
-                        args=(f'{main_url}/collections/landsat-c2l2-sr/items/{display_id}',)
+                        args=(f'{id_request_url}{display_id}',)
                     )
                     for display_id in display_ids[(count_tasks - num_of_threads):count_tasks]
                 ]
@@ -319,6 +328,7 @@ def filter_africa_location(file_path):
         :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
     try:
+        logging.info(f"Unzipping and filtering file according to Africa Pathrows")
         return [
             row['Display ID']
             for row in read_csv(file_path)
@@ -345,7 +355,7 @@ def download_csv_files(url, file_name):
 
         file_path = f'/tmp/{file_name}'
         with open(file_path, "wb") as f:
-            logging.info(f"Downloading {file_name}")
+            logging.info(f"Downloading file {file_name} to {file_path}")
             downloaded = requests.get(url, stream=True)
             f.write(downloaded.content)
 
@@ -368,6 +378,7 @@ def download_csv_files(url, file_name):
         #             sys.stdout.write("\r[{0}{1}]".format('=' * done, ' ' * (50 - done)))
         #             sys.stdout.flush()
 
+        logging.info(f"{file_name} Downloaded!")
         return file_path
     except Exception as error:
         raise error
@@ -388,6 +399,7 @@ def retrieve_bulk_data(file_name):
 
         # Read file and retrieve the Display ids
         display_id_list = filter_africa_location(file_path)
+        logging.info(f"{len(display_id_list)} found after being filtered")
 
         # request the API through the display id and send the information to the queue
         retrieve_json_data_and_send(display_ids=display_id_list)
@@ -396,22 +408,24 @@ def retrieve_bulk_data(file_name):
         logging.error(error)
         raise error
 
-# if __name__ == "__main__":
-#     retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
-# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
-# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
+if __name__ == "__main__":
+
+    # retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
+
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
+    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
+    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
 
     # TODO start DAG here to have each process downloading
     # TODO add all files just level 2, ignore Landsat 4
-    # files = {
-    #     'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-    #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-    # }
-    #
-    # for sat, file in files.items():
-    #     retrieve_bulk_data(file_name=file)
+    files = {
+        'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+        'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+        'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+    }
+
+    for sat, file in files.items():
+        retrieve_bulk_data(file_name=file)
