@@ -87,7 +87,11 @@ def delete_messages(messages: list = None):
 def read_messages():
     try:
         test = get_messages()
+        count = 0
         for t in test:
             logging.info(t)
+            if count > 10:
+                break
+            count += 1
     except Exception as error:
         logging.error(error)
