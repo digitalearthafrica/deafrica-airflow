@@ -86,19 +86,16 @@ def read_messages():
     try:
         test = get_messages()
         count = 0
+        logging.info(f'Started')
         for t in test:
-            logging.info(f'message  {t}')
+            # logging.info(f'message  {t}')
             body = json.loads(t.body)
-            logging.info(f'body {body}')
-            if body.get('Message'):
-                metadata = json.loads(body["Message"])
-                logging.info(f'Message {metadata}')
-            # logging.info(t)
-            else:
-                logging.info(f'Delete')
-                t.delete()
-            if count > 100:
+            # logging.info(f'body {body}')
+            # logging.info(f'Delete')
+            t.delete()
+            if count > 20000:
                 break
             count += 1
+        logging.info(f'Completed')
     except Exception as error:
         logging.error(error)
