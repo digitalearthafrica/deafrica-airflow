@@ -8,12 +8,15 @@ import threading
 
 import pandas as pd
 import requests
+
+from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
 # ######### AWS CONFIG ############
 AWS_CONFIG = {
-    'africa_dev_conn_id': 'conn_sync_landsat_scene',
-    'sqs_queue': 'deafrica-dev-eks-sync-landsat-scene',
+    'africa_dev_conn_id': SYNC_LANDSAT_CONNECTION_ID,
+    'sqs_queue': SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     'arn': 'arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test'
 }
 

@@ -31,45 +31,63 @@ QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 #     attributes = get_common_message_attributes(contents_dict)
 #     return contents, attributes
 
-def publish_messages(datasets):
+def get_queue():
     """
-    Publish messages
-    param message: list of messages
+        Connect to the right queue
+        :return: QUEUE
     """
     try:
-
-        def post_messages(messages_to_send):
-            queue.send_messages(Entries=messages_to_send)
-
         sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
         sqs = sqs_hook.get_resource_type("sqs")
         queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
 
-        count = 0
-        messages = []
-        logging.info("Adding messages...")
-        for dataset in datasets:
-            message = {
-                "Id": str(count),
-                "MessageBody": json.dumps(dataset),
-            }
-            messages.append(message)
-
-            count += 1
-            if count % 10 == 0:
-                post_messages(messages)
-                messages = []
-
-        # Post the last messages if there are any
-        if len(messages) > 0:
-            post_messages(messages)
-
-        return count
+        return queue
 
     except Exception as error:
-        logging.error(error)
         raise error
 
 
-if __name__ == "__main__":
-    pass
+def get_messages():
+    """
+        Get messages from a queue resource.
+        :return: message
+    """
+    try:
+        queue = get_queue()
+
+        while True:
+            messages = queue.receive_messages(
+                VisibilityTimeout=60,
+                MaxNumberOfMessages=1,
+                WaitTimeSeconds=10,
+                MessageAttributeNames=["All"],
+            )
+            if len(messages) == 0:
+                break
+            else:
+                for message in messages:
+                    yield message
+
+    except Exception as error:
+        raise error
+
+
+def delete_messages(messages: list = None):
+    """
+    Delete messages from the queue
+    :param messages:
+    :return:
+    """
+    try:
+        pass
+    except Exception as error:
+        raise error
+
+
+def read_messages():
+    try:
+        test = get_messages()
+        for t in test:
+            logging.info(t)
+    except Exception as error:
+        logging.error(error)
