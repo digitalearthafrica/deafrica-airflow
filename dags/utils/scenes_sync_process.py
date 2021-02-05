@@ -1,6 +1,7 @@
 """
     Script to read queue, process messages and save on the S3 bucket
 """
+import json
 import logging
 
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
@@ -86,7 +87,11 @@ def read_messages():
         test = get_messages()
         count = 0
         for t in test:
-            logging.info(t)
+            body = json.loads(t.body)
+            metadata = json.loads(body["Message"])
+            logging.info(f'body {body}')
+            logging.info(f'Message {metadata}')
+            # logging.info(t)
             if count > 10:
                 break
             count += 1
