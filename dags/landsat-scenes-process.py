@@ -1,17 +1,11 @@
 # [START import_module]
 from datetime import timedelta, datetime
 
-# The DAG object; we'll need this to instantiate a DAG
 from airflow import DAG
-
-# Operators; we need this to operate!
 from airflow.operators.dummy_operator import DummyOperator
-
 from airflow.operators.python_operator import PythonOperator
 
-from dags.utils.scenes_sync_process import read_messages
-from utils.scenes_sync import retrieve_json_data_and_send
-
+from utils.scenes_sync_process import read_messages
 # [END import_module]
 
 # [START default_args]
