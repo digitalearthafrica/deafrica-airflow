@@ -4,11 +4,14 @@
 import json
 import logging
 
+import fiona
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 # ######### AWS CONFIG ############
+from shapely.geometry import mapping
+
 AWS_CONFIG = {
     'africa_dev_conn_id': SYNC_LANDSAT_CONNECTION_ID,
     'sqs_queue': SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
@@ -77,7 +80,79 @@ def delete_messages(messages: list = None):
     :return:
     """
     try:
+        [message.delete() for message in messages]
+    except Exception as error:
+        raise error
+
+
+def change_metadata(dataset):
+    try:
+        # Assets Link
+        # s3://usgs-landsat/
         pass
+    except Exception as error:
+        raise error
+
+
+def check_parameters(message):
+    try:
+        return bool(
+            message.get('geometry')
+            and message.get('properties')
+            and message['geometry'].get('coordinates')
+        )
+
+    except Exception as error:
+        raise error
+
+
+def create_shp_file():
+    try:
+        # pprint.pprint(fiona.FIELD_TYPES_MAP)
+        # {'date': <class 'fiona.rfc3339.FionaDateType'>,
+        #  'datetime': <class 'fiona.rfc3339.FionaDateTimeType'>,
+        #  'float': <class 'float'>,
+        #  'int': <class 'int'>,
+        #  'str': <class 'str'>,
+        #  'time': <class 'fiona.rfc3339.FionaTimeType'>}
+
+        # Define a polygon feature geometry with one attribute
+        schema = {
+            'geometry': 'Polygon',
+            'properties': {
+                'collection': 'str',
+                'datetime': 'datetime',
+                'eo:cloud_cover': 'float',
+                'eo:sun_azimuth': 'float',
+                'eo:sun_elevation': 'float',
+                'eo:platform': 'str',
+                'eo:instrument': 'str',
+                'eo:off_nadir': 'int',
+                # 'eo:gsd': 'datetime',
+                'landsat:cloud_cover_land': 'float',
+                'landsat:wrs_type': 'str',
+                'landsat:wrs_path': 'str',
+                'landsat:wrs_row': 'str',
+                'landsat:scene_id': 'str',
+                'landsat:collection_category': 'str',
+                'landsat:collection_number': 'str',
+                # 'eo:bands': 'list',  ???
+            },
+        }
+
+        # Write a new Shapefile
+        with fiona.open('test.shp', 'w', 'ESRI Shapefile', schema) as c:
+            for message in get_messages():
+                if check_parameters(message=message):
+                    poly = message['geometry']['coordinates']
+                    c.write(
+                        {
+                            'geometry': mapping(poly),
+                            'properties': message['properties'],
+                        }
+                    )
+
+
     except Exception as error:
         raise error
 
