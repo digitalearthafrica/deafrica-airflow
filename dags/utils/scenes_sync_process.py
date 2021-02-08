@@ -5,23 +5,26 @@ import json
 import logging
 
 import fiona
+from shapely.geometry import mapping, Polygon
+import shapely.speedups
+
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
+
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 # ######### AWS CONFIG ############
-from shapely.geometry import mapping
+
 
 AWS_CONFIG = {
-    'africa_dev_conn_id': SYNC_LANDSAT_CONNECTION_ID,
-    'sqs_queue': SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    'arn': 'arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test'
+    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
+    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
 }
 
 # ######### S3 CONFIG ############
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
-
 
 # https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz
 
@@ -32,10 +35,13 @@ QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 #     attributes = get_common_message_attributes(contents_dict)
 #     return contents, attributes
 
+# JSON_TEST = json.load(open("../../data/test.json"))["features"]
+
+
 def get_queue():
     """
-        Connect to the right queue
-        :return: QUEUE
+    Connect to the right queue
+    :return: QUEUE
     """
     try:
         sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
@@ -50,8 +56,8 @@ def get_queue():
 
 def get_messages():
     """
-        Get messages from a queue resource.
-        :return: message
+    Get messages from a queue resource.
+    :return: message
     """
     try:
         queue = get_queue()
@@ -61,13 +67,12 @@ def get_messages():
                 VisibilityTimeout=60,
                 MaxNumberOfMessages=1,
                 WaitTimeSeconds=10,
-                # MessageAttributeNames=["All"],
             )
             if len(messages) == 0:
                 break
             else:
                 for message in messages:
-                    yield message
+                    yield json.loads(message.body)
 
     except Exception as error:
         raise error
@@ -85,11 +90,49 @@ def delete_messages(messages: list = None):
         raise error
 
 
+def replace_links(dataset):
+    # s3://usgs-landsat/
+    try:
+        if dataset.get("links"):
+            for link in dataset["links"]:
+                if link.get("rel") and link.get("href"):
+                    if (
+                        link["rel"] == "self"
+                        or link["rel"] == "collection"
+                        or link["rel"] == "root"
+                    ):
+                        link["href"] = link["href"].replace(
+                            "https://landsatlook.usgs.gov/sat-api/",
+                            "s3://usgs-landsat/",
+                        )
+
+    except Exception as error:
+        raise error
+
+
+def replace_asset_links(dataset):
+    # s3://usgs-landsat/
+    try:
+        if dataset.get("assets"):
+            for asset in dataset["assets"]:
+                if asset.get("href"):
+                    asset["href"] = asset["href"].replace(
+                        "https://landsatlook.usgs.gov", "s3://usgs-landsat/"
+                    )
+
+    except Exception as error:
+        raise error
+
+
 def change_metadata(dataset):
     try:
-        # Assets Link
-        # s3://usgs-landsat/
-        pass
+
+        # Links
+        replace_links(dataset=dataset)
+
+        # Assets Links
+        replace_asset_links(dataset=dataset)
+
     except Exception as error:
         raise error
 
@@ -97,9 +140,9 @@ def change_metadata(dataset):
 def check_parameters(message):
     try:
         return bool(
-            message.get('geometry')
-            and message.get('properties')
-            and message['geometry'].get('coordinates')
+            message.get("geometry")
+            and message.get("properties")
+            and message["geometry"].get("coordinates")
         )
 
     except Exception as error:
@@ -116,42 +159,58 @@ def create_shp_file():
         #  'str': <class 'str'>,
         #  'time': <class 'fiona.rfc3339.FionaTimeType'>}
 
-        # Define a polygon feature geometry with one attribute
+        shapely.speedups.enable()
+
         schema = {
-            'geometry': 'Polygon',
-            'properties': {
-                'collection': 'str',
-                'datetime': 'datetime',
-                'eo:cloud_cover': 'float',
-                'eo:sun_azimuth': 'float',
-                'eo:sun_elevation': 'float',
-                'eo:platform': 'str',
-                'eo:instrument': 'str',
-                'eo:off_nadir': 'int',
+            "geometry": "Polygon",
+            "properties": {
+                "collection": "str",
+                # 'datetime': 'datetime',
+                "eo:cloud_cover": "float",
+                "eo:sun_azimuth": "float",
+                "eo:sun_elevation": "float",
+                "eo:platform": "str",
+                "eo:instrument": "str",
+                "eo:off_nadir": "int",
                 # 'eo:gsd': 'datetime',
-                'landsat:cloud_cover_land': 'float',
-                'landsat:wrs_type': 'str',
-                'landsat:wrs_path': 'str',
-                'landsat:wrs_row': 'str',
-                'landsat:scene_id': 'str',
-                'landsat:collection_category': 'str',
-                'landsat:collection_number': 'str',
+                "landsat:cloud_cover_land": "float",
+                "landsat:wrs_type": "str",
+                "landsat:wrs_path": "str",
+                "landsat:wrs_row": "str",
+                "landsat:scene_id": "str",
+                "landsat:collection_category": "str",
+                "landsat:collection_number": "str",
                 # 'eo:bands': 'list',  ???
             },
         }
 
+        count = 0
+        logging.info(f"Started")
         # Write a new Shapefile
-        with fiona.open('test.shp', 'w', 'ESRI Shapefile', schema) as c:
+        with fiona.open("/tmp/test.shp", "w", "ESRI Shapefile", schema) as c:
+            # for message in JSON_TEST:
             for message in get_messages():
                 if check_parameters(message=message):
-                    poly = message['geometry']['coordinates']
-                    c.write(
-                        {
-                            'geometry': mapping(poly),
-                            'properties': message['properties'],
-                        }
+                    print(message["geometry"]["coordinates"])
+                    print(message["geometry"]["coordinates"][0])
+                    print([tuple(x) for x in message["geometry"]["coordinates"][0]])
+                    poly = Polygon(
+                        [tuple(x) for x in message["geometry"]["coordinates"][0]]
                     )
 
+                    c.write(
+                        {
+                            "geometry": mapping(poly),
+                            "properties": {
+                                key: value
+                                for key, value in message["properties"].items()
+                                if key in schema["properties"].keys()
+                            },
+                        }
+                    )
+                if count > 20:
+                    break
+                count += 1
 
     except Exception as error:
         raise error
@@ -161,7 +220,7 @@ def read_messages():
     try:
         test = get_messages()
         count = 0
-        logging.info(f'Started')
+        logging.info(f"Started")
         for t in test:
             # logging.info(f'message  {t}')
             body = json.loads(t.body)
@@ -171,6 +230,10 @@ def read_messages():
             if count > 20000:
                 break
             count += 1
-        logging.info(f'Completed')
+        logging.info(f"Completed")
     except Exception as error:
         logging.error(error)
+
+
+if __name__ == "__main__":
+    create_shp_file()

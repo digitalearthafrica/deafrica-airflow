@@ -15,9 +15,9 @@ from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
 # ######### AWS CONFIG ############
 AWS_CONFIG = {
-    'africa_dev_conn_id': SYNC_LANDSAT_CONNECTION_ID,
-    'sqs_queue': SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    'arn': 'arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test'
+    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
+    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
 }
 
 # ######### S3 CONFIG ############
@@ -27,10 +27,10 @@ QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 ALLOWED_PATHROWS = set(
     str(row.values[0][0])
     for row in pd.read_csv(
-        'https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true',
-        compression='gzip',
+        "https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true",
+        compression="gzip",
         header=0,
-        chunksize=1
+        chunksize=1,
     )
 )
 
@@ -42,6 +42,7 @@ ALLOWED_PATHROWS = set(
 #         header=0,
 #     ).values.ravel()
 # )
+
 
 def publish_messages(datasets):
     """
@@ -85,44 +86,45 @@ def publish_messages(datasets):
 
 def test_http_return(returned):
     """
-        Test API response
-        :param returned:
-        :return:
+    Test API response
+    :param returned:
+    :return:
     """
-    if hasattr(returned, 'status_code') and returned.status_code != 200:
+    if hasattr(returned, "status_code") and returned.status_code != 200:
         # TODO Implement dead queue here
-        url = returned.url if hasattr(returned, 'url') else 'Not informed'
-        content = returned.content if hasattr(returned, 'content') else 'Not informed'
-        text = returned.text if hasattr(returned, 'text') else 'Not informed'
-        status_code = returned.status_code if hasattr(returned, 'status_code') else 'Not informed'
-        reason = returned.reason if hasattr(returned, 'reason') else 'Not informed'
+        url = returned.url if hasattr(returned, "url") else "Not informed"
+        content = returned.content if hasattr(returned, "content") else "Not informed"
+        text = returned.text if hasattr(returned, "text") else "Not informed"
+        status_code = (
+            returned.status_code if hasattr(returned, "status_code") else "Not informed"
+        )
+        reason = returned.reason if hasattr(returned, "reason") else "Not informed"
         raise Exception(
-            f'API return is not 200: \n'
-            f'-url: {url} \n'
-            f'-content: {content} \n'
-            f'-text: {text} \n'
-            f'-status_code: {status_code} \n'
-            f'-reason: {reason} \n'
+            f"API return is not 200: \n"
+            f"-url: {url} \n"
+            f"-content: {content} \n"
+            f"-text: {text} \n"
+            f"-status_code: {status_code} \n"
+            f"-reason: {reason} \n"
         )
 
 
 def get_allowed_features_json(retrieved_json):
     """
-        Function to filter the scenes and allow just the Africa ones
-        :param retrieved_json: (dict) retrieved value
-        :return: (list)
+    Function to filter the scenes and allow just the Africa ones
+    :param retrieved_json: (dict) retrieved value
+    :return: (list)
     """
     try:
-        if retrieved_json.get('features') and retrieved_json['features']:
+        if retrieved_json.get("features") and retrieved_json["features"]:
             return [
                 feature
-                for feature in retrieved_json['features']
-                # :03d
+                for feature in retrieved_json["features"]
                 if (
-                        feature.get('properties')
-                        and feature['properties'].get('landsat:wrs_path')
-                        and f"{feature['properties']['landsat:wrs_path']}"
-                            f"{feature['properties']['landsat:wrs_row']}" in ALLOWED_PATHROWS
+                    feature.get("properties")
+                    and feature["properties"].get("landsat:wrs_path")
+                    and f"{feature['properties']['landsat:wrs_path']}"
+                    f"{feature['properties']['landsat:wrs_row']}" in ALLOWED_PATHROWS
                 )
             ]
         # Re-test over the API result
@@ -138,7 +140,7 @@ def get_allowed_features_json(retrieved_json):
         #             f"{int(retrieved_json['properties']['landsat:wrs_row']):03d}" in ALLOWED_PATHROWS
         #     ):
         #         return retrieved_json
-        elif not retrieved_json.get('features') and retrieved_json.get('properties'):
+        elif not retrieved_json.get("features") and retrieved_json.get("properties"):
             return [retrieved_json]
 
         return []
@@ -148,9 +150,9 @@ def get_allowed_features_json(retrieved_json):
 
 def validate_and_send(api_return):
     """
-        Validates pathrow and, when valid, send returned value to the queue
-        :param api_return: (list) list of values returned from the API
-        :return:
+    Validates pathrow and, when valid, send returned value to the queue
+    :param api_return: (list) list of values returned from the API
+    :return:
     """
     try:
         datasets = get_allowed_features_json(retrieved_json=api_return)
@@ -163,13 +165,13 @@ def validate_and_send(api_return):
 
 def request_api_and_send(url: str, params=None):
     """
-        Function to request the API and send the returned value to the queue.
-        If parameters are sent, means we are requesting daily JSON API, or part of its recursion
-        If parameters are empty, means we are using bulk CSV files to retrieve the information
+    Function to request the API and send the returned value to the queue.
+    If parameters are sent, means we are requesting daily JSON API, or part of its recursion
+    If parameters are empty, means we are using bulk CSV files to retrieve the information
 
-        :param url: (String) API URL
-        :param params: (Dict) Parameters to add to the URL
-        :return: None
+    :param url: (String) API URL
+    :param params: (Dict) Parameters to add to the URL
+    :return: None
     """
     try:
         if params is None:
@@ -190,17 +192,18 @@ def request_api_and_send(url: str, params=None):
             validate_and_send(api_return=returned)
 
             if (
-                    returned.get('meta')
-                    and returned['meta'].get('page')
-                    and returned['meta'].get('limit')
-                    and returned['meta'].get('found')
-                    and returned['meta'].get('returned')
+                returned.get("meta")
+                and returned["meta"].get("page")
+                and returned["meta"].get("limit")
+                and returned["meta"].get("found")
+                and returned["meta"].get("returned")
             ):
                 if (
-                        returned['meta']['returned'] == returned['meta']['limit']
-                        and (returned['meta']['page'] * returned['meta']['limit']) < returned['meta']['found']
+                    returned["meta"]["returned"] == returned["meta"]["limit"]
+                    and (returned["meta"]["page"] * returned["meta"]["limit"])
+                    < returned["meta"]["found"]
                 ):
-                    params.update({'page': returned['meta']['page'] + 1})
+                    params.update({"page": returned["meta"]["page"] + 1})
                     request_api_and_send(url=url, params=params)
 
         else:
@@ -212,13 +215,13 @@ def request_api_and_send(url: str, params=None):
 
 def retrieve_json_data_and_send(date=None, display_ids=None):
     """
-        Function to create Python threads which will request the API simultaneously
-        If start_date and end_date are sent, means we are requesting daily JSON API
-        If display_ids is sent, means we are using bulk CSV files to retrieve the information
+    Function to create Python threads which will request the API simultaneously
+    If start_date and end_date are sent, means we are requesting daily JSON API
+    If display_ids is sent, means we are using bulk CSV files to retrieve the information
 
-        :param date: (datetime) Date to request the API
-        :param display_ids: (list) id list from the bulk CSV file
-        :return:
+    :param date: (datetime) Date to request the API
+    :param display_ids: (list) id list from the bulk CSV file
+    :return:
     """
     # Example of API URLs
     # https://landsatlook.usgs.gov/sat-api/stac/search?collection=landsat-c2l2-sr&time=2020-12-07
@@ -228,23 +231,28 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
         if not date and not display_ids:
             raise Exception(
-                'Date is required for daily JSON request. '
-                'For a bulk CSV request, Display_ids is required'
+                "Date is required for daily JSON request. "
+                "For a bulk CSV request, Display_ids is required"
             )
 
-        main_url = 'https://landsatlook.usgs.gov/sat-api'
-        africa_bbox = [-26.359944882003788, -47.96476498374171, 64.4936701740102, 38.34459242512347]
+        main_url = "https://landsatlook.usgs.gov/sat-api"
+        africa_bbox = [
+            -26.359944882003788,
+            -47.96476498374171,
+            64.4936701740102,
+            38.34459242512347,
+        ]
 
         if not display_ids:
-            json_url = f'{main_url}/stac/search'
+            json_url = f"{main_url}/stac/search"
             params = {
-                'collection': 'landsat-c2l2-sr',
-                'limit': 100,
-                'bbox': json.dumps(africa_bbox),
-                'time': date.date().isoformat()
+                "collection": "landsat-c2l2-sr",
+                "limit": 100,
+                "bbox": json.dumps(africa_bbox),
+                "time": date.date().isoformat(),
             }
 
-            logging.info(f'Requesting URL {json_url} with parameters {params}')
+            logging.info(f"Requesting URL {json_url} with parameters {params}")
 
             # Request daily JSON API
             request_api_and_send(url=json_url, params=params)
@@ -253,11 +261,13 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
             # Limit number of threads
             num_of_threads = 16
             count_tasks = len(display_ids)
-            id_request_url = f'{main_url}/collections/landsat-c2l2-sr/items/'
+            id_request_url = f"{main_url}/collections/landsat-c2l2-sr/items/"
             logging.info(
-                f'Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages'
+                f"Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages"
             )
-            logging.info(f'Requesting URL {id_request_url} adding the display id by the end of the url')
+            logging.info(
+                f"Requesting URL {id_request_url} adding the display id by the end of the url"
+            )
 
             while count_tasks > 0:
 
@@ -268,17 +278,19 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 thread_list = [
                     threading.Thread(
                         target=request_api_and_send,
-                        args=(f'{id_request_url}{display_id}',)
+                        args=(f"{id_request_url}{display_id}",),
                     )
-                    for display_id in display_ids[(count_tasks - num_of_threads):count_tasks]
+                    for display_id in display_ids[
+                        (count_tasks - num_of_threads) : count_tasks
+                    ]
                 ]
 
                 # Start Threads
                 [start_thread.start() for start_thread in thread_list]
 
                 logging.info(
-                    f'Running threads to retrieve and send '
-                    f'ids {display_ids[(count_tasks - num_of_threads):count_tasks]}'
+                    f"Running threads to retrieve and send "
+                    f"ids {display_ids[(count_tasks - num_of_threads):count_tasks]}"
                 )
                 # Wait all {num_of_threads} threads finish to start {num_of_threads} more
                 [join_thread.join() for join_thread in thread_list]
@@ -292,31 +304,31 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
 def read_csv(file_path):
     """
-        Function to read inside of the GZIP file and return row by row as a
-        dict composed by the header as key and the line as value
+    Function to read inside of the GZIP file and return row by row as a
+    dict composed by the header as key and the line as value
 
-        :param file_path: (String) Downloaded GZIP file path
-        :return: (dict) Row of the file
+    :param file_path: (String) Downloaded GZIP file path
+    :return: (dict) Row of the file
     """
     try:
         header = []
 
         def build_dict(built_header, bvalue):
             """
-                Function to through the CSV row build a dict. in case of the header being None, it will assume
-                that the informed row is the header and will return the header as a list
-                :param built_header: (dict) Header of the CSV
-                :param bvalue: (bstr) Row of the CSV
-                :return: (list/dict) list if the header isn't informed and a dict with the header values as key
-                values and the row as values if the header is informed
+            Function to through the CSV row build a dict. in case of the header being None, it will assume
+            that the informed row is the header and will return the header as a list
+            :param built_header: (dict) Header of the CSV
+            :param bvalue: (bstr) Row of the CSV
+            :return: (list/dict) list if the header isn't informed and a dict with the header values as key
+            values and the row as values if the header is informed
             """
-            values = str(bvalue).rstrip('\n').split(',')
+            values = str(bvalue).rstrip("\n").split(",")
             if not built_header:
                 return values
             else:
                 return {header[index]: values[index] for index in range(0, len(header))}
 
-        for row in gzip.open(file_path, 'rt'):
+        for row in gzip.open(file_path, "rt"):
             # Gzip library does not skip header line, instead reads line by line returning a byte string,
             # so the inner-function will build the right dict based on the header
             if not header:
@@ -330,10 +342,10 @@ def read_csv(file_path):
 
 def filter_africa_location(file_path):
     """
-        Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
-        informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
-        :param file_path: (String) Downloaded GZIP file path
-        :return: (List) List of Display ids which will be used to retrieve the data from the API.
+    Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
+    informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
+    :param file_path: (String) Downloaded GZIP file path
+    :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
     try:
         logging.info(f"Unzipping and filtering file according to Africa Pathrows")
@@ -354,14 +366,12 @@ def filter_africa_location(file_path):
         # return return_list
 
         return [
-            row['Display ID']
+            row["Display ID"]
             for row in read_csv(file_path)
-            if(
-                row.get('Satellite')
-                and row['Satellite'] != "LANDSAT_4"
-            ) and (
-                row.get('WRS Path')
-                and row.get('WRS Row')
+            if (row.get("Satellite") and row["Satellite"] != "LANDSAT_4")
+            and (
+                row.get("WRS Path")
+                and row.get("WRS Row")
                 and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
             )
         ]
@@ -371,16 +381,16 @@ def filter_africa_location(file_path):
 
 def download_csv_files(url, file_name):
     """
-        Function to download bulk CSV file from the informed server.
+    Function to download bulk CSV file from the informed server.
 
-        :param url:(String) URL path for the API
-        :param file_name: (String) File name which will be downloaded
-        :return: (String) File path where it was downloaded. Hardcoded for /tmp/
+    :param url:(String) URL path for the API
+    :param file_name: (String) File name which will be downloaded
+    :return: (String) File path where it was downloaded. Hardcoded for /tmp/
     """
     try:
-        url = f'{url}{file_name}'
+        url = f"{url}{file_name}"
 
-        file_path = f'/tmp/{file_name}'
+        file_path = f"/tmp/{file_name}"
         with open(file_path, "wb") as f:
             logging.info(f"Downloading file {file_name} to {file_path}")
             downloaded = requests.get(url, stream=True)
@@ -413,17 +423,19 @@ def download_csv_files(url, file_name):
 
 def retrieve_bulk_data(file_name):
     """
-        Function to initiate the bulk CSV process
-        :param file_name: (String) File name which will be downloaded
-        :return: None. Process send information to the queue
+    Function to initiate the bulk CSV process
+    :param file_name: (String) File name which will be downloaded
+    :return: None. Process send information to the queue
     """
     try:
         # Main URL
-        main_url = 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'
+        main_url = (
+            "https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/"
+        )
 
         # Download GZIP file
         # file_path = download_csv_files(main_url, file_name)
-        file_path = f'/tmp/{file_name}'
+        file_path = f"/tmp/{file_name}"
         # Read file and retrieve the Display ids
         display_id_list = filter_africa_location(file_path)
         logging.info(f"{len(display_id_list)} found after being filtered")
@@ -438,21 +450,21 @@ def retrieve_bulk_data(file_name):
 
 # if __name__ == "__main__":
 
-    # retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
+# retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
-    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
-    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
-    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
+# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
+# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
+# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
 
-    # TODO start DAG here to have each process downloading
-    # TODO add all files just level 2, ignore Landsat 4
-    # files = {
-    #     # 'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-    #     # 'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-    #     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-    # }
-    #
-    # for sat, file in files.items():
-    #     retrieve_bulk_data(file_name=file)
+# TODO start DAG here to have each process downloading
+# TODO add all files just level 2, ignore Landsat 4
+# files = {
+#     # 'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+#     # 'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+#     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+# }
+#
+# for sat, file in files.items():
+#     retrieve_bulk_data(file_name=file)

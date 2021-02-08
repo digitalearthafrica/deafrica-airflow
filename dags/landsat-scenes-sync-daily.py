@@ -25,7 +25,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
-    "catchup": False
+    "catchup": False,
 }
 # [END default_args]
 
@@ -51,11 +51,11 @@ with dag:
     requested_date = start_date
     processes = []
 
-    count_tasks = ((end_date - start_date).days + 1)
+    count_tasks = (end_date - start_date).days + 1
     while count_tasks > 0:
         processes.append(
             PythonOperator(
-                task_id=f'Task-Day-{requested_date.date().isoformat()}',
+                task_id=f"Task-Day-{requested_date.date().isoformat()}",
                 python_callable=retrieve_json_data_and_send,
                 op_kwargs=dict(date=requested_date),
                 dag=dag,

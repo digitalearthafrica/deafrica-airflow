@@ -6,6 +6,7 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from utils.scenes_sync_process import read_messages
+
 # [END import_module]
 
 # [START default_args]
@@ -20,7 +21,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
-    "catchup": False
+    "catchup": False,
 }
 # [END default_args]
 
@@ -38,12 +39,11 @@ with dag:
     START = DummyOperator(task_id="start-tasks")
 
     retrieve_messages = PythonOperator(
-                task_id=f'Read_messages',
-                python_callable=read_messages,
-                op_kwargs=dict(),
-                dag=dag,
-            )
-
+        task_id=f"Read_messages",
+        python_callable=read_messages,
+        op_kwargs=dict(),
+        dag=dag,
+    )
 
     # processes = []
     #
