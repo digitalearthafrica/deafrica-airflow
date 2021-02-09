@@ -1,20 +1,15 @@
 """
     Script to read queue, process messages and save on the S3 bucket
 """
+import concurrent.futures
 import json
 import logging
-import concurrent.futures
 from collections import Generator
 
 import botocore
-import fiona
-import shapely.speedups
-from shapely.geometry import mapping, shape
-
-from pystac import Item
-
-from airflow.hooks.S3_hook import S3Hook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
+from airflow.hooks.S3_hook import S3Hook
+from pystac import Item
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
@@ -223,76 +218,76 @@ def process():
 
 # ################## Create ShapeFile process #############################################
 
-def build_properties_schema(properties: dict):
-    try:
-
-        schema = {}
-        for key, value in properties.items():
-            if type(value) is int:
-                type_property = 'int'
-            elif type(value) is float:
-                type_property = 'float'
-            elif type(value) is str:
-                type_property = 'str'
-            elif type(value) is fiona.rfc3339.FionaDateType:
-                type_property = 'date'
-            elif type(value) is fiona.rfc3339.FionaTimeType:
-                type_property = 'time'
-            elif type(value) is fiona.rfc3339.FionaDateTimeType:
-                type_property = 'datetime'
-            else:
-                continue
-            schema.update({key: type_property})
-
-        return schema
-
-    except Exception as error:
-        raise error
-
-
-def create_shp_file(datasets: list):
-    try:
-        shapely.speedups.enable()
-
-        # schema = {
-        #     "geometry": "Polygon",
-        #     "properties": {
-        #         'datetime': 'str',
-        #         "landsat:wrs_path": "str",
-        #         "landsat:wrs_row": "str",
-        #         "landsat:scene_id": "str",
-        #     },
-        # }
-
-        schema = {
-            "geometry": "Polygon",
-            "properties": build_properties_schema(properties=datasets[0]['properties'])
-        }
-
-        count = 0
-        logging.info(f"Started")
-        # Write a new Shapefile
-        with fiona.open("/tmp/Shapefile/test.shp", "w", "ESRI Shapefile", schema) as c:
-            # for message in JSON_TEST:
-            for dataset in datasets:
-                if check_parameters(message=dataset):
-                    poly = shape(dataset["geometry"])
-
-                    c.write(
-                        {
-                            "geometry": mapping(poly),
-                            "properties": {
-                                key: value
-                                for key, value in dataset["properties"].items()
-                                if key in schema["properties"].keys()
-                            },
-                        }
-                    )
-
-                if count > 20:
-                    break
-                count += 1
-            return True
-
-    except Exception as error:
-        raise error
+# def build_properties_schema(properties: dict):
+#     try:
+#
+#         schema = {}
+#         for key, value in properties.items():
+#             if type(value) is int:
+#                 type_property = 'int'
+#             elif type(value) is float:
+#                 type_property = 'float'
+#             elif type(value) is str:
+#                 type_property = 'str'
+#             elif type(value) is fiona.rfc3339.FionaDateType:
+#                 type_property = 'date'
+#             elif type(value) is fiona.rfc3339.FionaTimeType:
+#                 type_property = 'time'
+#             elif type(value) is fiona.rfc3339.FionaDateTimeType:
+#                 type_property = 'datetime'
+#             else:
+#                 continue
+#             schema.update({key: type_property})
+#
+#         return schema
+#
+#     except Exception as error:
+#         raise error
+#
+#
+# def create_shp_file(datasets: list):
+#     try:
+#         shapely.speedups.enable()
+#
+#         # schema = {
+#         #     "geometry": "Polygon",
+#         #     "properties": {
+#         #         'datetime': 'str',
+#         #         "landsat:wrs_path": "str",
+#         #         "landsat:wrs_row": "str",
+#         #         "landsat:scene_id": "str",
+#         #     },
+#         # }
+#
+#         schema = {
+#             "geometry": "Polygon",
+#             "properties": build_properties_schema(properties=datasets[0]['properties'])
+#         }
+#
+#         count = 0
+#         logging.info(f"Started")
+#         # Write a new Shapefile
+#         with fiona.open("/tmp/Shapefile/test.shp", "w", "ESRI Shapefile", schema) as c:
+#             # for message in JSON_TEST:
+#             for dataset in datasets:
+#                 if check_parameters(message=dataset):
+#                     poly = shape(dataset["geometry"])
+#
+#                     c.write(
+#                         {
+#                             "geometry": mapping(poly),
+#                             "properties": {
+#                                 key: value
+#                                 for key, value in dataset["properties"].items()
+#                                 if key in schema["properties"].keys()
+#                             },
+#                         }
+#                     )
+#
+#                 if count > 20:
+#                     break
+#                 count += 1
+#             return True
+#
+#     except Exception as error:
+#         raise error
