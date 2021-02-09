@@ -1,4 +1,3 @@
-pandas==1.2.1
-requests==2.25.1
-botocore==1.19.62
-pystac==0.5.4
+# Used for Landsat data sync
+pystac
+stactools
