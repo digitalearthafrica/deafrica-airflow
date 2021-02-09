@@ -1,3 +1,10 @@
+airflow
 pyproj==2.6.1.post1
 shapely==1.7.0
 fiona==1.8.13.post1
+boto3==1.16.62
+pandas==1.2.1
+requests==2.25.1
+kubernetes==12.0.1
+botocore==1.19.62
+pystac==0.5.4

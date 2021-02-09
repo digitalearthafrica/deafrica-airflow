@@ -61,7 +61,7 @@ with dag:
                 dag=dag,
             )
         )
-        requested_date -= timedelta(days=1)
+        requested_date += timedelta(days=1)
         count_tasks -= 1
 
     END = DummyOperator(task_id="end-tasks")
