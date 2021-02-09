@@ -9,18 +9,18 @@ from collections import Generator
 import botocore
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
-from pystac import Item
+from pystac import Item, Link
 
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+# from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+# from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 # ######### AWS CONFIG ############
 
-AWS_CONFIG = {
-    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
-    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
-}
+# AWS_CONFIG = {
+#     "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
+#     "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+#     "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
+# }
 
 # ######### S3 CONFIG ############
 SRC_BUCKET_NAME = "sentinel-cogs"
@@ -114,8 +114,13 @@ def delete_messages(messages: list = None):
 
 def replace_links(item: Item):
     try:
-        for link in item.get_links():
-            print(link)
+        # Remove all Links
+        [item.remove_links(rel=link.rel) for link in item.get_links()]
+
+        # Add New Links
+        derived_from = Link(rel='derived_from', target='https://landsatlook.usgs.gov/sat-api/')
+        product_overview = Link(rel='product_overview', target='s3://usgs-landsat/')
+        item.add_link(derived_from)
 
         # link["href"] = link["href"].replace(
         #     "https://landsatlook.usgs.gov/sat-api/",
@@ -162,15 +167,16 @@ def bulk_convert_dict_to_pystac_item(messages: Generator):
             )
 
             futures = []
-            try:
-                for message in messages:
-                    futures.append(executor.submit(convert_dict_to_pystac_item, message))
+            for message in messages:
 
-                    if len(futures) == num_of_threads:
-                        results.extend([f.result() for f in futures])
-                        futures = []
+                futures.append(executor.submit(convert_dict_to_pystac_item, message))
 
-            except StopIteration:
+                if len(futures) == num_of_threads:
+                    # every num_of_threads execute them
+                    results.extend([f.result() for f in futures])
+                    futures = []
+
+            if futures:
                 results.extend([f.result() for f in futures])
 
         return results
