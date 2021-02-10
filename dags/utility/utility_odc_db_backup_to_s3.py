@@ -15,35 +15,19 @@ from textwrap import dedent
 
 from airflow.models import Variable
 
-DB_DUMP_S3_ROLE = Variable.get("db_dump_s3_role", "deafrica-prod-af-eks-db-dump-to-s3")
-SECRET_DBA_ADMIN_NAME = Variable.get("db_dba_admin_secret", "dba-admin")
-DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-dump")
+from infra.variables import (
+    DB_DUMP_S3_BUCKET,
+    DB_DUMP_S3_ROLE,
+    SECRET_DBA_ADMIN_NAME,
+    DB_DATABASE,
+    DB_HOSTNAME,
+    SECRET_AWS_NAME,
+)
 
-
-NODE_AFFINITY = {
-    "nodeAffinity": {
-        "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [
-                {
-                    "matchExpressions": [
-                        {
-                            "key": "nodetype",
-                            "operator": "In",
-                            "values": [
-                                "ondemand",
-                            ],
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-}
+from infra.podconfig import NODE_AFFINITY
+from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "odc_db_dump_to_s3"
-
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.15"
-
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
@@ -57,14 +41,16 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
-        "DB_DATABASE": "africa",
-        "AWS_DEFAULT_REGION": "us-west-2",
+        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_DATABASE": DB_DATABASE,
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_DBA_ADMIN_NAME, "postgres-username"),
         Secret("env", "PGPASSWORD", SECRET_DBA_ADMIN_NAME, "postgres-password"),
+        Secret(
+            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
+        ),
     ],
 }
 
