@@ -38,11 +38,14 @@ dag = DAG(
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
-    retrieve_messages = PythonOperator(
-        task_id=f"Read_messages",
-        python_callable=process,
-        op_kwargs=dict(),
-        dag=dag,
+    retrieve_messages = []
+    retrieve_messages.append(
+        PythonOperator(
+            task_id=f"Read_messages",
+            python_callable=process,
+            op_kwargs=dict(),
+            dag=dag,
+        )
     )
 
     # processes = []
