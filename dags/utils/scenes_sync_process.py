@@ -11,14 +11,14 @@ from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from pystac import Item, Link
 
-# from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-# from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 # ######### AWS CONFIG ############
 
 AWS_DEV_CONFIG = {
-    # "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
-    # "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
+    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     "sns_topic": "",
     "s3_destination_bucket_name": "deafrica-landsat-dev",
     "s3_source_bucket_name": "usgs-landsat",
@@ -71,10 +71,11 @@ def get_queue():
         raise error
 
 
-def get_messages(limit: int = 16):
+def get_messages(limit: int = 10):
     """
-    Get messages from a queue resource.
-    :return: message
+     Get messages from a queue resource.
+    :param limit:Must be between 1 and 10, if provided.
+    :return:
     """
     try:
         queue = get_queue()
@@ -262,10 +263,8 @@ def process():
 
     count_messages = 0
     try:
-        limit = 16
-
         # Retrieve messages from the queue
-        messages = get_messages(limit=limit)
+        messages = get_messages()
 
         if not messages:
             logging.info('No messages were found!')
