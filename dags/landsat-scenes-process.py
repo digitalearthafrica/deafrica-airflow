@@ -40,7 +40,7 @@ with dag:
 
     retrieve_messages = PythonOperator(
         task_id=f"Read_messages",
-        python_callable=process(),
+        python_callable=process,
         op_kwargs=dict(),
         dag=dag,
     )
