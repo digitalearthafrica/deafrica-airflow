@@ -22,6 +22,8 @@ from textwrap import dedent
 
 import kubernetes.client.models as k8s
 
+QUEUE_NAME = "deafrica-dev-eks-sentinel-2-indexing"
+
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
@@ -128,7 +130,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
-            "deafrica-prod-af-eks-sentinel-2-indexing",
+            QUEUE_NAME,
             "s2_l2a",
         ],
         labels={"step": "sqs-to-rds"},
