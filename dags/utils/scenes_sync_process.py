@@ -71,10 +71,11 @@ def get_queue():
         raise error
 
 
-def get_messages(limit: int = 16):
+def get_messages(limit: int = 10):
     """
-    Get messages from a queue resource.
-    :return: message
+     Get messages from a queue resource.
+    :param limit:Must be between 1 and 10, if provided.
+    :return:
     """
     try:
         queue = get_queue()
@@ -262,10 +263,8 @@ def process():
 
     count_messages = 0
     try:
-        limit = 16
-
         # Retrieve messages from the queue
-        messages = get_messages(limit=limit)
+        messages = get_messages()
 
         if not messages:
             logging.info('No messages were found!')
