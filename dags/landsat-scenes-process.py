@@ -5,7 +5,7 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync_process import read_messages
+from utils.scenes_sync_process import process
 
 # [END import_module]
 
@@ -40,7 +40,7 @@ with dag:
 
     retrieve_messages = PythonOperator(
         task_id=f"Read_messages",
-        python_callable=read_messages,
+        python_callable=process(),
         op_kwargs=dict(),
         dag=dag,
     )

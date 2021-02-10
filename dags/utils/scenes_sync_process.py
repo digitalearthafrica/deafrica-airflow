@@ -16,28 +16,28 @@ from pystac import Item, Link
 
 # ######### AWS CONFIG ############
 
-# AWS_CONFIG = {
-#     "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
-#     "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-#     "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
-# }
-
-# ######### S3 CONFIG ############
-SRC_BUCKET_NAME = "sentinel-cogs"
-QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
-AFRICA_CONN_ID = "deafrica-prod-migration"
+AWS_DEV_CONFIG = {
+    # "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
+    # "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    "sns_topic": "",
+    "s3_destination_bucket_name": "deafrica-landsat-dev",
+    "s3_source_bucket_name": "usgs-landsat",
+}
 
 
 # https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz
 
 
-def get_contents_and_attributes():
-    hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
-    bucket_name, key = hook.parse_s3_url('')
-    contents = hook.read_key(key=key, bucket_name=SRC_BUCKET_NAME)
+def get_contents_and_attributes(
+        s3_conn_id: str = AWS_DEV_CONFIG['africa_dev_conn_id'],
+        bucket_name: str = AWS_DEV_CONFIG['s3_source_bucket_name']
+):
+    hook = S3Hook(aws_conn_id=s3_conn_id)
+    returned_bucket_name, key = hook.parse_s3_url(bucket_name)
+    contents = hook.read_key(key=key, bucket_name=returned_bucket_name)
     contents_dict = json.loads(contents)
-    # attributes = get_common_message_attributes(contents_dict)
-    return contents
+
+    return contents_dict
     # return contents, attributes
 
 
@@ -61,9 +61,9 @@ def get_queue():
     :return: QUEUE
     """
     try:
-        sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
+        sqs_hook = SQSHook(aws_conn_id=AWS_DEV_CONFIG["africa_dev_conn_id"])
         sqs = sqs_hook.get_resource_type("sqs")
-        queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
+        queue = sqs.get_queue_by_name(QueueName=AWS_DEV_CONFIG["sqs_queue"])
 
         return queue
 
@@ -114,44 +114,81 @@ def delete_messages(messages: list = None):
 
 def replace_links(item: Item):
     try:
+
+        self_item = item.get_links(rel='self')
+        usgs_self_target = self_item[0].target if len(self_item) == 1 and hasattr(self_item[0], 'target') else ''
+
         # Remove all Links
         [item.remove_links(rel=link.rel) for link in item.get_links()]
 
         # Add New Links
-        derived_from = Link(rel='derived_from', target='https://landsatlook.usgs.gov/sat-api/')
-        product_overview = Link(rel='product_overview', target='s3://usgs-landsat/')
+        self_link = Link(
+            rel='self',
+            target=f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/'
+        )
+        item.add_link(self_link)
+
+        derived_from = Link(
+            rel='derived_from',
+            target=usgs_self_target if usgs_self_target else 'https://landsatlook.usgs.gov/sat-api/'
+        )
         item.add_link(derived_from)
 
-        # link["href"] = link["href"].replace(
-        #     "https://landsatlook.usgs.gov/sat-api/",
-        #     "s3://usgs-landsat/",
-        # )
+        product_overview = Link(rel='product_overview', target=f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/')
+        item.add_link(product_overview)
+
+        return item
 
     except Exception as error:
         raise error
-#
-#
-# def replace_asset_links(dataset):
-#     try:
-#         if dataset.get("assets"):
-#             for asset in dataset["assets"]:
-#                 if asset.get("href"):
-#                     asset["href"] = asset["href"].replace(
-#                         "https://landsatlook.usgs.gov",
-#                         "s3://usgs-landsat/"
-#                     )
-#     except Exception as error:
-#         raise error
 
 
-def check_parameters(message):
+def replace_asset_links(item: Item):
     try:
-        return bool(
-            message.get("geometry")
-            and message.get("properties")
-            and message["geometry"].get("coordinates")
-        )
 
+        assets = item.get_assets()
+        for key, asset in assets.items():
+            asset_href = (
+                asset.href if hasattr(asset, 'href') else ''
+            ).replace('https://landsatlook.usgs.gov/data/', f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/')
+            if asset_href:
+                asset.href = asset_href
+        return item
+    except Exception as error:
+        raise error
+
+
+def add_odc_product_property(item: Item):
+    try:
+
+        properties = item.properties
+        sat = properties.get('eo:platform', '')
+
+        if sat == 'LANDSAT_8':
+            value = 'ls8_l2sr'
+        elif sat == 'LANDSAT_7':
+            value = 'ls7_l2sr'
+        elif sat == 'LANDSAT_5':
+            value = 'ls5_l2sr'
+        else:
+            logging.error(f'Property odc:product not added due the sat is {sat if sat else "not informed"}')
+            raise Exception(f'Property odc:product not added due the sat is {sat if sat else "not informed"}')
+
+        properties.update({'odc:product': value})
+        return Item
+    except Exception as error:
+        raise error
+
+
+def merge_assets(item: Item):
+    # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
+    try:
+        content = get_contents_and_attributes(
+            s3_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'],
+            bucket_name=AWS_DEV_CONFIG['s3_source_bucket_name']
+        )
+        print(content)
+        logging.info(content)
     except Exception as error:
         raise error
 
@@ -193,6 +230,30 @@ def bulk_items_replace_links(items):
         raise error
 
 
+def bulk_items_replace_assets(items):
+    try:
+        for item in items:
+            replace_asset_links(item=item)
+    except Exception as error:
+        raise error
+
+
+def bulk_items_add_odc_product_property(items):
+    try:
+        for item in items:
+            add_odc_product_property(item=item)
+    except Exception as error:
+        raise error
+
+
+def bulk_items_merge_assets(items):
+    try:
+        for item in items:
+            merge_assets(item=item)
+    except Exception as error:
+        raise error
+
+
 def process():
     """
         Main function to process information from the queue
@@ -202,18 +263,27 @@ def process():
     count_messages = 0
     try:
         limit = 16
-        while True:
-            # Retrieve messages from the queue
-            messages = get_messages(limit=limit)
 
-            if not messages:
-                break
+        # Retrieve messages from the queue
+        messages = get_messages(limit=limit)
 
-            items = bulk_convert_dict_to_pystac_item(messages=messages)
+        if not messages:
+            logging.info('No messages were found!')
+            return
 
-            count_messages += len(items)
+        items = bulk_convert_dict_to_pystac_item(messages=messages)
 
-            bulk_items_replace_links(items=items)
+        count_messages += len(items)
+
+        bulk_items_replace_links(items=items)
+
+        bulk_items_replace_assets(items=items)
+
+        bulk_items_add_odc_product_property(items=items)
+
+        bulk_items_merge_assets(items=items)
+
+        print(items)
 
     except StopIteration:
         logging.info(f'All {count_messages} messages read')
@@ -221,8 +291,18 @@ def process():
         logging.error(error)
         raise error
 
-
 # ################## Create ShapeFile process #############################################
+
+# def check_parameters(message):
+#     try:
+#         return bool(
+#             message.get("geometry")
+#             and message.get("properties")
+#             and message["geometry"].get("coordinates")
+#         )
+#
+#     except Exception as error:
+#         raise error
 
 # def build_properties_schema(properties: dict):
 #     try:
