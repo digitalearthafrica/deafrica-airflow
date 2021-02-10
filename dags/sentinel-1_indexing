@@ -109,12 +109,12 @@ OWS_BASH_COMMAND = [
 ]
 
 dag = DAG(
-    "sentinel-1_indexing",
+    "Sentinel-1_Indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-1"],
+    tags=["k8s", "Sentinel-1"],
 )
 
 with dag:
