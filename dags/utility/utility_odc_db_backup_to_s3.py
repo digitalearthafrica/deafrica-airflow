@@ -27,7 +27,7 @@ from infra.variables import (
 from infra.podconfig import NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
 
-DAG_NAME = "odc_db_dump_to_s3"
+DAG_NAME = "utility_odc_db_dump_to_s3"
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
