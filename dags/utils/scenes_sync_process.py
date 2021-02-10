@@ -30,15 +30,27 @@ AWS_DEV_CONFIG = {
 
 def get_contents_and_attributes(
         s3_conn_id: str = AWS_DEV_CONFIG['africa_dev_conn_id'],
-        bucket_name: str = AWS_DEV_CONFIG['s3_source_bucket_name']
+        bucket_name: str = AWS_DEV_CONFIG['s3_source_bucket_name'],
+        key: str = None
 ):
-    hook = S3Hook(aws_conn_id=s3_conn_id)
-    returned_bucket_name, key = hook.parse_s3_url(bucket_name)
-    contents = hook.read_key(key=key, bucket_name=returned_bucket_name)
-    contents_dict = json.loads(contents)
+    """
 
-    return contents_dict
-    # return contents, attributes
+    :param s3_conn_id: (str) s3_conn_id: Airflow AWS credentials
+    :param bucket_name: (str) bucket_name: AWS S3 bucket which the function will connect to
+    :param key: (str) Path to the content which the function will access
+    :return: (dict) content
+    """
+    try:
+        if not key:
+            raise Exception('Key must be informed to be able connecting to AWS S3')
+
+        hook = S3Hook(aws_conn_id=s3_conn_id)
+        contents = hook.read_key(key=key, bucket_name=bucket_name)
+        contents_dict = json.loads(contents)
+
+        return contents_dict
+    except Exception as error:
+        raise error
 
 
 def get_s3_object(client, bucket: str, key: str):
@@ -183,10 +195,15 @@ def add_odc_product_property(item: Item):
 
 def merge_assets(item: Item):
     # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
+    # "https://landsatlook.usgs.gov/data/collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/LC08_L1GT_157019_20201207_20201217_02_T2_thumb_small.jpeg"
     try:
+        assets = item.get_assets()
+
         content = get_contents_and_attributes(
             s3_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'],
-            bucket_name=AWS_DEV_CONFIG['s3_source_bucket_name']
+            bucket_name=AWS_DEV_CONFIG['s3_source_bucket_name'],
+            # TODO replace for path from the ITEM, just for test right now
+            key='collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/'
         )
         print(content)
         logging.info(content)
