@@ -14,6 +14,8 @@ from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
 # ######### AWS CONFIG ############
+from utils.url_request_utils import request_url
+
 AWS_CONFIG = {
     "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
     "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
@@ -82,31 +84,6 @@ def publish_messages(datasets):
     except Exception as error:
         logging.error(error)
         raise error
-
-
-def test_http_return(returned):
-    """
-    Test API response
-    :param returned:
-    :return:
-    """
-    if hasattr(returned, "status_code") and returned.status_code != 200:
-        # TODO Implement dead queue here
-        url = returned.url if hasattr(returned, "url") else "Not informed"
-        content = returned.content if hasattr(returned, "content") else "Not informed"
-        text = returned.text if hasattr(returned, "text") else "Not informed"
-        status_code = (
-            returned.status_code if hasattr(returned, "status_code") else "Not informed"
-        )
-        reason = returned.reason if hasattr(returned, "reason") else "Not informed"
-        raise Exception(
-            f"API return is not 200: \n"
-            f"-url: {url} \n"
-            f"-content: {content} \n"
-            f"-text: {text} \n"
-            f"-status_code: {status_code} \n"
-            f"-reason: {reason} \n"
-        )
 
 
 def get_allowed_features_json(retrieved_json):
@@ -178,10 +155,7 @@ def request_api_and_send(url: str, params=None):
             params = {}
 
         # Request API
-        resp = requests.get(url=url, params=params)
-        # Check return 200
-        test_http_return(resp)
-        returned = json.loads(resp.content)
+        returned = request_url(url=url, params=params)
 
         # Retrieve daily requests
         if params:
@@ -224,7 +198,8 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
     :return:
     """
     # Example of API URLs
-    # https://landsatlook.usgs.gov/sat-api/stac/search?collection=landsat-c2l2-sr&time=2020-12-07
+    # https://landsatlook.usgs.gov/sat-api/stac/search?collection=landsat-c2l2-sr&time=2020-12-07 # outdated
+    # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items?time=2020-12-07&page=2
     # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items/LC08_L1GT_166112_20210123_20210123_02_RT
 
     try:
@@ -235,7 +210,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 "For a bulk CSV request, Display_ids is required"
             )
 
-        main_url = "https://landsatlook.usgs.gov/sat-api"
+        main_url = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
         africa_bbox = [
             -26.359944882003788,
             -47.96476498374171,
@@ -244,29 +219,26 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
         ]
 
         if not display_ids:
-            json_url = f"{main_url}/stac/search"
             params = {
-                "collection": "landsat-c2l2-sr",
                 "limit": 100,
                 "bbox": json.dumps(africa_bbox),
                 "time": date.date().isoformat(),
             }
 
-            logging.info(f"Requesting URL {json_url} with parameters {params}")
+            logging.info(f"Requesting URL {main_url} with parameters {params}")
 
             # Request daily JSON API
-            request_api_and_send(url=json_url, params=params)
+            request_api_and_send(url=main_url, params=params)
 
         else:
             # Limit number of threads
             num_of_threads = 16
             count_tasks = len(display_ids)
-            id_request_url = f"{main_url}/collections/landsat-c2l2-sr/items/"
             logging.info(
                 f"Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages"
             )
             logging.info(
-                f"Requesting URL {id_request_url} adding the display id by the end of the url"
+                f"Requesting URL {main_url} adding the display id by the end of the url"
             )
 
             while count_tasks > 0:
@@ -278,7 +250,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 thread_list = [
                     threading.Thread(
                         target=request_api_and_send,
-                        args=(f"{id_request_url}{display_id}",),
+                        args=(f"{main_url}/{display_id}",),
                     )
                     for display_id in display_ids[
                         (count_tasks - num_of_threads) : count_tasks
@@ -349,22 +321,6 @@ def filter_africa_location(file_path):
     """
     try:
         logging.info(f"Unzipping and filtering file according to Africa Pathrows")
-        # list_test = []
-        # return_list = []
-        # for row in read_csv(file_path):
-        #     if (
-        #             row.get('Satellite')
-        #             and row['Satellite'] != "LANDSAT_4"
-        #     ) and (
-        #             row.get('WRS Path')
-        #             and row.get('WRS Row')
-        #             and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
-        #     ):
-        #         list_test.append(row)
-        #         return_list.append(row['Display ID'])
-        #
-        # return return_list
-
         return [
             row["Display ID"]
             for row in read_csv(file_path)
@@ -434,8 +390,11 @@ def retrieve_bulk_data(file_name):
         )
 
         # Download GZIP file
-        # file_path = download_csv_files(main_url, file_name)
-        file_path = f"/tmp/{file_name}"
+        file_path = download_csv_files(main_url, file_name)
+
+        # Hack to use when the file is local in /tmp/<file_name>
+        # file_path = f"/tmp/{file_name}"
+
         # Read file and retrieve the Display ids
         display_id_list = filter_africa_location(file_path)
         logging.info(f"{len(display_id_list)} found after being filtered")
