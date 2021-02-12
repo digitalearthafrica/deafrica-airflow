@@ -89,8 +89,21 @@ def get_self_link(message_content):
         f"s3://{SRC_BUCKET_NAME}",
     )
 
+def correct_stac_link(message):
+    """
+    Replace the https link of the source bucket with s3 link of the destination bucket
+    """
 
-def publish_to_sns_topic(message):
+    body = json.loads(message.body)
+    metadata = body.get("Message")
+    
+    "Replace https with s3 uri"
+    stac = metadata.replace(
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
+    )
+    return stac
+    
+def publish_to_sns_topic(message, updated_stac):
     """
     Publish a message to a SNS topic
     param message: message body
@@ -102,16 +115,12 @@ def publish_to_sns_topic(message):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    metadata = body.get("Message")
     sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
-    metadata_str = metadata.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
-    )
     response = sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
-        message=metadata_str,
+        message=updated_stac,
         message_attributes=attributes,
     )
 
@@ -131,14 +140,12 @@ def write_scene(src_key):
     return True
 
 
-def start_transfer(message):
+def start_transfer(updated_stac):
     """
     Transfer a scene from source to destination bucket
     """
 
-    body = json.loads(message.body)
-    metadata = json.loads(body["Message"])
-
+    metadata = json.loads(updated_stac)
     s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_self_link(metadata)
 
@@ -151,15 +158,19 @@ def start_transfer(message):
         raise ValueError(
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
-
-    urls = [s3_filepath]
+    
+    try:
+        s3_hook_oregon.load_string(string_data=updated_stac, key=key, bucket_name=DEST_BUCKET_NAME)
+    except Exception as exc:
+        raise ValueError(f"{key} failed to copy")
+    urls = []
     # Add URL of .tif files
     urls.extend(
         [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
     )
 
     # Check that all bands and STAC exist
-    if len(urls) != 18:
+    if len(urls) != 17:
         raise ValueError(
             f"There are less than 18 files in {metadata.get('id')} scene, failing"
         )
@@ -191,8 +202,8 @@ def start_transfer(message):
                 raise ValueError(f"{scene_to_copy} failed to copy")
             else:
                 copied_files.append(result)
-
-    if len(copied_files) == 18:
+   
+    if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
@@ -223,20 +234,21 @@ def copy_s3_objects(ti, **kwargs):
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
     valid_tile_ids = africa_tile_ids()
-
+ 
     for message in messages:
         try:
             if not is_valid_tile_id(message, valid_tile_ids):
                 message.delete()
                 continue
-            start_transfer(message)
-            publish_to_sns_topic(message)
+            updated_stac = correct_stac_link(message)
+            start_transfer(updated_stac)
+            publish_to_sns_topic(message, updated_stac)
             message.delete()
             successful += 1
         except ValueError as err:
             failed += 1
             print(err)
-
+            
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
 
