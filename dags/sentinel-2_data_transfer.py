@@ -94,14 +94,22 @@ def correct_stac_link(message):
     Replace the https link of the source bucket with s3 link of the destination bucket
     """
 
-    body = json.loads(message.body)
+    body = json.loads(message.body)    
     metadata = body.get("Message")
-    
+
     "Replace https with s3 uri"
     stac = metadata.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
     )
-    return stac
+    metadata = json.loads(stac)
+    # Drop canonical and via-cirrus links
+    metadata["links"] = [x for x in metadata["links"] if x['rel'] != "canonical" and x['rel'] != "via-cirrus"]
+    # Update derived_from
+    links = [x for x in metadata["links"] if x['rel'] == "derived_from"]
+    for x in metadata["links"]:
+        if x['rel'] == "derived_from":
+            x['href'] = x['href'].replace("https://cirrus-v0-data-1qm7gekzjucbq.s3.us-west-2.amazonaws.com", "s3://sentinel-cogs") 
+    return metadata
     
 def publish_to_sns_topic(message, updated_stac):
     """
@@ -120,7 +128,7 @@ def publish_to_sns_topic(message, updated_stac):
     "Replace https with s3 uri"
     response = sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
-        message=updated_stac,
+        message=json.dumps(updated_stac),
         message_attributes=attributes,
     )
 
@@ -140,12 +148,11 @@ def write_scene(src_key):
     return True
 
 
-def start_transfer(updated_stac):
+def start_transfer(metadata):
     """
     Transfer a scene from source to destination bucket
     """
 
-    metadata = json.loads(updated_stac)
     s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_self_link(metadata)
 
@@ -160,7 +167,8 @@ def start_transfer(updated_stac):
         )
     
     try:
-        s3_hook_oregon.load_string(string_data=updated_stac, key=key, bucket_name=DEST_BUCKET_NAME)
+        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook.load_string(string_data=json.dumps(metadata), key=key, bucket_name=DEST_BUCKET_NAME)
     except Exception as exc:
         raise ValueError(f"{key} failed to copy")
     urls = []
