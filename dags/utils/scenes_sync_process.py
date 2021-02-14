@@ -8,6 +8,7 @@ from collections import Generator
 import botocore
 
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
+from airflow.secrets.base_secrets import BaseSecretsBackend
 from airflow.hooks.S3_hook import S3Hook
 from pystac import Item, Link
 
@@ -269,8 +270,16 @@ def merge_assets(item: Item):
         full_path = find_s3_path_from_item(item=item)
 
         if full_path:
+            connections = BaseSecretsBackend.get_connections(AWS_DEV_CONFIG['africa_dev_conn_id'])
+            if connections and len(connections) == 1:
+                connection = connections[0]
+                extras = connection.get_extra()
+                logging.info(f'extras {extras}')
+                connection.set_extra({"region_name": "us-west-2"})
+
             logging.info(f'Accessing file {full_path}')
-            s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_usgs_conn_id'])
+            # s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_usgs_conn_id'])
+            s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'])
             s3_obj = s3_hook.get_resource_type('s3').Object(AWS_DEV_CONFIG['s3_source_bucket_name'], full_path)
             response = s3_obj.get(
                 **{

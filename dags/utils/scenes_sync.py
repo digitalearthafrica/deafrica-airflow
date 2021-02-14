@@ -318,18 +318,23 @@ def filter_africa_location(file_path):
     informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
     :param file_path: (String) Downloaded GZIP file path
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
+    Day/Night Indicator
     """
     try:
         logging.info(f"Unzipping and filtering file according to Africa Pathrows")
         return [
             row["Display ID"]
             for row in read_csv(file_path)
+            # Filter to skip all LANDSAT_4
             if (row.get("Satellite") and row["Satellite"] != "LANDSAT_4")
+            # Filter to get just from Africa
             and (
                 row.get("WRS Path")
                 and row.get("WRS Row")
                 and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
             )
+            # Filter to get just day
+            and (row.get('Day/Night Indicator') and row['Day/Night Indicator'] == 'DAY')
         ]
     except Exception as error:
         raise error
