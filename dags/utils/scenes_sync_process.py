@@ -8,7 +8,7 @@ from collections import Generator
 import botocore
 
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
-from airflow.secrets.base_secrets import BaseSecretsBackend
+from airflow.hooks.base_hook import BaseHook
 from airflow.hooks.S3_hook import S3Hook
 from pystac import Item, Link
 
@@ -42,10 +42,12 @@ AWS_DEV_CONFIG = {
 def get_contents_and_attributes(
         s3_conn_id: str = AWS_DEV_CONFIG['africa_dev_conn_id'],
         bucket_name: str = AWS_DEV_CONFIG['s3_source_bucket_name'],
-        key: str = None
+        key: str = None,
+        params: dict = {}
 ):
     """
 
+    :param params:
     :param s3_conn_id: (str) s3_conn_id: Airflow AWS credentials
     :param bucket_name: (str) bucket_name: AWS S3 bucket which the function will connect to
     :param key: (str) Path to the content which the function will access
@@ -55,27 +57,35 @@ def get_contents_and_attributes(
         if not key:
             raise Exception('Key must be informed to be able connecting to AWS S3')
 
-        hook = S3Hook(aws_conn_id=s3_conn_id)
-        contents = hook.read_key(key=key, bucket_name=bucket_name)
-        contents_dict = json.loads(contents)
+        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+        s3_obj = s3_hook.get_resource_type('s3').Object(bucket_name, key)
+        response = s3_obj.get(**params)
+        response_body = response.get('Body')
+        json_body = response_body.read()
 
-        return contents_dict
+        return json.loads(json_body)
+
+        # hook = S3Hook(aws_conn_id=s3_conn_id)
+        # contents = hook.read_key(key=key, bucket_name=bucket_name)
+        # contents_dict = json.loads(contents)
+        #
+        # return contents_dict
     except Exception as error:
         raise error
 
 
-def get_s3_object(client, bucket: str, key: str):
-    try:
-        return client.get_object(Bucket=bucket, Key=key)
-    except botocore.exceptions.ClientError as error:
-        logging.error(error)
+# def get_s3_object(client, bucket: str, key: str):
+#     try:
+#         return client.get_object(Bucket=bucket, Key=key)
+#     except botocore.exceptions.ClientError as error:
+#         logging.error(error)
 
 
-def send_sns_message(client, topic: str, content: str):
-    try:
-        return client.publish(TopicArn=topic, Message=content)
-    except botocore.exceptions.ClientError as error:
-        logging.error(error)
+# def send_sns_message(client, topic: str, content: str):
+#     try:
+#         return client.publish(TopicArn=topic, Message=content)
+#     except botocore.exceptions.ClientError as error:
+#         logging.error(error)
 
 
 def get_queue():
@@ -99,8 +109,9 @@ def get_queue():
 def get_messages(limit: int = 10):
     """
      Get messages from a queue resource.
+
     :param limit:Must be between 1 and 10, if provided.
-    :return:
+    :return: Generator
     """
     try:
         queue = get_queue()
@@ -119,6 +130,11 @@ def get_messages(limit: int = 10):
 
 
 def convert_dict_to_pystac_item(message: dict):
+    """
+    Function to convert a dict to a Pystac Item
+    :param message: (dict) message from the SQS already converted from a JSON to DICT
+    :return: (Pystac Item) Item
+    """
     try:
         item = Item.from_dict(message)
         return item
@@ -139,6 +155,11 @@ def delete_messages(messages: list = None):
 
 
 def replace_links(item: Item):
+    """
+    Function to replace href URL for Africa's S3 links
+    :param item: (Pystac Item) Pystac Item
+    :return: None
+    """
     try:
 
         self_item = item.get_links(rel='self')
@@ -163,13 +184,16 @@ def replace_links(item: Item):
         product_overview = Link(rel='product_overview', target=f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/')
         item.add_link(product_overview)
 
-        return item
-
     except Exception as error:
         raise error
 
 
 def replace_asset_links(item: Item):
+    """
+    Function to replace asset's href URL for Africa's S3 links
+    :param item: (Pystac Item) Pystac Item
+    :return: None
+    """
     try:
 
         assets = item.get_assets()
@@ -179,12 +203,17 @@ def replace_asset_links(item: Item):
             ).replace('https://landsatlook.usgs.gov/data/', f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/')
             if asset_href:
                 asset.href = asset_href
-        return item
+
     except Exception as error:
         raise error
 
 
 def add_odc_product_property(item: Item):
+    """
+    Function to add Africa's custom property
+    :param item: (Pystac Item) Pystac Item
+    :return: None
+    """
     try:
 
         properties = item.properties
@@ -199,14 +228,21 @@ def add_odc_product_property(item: Item):
         else:
             logging.error(f'Property odc:product not added due the sat is {sat if sat else "not informed"}')
             raise Exception(f'Property odc:product not added due the sat is {sat if sat else "not informed"}')
-
         properties.update({'odc:product': value})
-        return Item
+
     except Exception as error:
         raise error
 
 
 def find_s3_path_from_item(item: Item):
+    """
+    Function to from the href URL within the index in the list of links,
+    replace protocol and domain returning just the path, in addition this function completes the file's name
+    and adds the extantion json
+
+    :param item:(Pystac Item) Pystac Item
+    :return: (String) full path to the json item
+    """
     try:
         assets = item.get_assets()
         asset = assets.get('index')
@@ -224,6 +260,13 @@ def find_s3_path_from_item(item: Item):
 
 
 def find_url_path_from_item(item: Item):
+    """
+    Function to from the href URL within the index in the list of links,
+    replace URL and add file name.
+
+    :param item:(Pystac Item) Pystac Item
+    :return: (String) full URL to the API
+    """
     try:
         # eg.:  https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/LE07_L2SP_118044_20210115_20210209_02_T1
         assets = item.get_assets()
@@ -238,72 +281,118 @@ def find_url_path_from_item(item: Item):
         raise error
 
 
-def merge_assets_api(item: Item):
+def merge_assets_api(sr_item: Item):
+    """
+    Function to instead get from the S3 bucket, get the ST file from the API
+    :param sr_item:(Pystac Item) SR Pystac Item
+    :return: St Pystac Item
+    """
     try:
         # Request API
-        response = request_url(url=find_url_path_from_item(item=item))
+        response = request_url(url=find_url_path_from_item(item=sr_item))
         new_item = convert_dict_to_pystac_item(message=response)
-        logging.info(f'new_item {new_item}')
 
-        item_assets = item.get_assets()
-        new_item_assets = new_item.get_assets()
+        return new_item
 
-        logging.info(f'item_assets.keys() {item_assets.keys()}')
+        # logging.info(f'new_item {new_item}')
+        #
+        # item_assets = item.get_assets()
+        # new_item_assets = new_item.get_assets()
+        #
+        # logging.info(f'item_assets.keys() {item_assets.keys()}')
+        #
+        # for asset in new_item_assets:
+        #     logging.info(f'asset {asset}')
+        #
+        # missing_keys = [key for key, asset in new_item_assets.items() if key not in item_assets.keys()]
+        # logging.info(f'missing_keys {missing_keys}')
 
-        for asset in new_item_assets:
-            logging.info(f'asset {asset}')
+    except Exception as error:
+        raise error
 
-        missing_keys = [key for key, asset in new_item_assets.items() if key not in item_assets.keys()]
-        logging.info(f'missing_keys {missing_keys}')
+
+def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
+    """
+    Function to access AWS USGS S3 and retrieve their ST json file
+    :param sr_item: SR Pystac Item
+    :return: ST Pystac Item
+    """
+    try:
+
+        full_path = find_s3_path_from_item(item=sr_item)
+
+        if full_path:
+            logging.info(f'Accessing file {full_path}')
+
+            params = {'RequestPayer': 'requester'}
+            response = get_contents_and_attributes(
+                s3_conn_id=AWS_DEV_CONFIG['africa_dev_usgs_conn_id'],
+                bucket_name=AWS_DEV_CONFIG['s3_source_bucket_name'],
+                key=full_path,
+                params=params
+            )
+
+            # conn = BaseHook.get_connection(AWS_DEV_CONFIG['africa_dev_conn_id'])
+            #
+            # if conn:
+            #     extras = conn.get_extra()
+            #     logging.info(f'extras {extras}')
+            #     conn.set_extra("{'region_name': 'us-west-2'}")
+            #     conn.rotate_fernet_key()
+            #     logging.info(f'extras After {conn.get_extra()}')
+
+            # s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'])
+            # s3_obj = s3_hook.get_resource_type('s3').Object(AWS_DEV_CONFIG['s3_source_bucket_name'], full_path)
+            #
+            # response = s3_obj.get(
+            #     **{
+            #         'RequestPayer': 'requester'
+            #     }
+            # )
+
+            return convert_dict_to_pystac_item(response)
 
     except Exception as error:
         raise error
 
 
 def merge_assets(item: Item):
+    """
+    Function to merge missing assets (from the ST) into the main Pystac file (SR)
+    :param item: Pystac Item
+    :return: None
+    """
     # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
     # s3://usgs-landsat/collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/LC08_L1GT_157019_20201207_20201217_02_T2_stac.json"
     try:
         # TODO REMOVE it's here jus for test
         # merge_assets_api(item)
 
-        full_path = find_s3_path_from_item(item=item)
+        new_item = retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
 
-        if full_path:
-            connections = BaseSecretsBackend.get_connections(AWS_DEV_CONFIG['africa_dev_conn_id'])
-            if connections and len(connections) == 1:
-                connection = connections[0]
-                extras = connection.get_extra()
-                logging.info(f'extras {extras}')
-                connection.set_extra({"region_name": "us-west-2"})
-
-            logging.info(f'Accessing file {full_path}')
-            # s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_usgs_conn_id'])
-            s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'])
-            s3_obj = s3_hook.get_resource_type('s3').Object(AWS_DEV_CONFIG['s3_source_bucket_name'], full_path)
-            response = s3_obj.get(
-                **{
-                    'RequestPayer': 'requester'
-                }
-            )
-            logging.info(f"Done, response body: {response} Type {type(response)}")
-            logging.info(f' JSON {json.loads(response)}')
-            new_item = json.loads(response)
+        if new_item:
             new_item_assets = new_item.get_assets()
+
             assets = item.get_assets()
-            missing_keys = [key for key, asset in new_item_assets.items() if key not in assets.keys()]
 
-            logging.info(f'missing_keys {missing_keys}')
+            # Add missing assets to the original item
+            [item.add_asset(key=key, asset=asset) for key, asset in new_item_assets.items() if key not in assets.keys()]
 
-            logging.info(f' Content From USGS now is just merge {response}')
-        #  TODO remove this, it's a stopper just for tests
-        raise Exception('everything working!!')
+            #  TODO remove this, it's a stopper just for tests
+            # raise Exception('everything working!!')
 
     except Exception as error:
         raise error
 
 
 def bulk_convert_dict_to_pystac_item(messages: Generator):
+    """
+    Function to convert message from the SQS to a Pystac Item. Function loop over passed Generator and converts 16
+    messages simultaneously.
+
+    :param messages: (list) List of dicts from SQS
+    :return: (list) List of Pystac Items
+    """
     try:
         # Limit number of threads
         num_of_threads = 16
@@ -333,6 +422,13 @@ def bulk_convert_dict_to_pystac_item(messages: Generator):
 
 
 def bulk_items_replace_links(items):
+    """
+    Function to handle multiple items, go through all links and replace URL href link for Africa S3 link.
+
+    :param items:(list) List of Pystac Items
+    :return:None
+    """
+
     try:
         for item in items:
             replace_links(item=item)
@@ -340,7 +436,13 @@ def bulk_items_replace_links(items):
         raise error
 
 
-def bulk_items_replace_assets(items):
+def bulk_items_replace_assets_link_to_s3_link(items):
+    """
+    Function to handle multiple items, go through all assets and replace URL link for Africa S3 link.
+
+    :param items:(list) List of Pystac Items
+    :return:None
+    """
     try:
         for item in items:
             replace_asset_links(item=item)
@@ -348,7 +450,12 @@ def bulk_items_replace_assets(items):
         raise error
 
 
-def bulk_items_add_odc_product_property(items):
+def bulk_items_add_odc_product_property(items: list):
+    """
+    Function to handle multiple items and add our custom property.
+    :param items: (list) List of Pystac Items
+    :return: None
+    """
     try:
         for item in items:
             add_odc_product_property(item=item)
@@ -356,7 +463,13 @@ def bulk_items_add_odc_product_property(items):
         raise error
 
 
-def bulk_items_merge_assets(items):
+def bulk_items_merge_assets(items: list):
+    """
+    Function to handle multiple items and merge the missing assets.
+
+    :param items: (list) List of Pystac Items
+    :return: None
+    """
     try:
         for item in items:
             merge_assets(item=item)
@@ -372,6 +485,7 @@ def process():
 
     count_messages = 0
     try:
+        logging.info('Starting process')
         # Retrieve messages from the queue
         messages = get_messages()
 
@@ -393,15 +507,19 @@ def process():
         bulk_items_merge_assets(items=items)
         logging.info('Assets Merged')
 
-        # logging.info('Start process to replace assets links')
-        # bulk_items_replace_assets(items=items)
-        # logging.info('Assets links replaced')
-        #
-        # logging.info('Start process to add custom property odc:product')
-        # bulk_items_add_odc_product_property(items=items)
-        # logging.info('Custom property odc:product added')
+        logging.info('Start process to replace assets links')
+        bulk_items_replace_assets_link_to_s3_link(items=items)
+        logging.info('Assets links replaced')
 
-        print(items)
+        logging.info('Start process to add custom property odc:product')
+        bulk_items_add_odc_product_property(items=items)
+        logging.info('Custom property odc:product added')
+
+        # TODO access S3, copy files and save final SR JSON
+        [logging.info(item.to_dict()) for item in items]
+        [logging.info(json.dumps(item.to_dict())) for item in items]
+
+        logging.info('The END')
 
     except StopIteration:
         logging.info(f'All {count_messages} messages read')
