@@ -25,7 +25,7 @@ DEST_BUCKET_NAME = "deafrica-sentinel-2"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
 SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
-CONCURRENCY = 16
+CONCURRENCY = 1
 
 default_args = {
     "owner": "Airflow",
@@ -83,34 +83,51 @@ def get_self_link(message_content):
     for link in message_content["links"]:
         if link["rel"] == "canonical":
             self_link = link["href"]
+    return self_link
 
-    return self_link.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-        f"s3://{SRC_BUCKET_NAME}",
-    )
+
+def get_src_link(message_content):
+    for link in message_content["links"]:
+        if link["rel"] == "derived_from":
+            return link["href"]
 
 def correct_stac_link(message):
     """
     Replace the https link of the source bucket with s3 link of the destination bucket
     """
 
-    body = json.loads(message.body)    
-    metadata = body.get("Message")
-
-    "Replace https with s3 uri"
-    stac = metadata.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
-    )
-    metadata = json.loads(stac)
+    body = json.loads(message.body)
+    metadata = json.loads(body.get("Message"))
+    # Extrac source link before updating STAC file
+    src_link = get_self_link(metadata)
     # Drop canonical and via-cirrus links
-    metadata["links"] = [x for x in metadata["links"] if x['rel'] != "canonical" and x['rel'] != "via-cirrus"]
-    # Update derived_from
-    links = [x for x in metadata["links"] if x['rel'] == "derived_from"]
-    for x in metadata["links"]:
-        if x['rel'] == "derived_from":
-            x['href'] = x['href'].replace("https://cirrus-v0-data-1qm7gekzjucbq.s3.us-west-2.amazonaws.com", "s3://sentinel-cogs") 
-    return metadata
-    
+    metadata["links"] = [
+        x
+        for x in metadata["links"]
+        if x["rel"] != "canonical" and x["rel"] != "via-cirrus"
+    ]
+
+    # Update links to match destination
+    stac = json.dumps(metadata)
+    "Replace https with s3 uri"
+    stac = json.loads(
+        stac.replace(
+            "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+            f"s3://deafrica-sentinel-2",
+        )
+    )
+    # Update source link
+    links = [x for x in stac["links"] if x["rel"] == "derived_from"]
+    for x in stac["links"]:
+        # Replace derived-from link with s3 links to sentinel-cogs bucket
+        if x["rel"] == "derived_from":            
+            x["href"] = src_link.replace(
+                "https://sentinel-cogs.s3.us-west-2.amazonaws.com", f"s3://sentinel-cogs"
+            )
+
+    return stac
+
+
 def publish_to_sns_topic(message, updated_stac):
     """
     Publish a message to a SNS topic
@@ -154,21 +171,22 @@ def start_transfer(metadata):
     """
 
     s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
-    s3_filepath = get_self_link(metadata)
+    s3_filepath = get_src_link(metadata)
 
     # Check file exists
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(
-        key, bucket_name=SRC_BUCKET_NAME
-    )
+    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
-        raise ValueError(
-            f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
-        )
-    
+        raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
+
     try:
         s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
-        s3_hook.load_string(string_data=json.dumps(metadata), key=key, bucket_name=DEST_BUCKET_NAME)
+        s3_hook.load_string(
+            string_data=json.dumps(metadata),         
+            replace=True,
+            key=key,
+            bucket_name=DEST_BUCKET_NAME
+        )
     except Exception as exc:
         raise ValueError(f"{key} failed to copy")
     urls = []
@@ -189,15 +207,11 @@ def start_transfer(metadata):
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(
-            key, bucket_name=SRC_BUCKET_NAME
-        )
+        key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
         src_keys.append(src_key)
 
         if not key_exists:
-            raise ValueError(
-                f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
-            )
+            raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
 
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
@@ -210,7 +224,7 @@ def start_transfer(metadata):
                 raise ValueError(f"{scene_to_copy} failed to copy")
             else:
                 copied_files.append(result)
-   
+
     if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
@@ -242,7 +256,7 @@ def copy_s3_objects(ti, **kwargs):
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
     valid_tile_ids = africa_tile_ids()
- 
+
     for message in messages:
         try:
             if not is_valid_tile_id(message, valid_tile_ids):
@@ -256,7 +270,7 @@ def copy_s3_objects(ti, **kwargs):
         except ValueError as err:
             failed += 1
             print(err)
-            
+
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
 
