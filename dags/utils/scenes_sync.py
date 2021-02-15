@@ -5,13 +5,13 @@ import gzip
 import json
 import logging
 import threading
-
-import pandas as pd
 import requests
+import pandas as pd
+
+from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
-from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 
 # ######### AWS CONFIG ############
 from utils.url_request_utils import request_url
@@ -37,15 +37,6 @@ ALLOWED_PATHROWS = set(
 )
 
 
-# ALLOWED_PATHROWS = set(
-#     pd.read_csv(
-#         "https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true",
-#         compression='gzip',
-#         header=0,
-#     ).values.ravel()
-# )
-
-
 def publish_messages(datasets):
     """
     Publish messages
@@ -62,7 +53,6 @@ def publish_messages(datasets):
 
         count = 0
         messages = []
-        logging.info("Adding messages...")
         for dataset in datasets:
             message = {
                 "Id": str(count),
@@ -316,9 +306,11 @@ def filter_africa_location(file_path):
     """
     Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
     informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
+    The function also applies filters to skip LANDSAT_4 and Night shots.
+    Warning: This function requires high performance from the CPU.
+
     :param file_path: (String) Downloaded GZIP file path
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
-    Day/Night Indicator
     """
     try:
         logging.info(f"Unzipping and filtering file according to Africa Pathrows")
@@ -326,7 +318,10 @@ def filter_africa_location(file_path):
             row["Display ID"]
             for row in read_csv(file_path)
             # Filter to skip all LANDSAT_4
-            if (row.get("Satellite") and row["Satellite"] != "LANDSAT_4")
+            if (
+                       row.get("Satellite")
+                       and row["Satellite"] != "LANDSAT_4"
+               )
             # Filter to get just from Africa
             and (
                 row.get("WRS Path")
@@ -334,7 +329,10 @@ def filter_africa_location(file_path):
                 and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
             )
             # Filter to get just day
-            and (row.get('Day/Night Indicator') and row['Day/Night Indicator'] == 'DAY')
+            and (
+                       row.get('Day/Night Indicator')
+                       and row['Day/Night Indicator'].upper() == 'DAY'
+               )
         ]
     except Exception as error:
         raise error
@@ -343,6 +341,9 @@ def filter_africa_location(file_path):
 def download_csv_files(url, file_name):
     """
     Function to download bulk CSV file from the informed server.
+    The file will be saved in the local machine under the /tmp/ folder, so the OS will delete that accordingly
+    with its pre-defined configurations.
+    Warning: The server shall have at least 3GB of free storage.
 
     :param url:(String) URL path for the API
     :param file_name: (String) File name which will be downloaded
@@ -357,7 +358,7 @@ def download_csv_files(url, file_name):
             downloaded = requests.get(url, stream=True)
             f.write(downloaded.content)
 
-        # ########## Code to add downloading progress bar ###########
+        # ########## Code to add local downloading progress bar ###########
         # with open(file_path, "wb") as f:
         #     print(f"Downloading {file_name}")
         #     downloaded = requests.get(url, stream=True)
@@ -385,6 +386,8 @@ def download_csv_files(url, file_name):
 def retrieve_bulk_data(file_name):
     """
     Function to initiate the bulk CSV process
+    Warning: Main URL hardcoded, please check for changes in case of the download fails
+
     :param file_name: (String) File name which will be downloaded
     :return: None. Process send information to the queue
     """
@@ -404,8 +407,12 @@ def retrieve_bulk_data(file_name):
         display_id_list = filter_africa_location(file_path)
         logging.info(f"{len(display_id_list)} found after being filtered")
 
-        # request the API through the display id and send the information to the queue
-        retrieve_json_data_and_send(display_ids=display_id_list)
+        if display_id_list:
+
+            # request the API through the display id and send the information to the queue
+            retrieve_json_data_and_send(display_ids=display_id_list)
+        else:
+            logging.info(f"After filtered no valid Ids were found in the file {file_name}")
 
     except Exception as error:
         logging.error(error)
@@ -414,21 +421,21 @@ def retrieve_bulk_data(file_name):
 
 # if __name__ == "__main__":
 
-# retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
+    # retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
 
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
-# 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
-# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
-# https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'
+    # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L1.csv.gz'
+    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_ETM_C2_L2.csv.gz
+    # https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_TM_C2_L2.csv.gz
 
-# TODO start DAG here to have each process downloading
-# TODO add all files just level 2, ignore Landsat 4
-# files = {
-#     # 'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
-#     # 'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
-#     'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
-# }
-#
-# for sat, file in files.items():
-#     retrieve_bulk_data(file_name=file)
+    # TODO start DAG here to have each process downloading
+    # TODO add all files just level 2, ignore Landsat 4
+    # files = {
+    #     # 'landsat_8': 'LANDSAT_OT_C2_L2.csv.gz',
+    #     'landsat_7': 'LANDSAT_ETM_C2_L2.csv.gz',
+    #     # 'Landsat_4_5': 'LANDSAT_TM_C2_L2.csv.gz'
+    # }
+    #
+    # for sat, file in files.items():
+    #     retrieve_bulk_data(file_name=file)
