@@ -191,6 +191,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
     # https://landsatlook.usgs.gov/sat-api/stac/search?collection=landsat-c2l2-sr&time=2020-12-07 # outdated
     # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items?time=2020-12-07&page=2
     # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items/LC08_L1GT_166112_20210123_20210123_02_RT
+    # https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items?time=2018-02-01T00:00:00Z/2018-02-01T23:59:59Z&bbox=%5B-26.359944882003788,%20-47.96476498374171,%2064.4936701740102,%2038.34459242512347%5D&limit=500
 
     try:
 
@@ -421,7 +422,8 @@ def retrieve_bulk_data(file_name):
 
 # if __name__ == "__main__":
 
-    # retrieve_json_data_and_send(date=datetime.now().replace(day=28, month=1, year=2021))
+    #
+# (date=datetime.now().replace(day=28, month=1, year=2021))
 
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L1.csv.gz'
     # 'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/LANDSAT_OT_C2_L2.csv.gz'

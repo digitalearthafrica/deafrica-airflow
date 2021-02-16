@@ -6,6 +6,7 @@ import json
 import logging
 from collections import Generator
 import botocore
+from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.base_hook import BaseHook
@@ -30,13 +31,23 @@ AWS_DEV_CONFIG = {
     "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     "africa_dev_index_conn_id": INDEX_LANDSAT_CONNECTION_ID,
     "sqs_index_queue": INDEX_LANDSAT_CONNECTION_SQS_QUEUE,
-    "sns_topic": "",
+    "sns_topic_arn": "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
     "s3_destination_bucket_name": "deafrica-landsat-dev",
     "s3_source_bucket_name": "usgs-landsat",
 }
 
 
-# https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz
+def publish_to_sns_topic(message: dict, attributes: dict = {}):
+
+    sns_hook = AwsSnsHook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'])
+
+    response = sns_hook.publish_to_target(
+        target_arn=AWS_DEV_CONFIG['sns_topic_arn'],
+        message=json.dumps(message),
+        message_attributes=attributes,
+    )
+
+    logging.info(f'response {response}')
 
 
 def get_contents_and_attributes(
@@ -516,9 +527,11 @@ def process():
         logging.info('Custom property odc:product added')
 
         # TODO access S3, copy files and save final SR JSON
-        [logging.info(item.to_dict()) for item in items]
-        [logging.info(json.dumps(item.to_dict())) for item in items]
+        # [logging.info(json.dumps(item.to_dict())) for item in items]
 
+        # Send to the SNS
+        logging.info(f'sending {len(items)} Items to the SNS')
+        [publish_to_sns_topic(item.to_dict()) for item in items]
         logging.info('The END')
 
     except StopIteration:
