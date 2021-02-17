@@ -1,16 +1,20 @@
 """
     Script to read queue, process messages and save on the S3 bucket
 """
-import concurrent.futures
 import json
 import logging
 from collections import Generator
-import botocore
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+from typing import Iterable
 
+import botocore
+
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.base_hook import BaseHook
 from airflow.hooks.S3_hook import S3Hook
+
 from pystac import Item, Link
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID, INDEX_LANDSAT_CONNECTION_ID, SYNC_LANDSAT_USGS_CONNECTION_ID
@@ -85,18 +89,53 @@ def get_contents_and_attributes(
         raise error
 
 
-# def get_s3_object(client, bucket: str, key: str):
-#     try:
-#         return client.get_object(Bucket=bucket, Key=key)
-#     except botocore.exceptions.ClientError as error:
-#         logging.error(error)
+def copy_s3_tos_3(
+        source_key: str,
+        destination_key: str = None,
+        s3_conn_id: str = AWS_DEV_CONFIG['africa_dev_conn_id'],
+        source_bucket: str = AWS_DEV_CONFIG['s3_source_bucket_name'],
+        destination_bucket: str = AWS_DEV_CONFIG['s3_destination_bucket_name'],
+):
+    """
+    Function to copy files from one S3 bucket to another.
 
+    :param source_key: (str) Source file path
+    :param destination_key: (str) Destination file path
+    :param s3_conn_id:(str) Airflow connection id
+    :param source_bucket:(str) Source S3 bucket name
+    :param destination_bucket:(str) Destination S3 bucket name
+    :return: None
+    """
+    try:
 
-# def send_sns_message(client, topic: str, content: str):
-#     try:
-#         return client.publish(TopicArn=topic, Message=content)
-#     except botocore.exceptions.ClientError as error:
-#         logging.error(error)
+        if not source_key:
+            raise Exception('Source key must be informed to be able connecting to AWS S3')
+        elif source_key and not destination_key:
+            # If destination_key is not informed, build the same structure as the source_key
+            destination_key = source_key.replace(source_bucket, destination_bucket)
+
+        logging.info(
+            f"Copy functions Parameters "
+            f"{source_key} - "
+            f"{destination_key} - "
+            f"{s3_conn_id} - "
+            f"{source_bucket} - "
+            f"{destination_bucket}"
+        )
+
+        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+        logging.info(f's3_hook {s3_hook}')
+        returned = s3_hook.copy_object(
+            source_bucket_key=source_key,
+            dest_bucket_key=destination_key,
+            source_bucket_name=source_bucket,
+            dest_bucket_name=destination_bucket,
+        )
+        logging.info(f'returned {returned}')
+
+    except Exception as error:
+        logging.error(error)
+        raise error
 
 
 def get_queue():
@@ -117,24 +156,36 @@ def get_queue():
         raise error
 
 
-def get_messages(limit: int = 10):
+def get_messages(
+        limit: int = None,
+        visibility_timeout: int = 60,
+        message_attributes: Iterable[str] = ["All"]
+):
     """
      Get messages from a queue resource.
 
+    :param message_attributes:
+    :param visibility_timeout:
     :param limit:Must be between 1 and 10, if provided.
     :return: Generator
     """
     try:
         queue = get_queue()
 
-        messages = queue.receive_messages(
-            VisibilityTimeout=60,
-            MaxNumberOfMessages=limit,
-            WaitTimeSeconds=10,
-        )
-
-        for message in messages:
-            yield json.loads(message.body)
+        count = 0
+        while True:
+            messages = queue.receive_messages(
+                VisibilityTimeout=visibility_timeout,
+                MaxNumberOfMessages=1,
+                WaitTimeSeconds=10,
+                MessageAttributeNames=message_attributes,
+            )
+            if len(messages) == 0 or (limit and count >= limit):
+                break
+            else:
+                for message in messages:
+                    count += 1
+                    yield json.loads(message.body)
 
     except Exception as error:
         raise error
@@ -405,29 +456,7 @@ def bulk_convert_dict_to_pystac_item(messages: Generator):
     :return: (list) List of Pystac Items
     """
     try:
-        # Limit number of threads
-        num_of_threads = 16
-        results = []
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            logging.info(
-                f"Simultaneously {num_of_threads} conversions (Python threads)"
-            )
-
-            futures = []
-            for message in messages:
-
-                futures.append(executor.submit(convert_dict_to_pystac_item, message))
-
-                if len(futures) == num_of_threads:
-                    # every num_of_threads execute them
-                    results.extend([f.result() for f in futures])
-                    futures = []
-
-            if futures:
-                results.extend([f.result() for f in futures])
-
-        return results
-
+        return [convert_dict_to_pystac_item(message) for message in messages]
     except Exception as error:
         raise error
 
@@ -441,8 +470,8 @@ def bulk_items_replace_links(items):
     """
 
     try:
-        for item in items:
-            replace_links(item=item)
+        [replace_links(item=item) for item in items]
+
     except Exception as error:
         raise error
 
@@ -455,8 +484,7 @@ def bulk_items_replace_assets_link_to_s3_link(items):
     :return:None
     """
     try:
-        for item in items:
-            replace_asset_links(item=item)
+        [replace_asset_links(item=item) for item in items]
     except Exception as error:
         raise error
 
@@ -468,8 +496,7 @@ def bulk_items_add_odc_product_property(items: list):
     :return: None
     """
     try:
-        for item in items:
-            add_odc_product_property(item=item)
+        [add_odc_product_property(item=item) for item in items]
     except Exception as error:
         raise error
 
@@ -482,8 +509,98 @@ def bulk_items_merge_assets(items: list):
     :return: None
     """
     try:
-        for item in items:
-            merge_assets(item=item)
+        [merge_assets(item=item) for item in items]
+    except Exception as error:
+        raise error
+
+
+def retrieve_asset_s3_path_from_item(item: Item):
+    """
+    Function to change the asset URL into an S3 to be copied straight from the bucket
+    :param item: (Pystac Item) Item which will be retrieved the asset path
+    :return: (dict) Returns a dict which the key is the Item id and the value is a list with the assets' S3 links
+    """
+    try:
+        assets = item.get_assets()
+        url_to_replace = 'https://landsatlook.usgs.gov/data/'
+        if assets:
+            asset_items = assets.items()
+            logging.info(f"asset_items {asset_items}")
+            new_asset_hrefs = {
+                item.id: [
+                    asset.href.replace(
+                        url_to_replace,
+                        f'/{AWS_DEV_CONFIG["s3_source_bucket_name"]}/'
+                    ) for key, asset in assets.items()
+                    if hasattr(asset, 'href')
+                    # Ignores the index key
+                    and url_to_replace in asset.href
+                ]
+            }
+
+            return new_asset_hrefs
+        logging.error(f'WARNING No assets to be copied in the Item ({item.id})')
+    except Exception as error:
+        raise error
+
+
+def store_original_asset_s3_address(items: list):
+    """
+    Function to from a list of Items convert their assets' href URL into S3 paths and return a dict which the key is
+    the item id and the value is a list of the item's S3 paths
+    :param items: (list) List of Pystac Items
+    :return: (dict) which the key is the item id and the value is a list of the item's S3 paths
+    """
+    try:
+        result = {}
+        [result.update(retrieve_asset_s3_path_from_item(item)) for item in items]
+        return result
+
+    except Exception as error:
+        raise error
+
+
+def transfer_data_from_usgs_to_africa(asset_address_list: dict):
+    """
+    Function to transfer data from USGS' S3 to Africa's S3
+
+    :param asset_address_list:(list) List of dicts with the asset id and links
+    :return: None
+    """
+
+    try:
+        # Limit number of threads
+        num_of_threads = 20
+        results = []
+        with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+            # TODO change message
+            logging.info(
+                f"Transferring {num_of_threads} assets simultaneously (Python threads)"
+            )
+
+            arguments = {
+                's3_conn_id': '',
+                'source_bucket': '',
+                'destination_bucket': '',
+                'source_key': '',
+                'destination_key': ''
+            }
+            # task = {
+            #     asset_id: executor.submit(copy_s3_tos_3, arguments)
+            #     for asset_id, asset_links in asset_address_list.items()
+            # }
+
+            for asset_id, asset_links in asset_address_list.items():
+
+                task = [executor.submit(copy_s3_tos_3, link) for link in asset_links]
+
+                for future in as_completed(task):
+                    result = future.result()
+                    logging.info(f'transfer_data_from_usgs_to_africa result {result}')
+                    results.append(result)
+                    logging.info(f"Assets transferred")
+
+        return results
     except Exception as error:
         raise error
 
@@ -491,14 +608,14 @@ def bulk_items_merge_assets(items: list):
 def process():
     """
         Main function to process information from the queue
-    :return:
+        :return: None
     """
 
     count_messages = 0
     try:
         logging.info('Starting process')
         # Retrieve messages from the queue
-        messages = get_messages()
+        messages = get_messages(limit=20)
 
         if not messages:
             logging.info('No messages were found!')
@@ -518,6 +635,10 @@ def process():
         bulk_items_merge_assets(items=items)
         logging.info('Assets Merged')
 
+        logging.info('Start process to store all S3 asset href witch will be retrieved from USGS')
+        asset_addresses_dict = store_original_asset_s3_address(items=items)
+        logging.info('S3 asset hrefs stored')
+
         logging.info('Start process to replace assets links')
         bulk_items_replace_assets_link_to_s3_link(items=items)
         logging.info('Assets links replaced')
@@ -529,9 +650,14 @@ def process():
         # TODO access S3, copy files and save final SR JSON
         # [logging.info(json.dumps(item.to_dict())) for item in items]
 
+        # Copy files from USGS' S3 and store into Africa's S3
+        logging.info('Start process to transfer data from USGS S3 to Africa S3')
+        transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_dict)
+        logging.info(f'{len(transferred_items)} Transferred from USGS to AFRICA')
+
         # Send to the SNS
-        logging.info(f'sending {len(items)} Items to the SNS')
-        [publish_to_sns_topic(item.to_dict()) for item in items]
+        # logging.info(f'sending {len(items)} Items to the SNS')
+        # [publish_to_sns_topic(item.to_dict()) for item in items]
         logging.info('The END')
 
     except StopIteration:
