@@ -26,129 +26,13 @@ from infra.variables import (
 )
 
 # ######### AWS CONFIG ############
-from utils.url_request_utils import request_url
+from utils.url_request_utils import request_url, check_s3_copy_return, get_s3_contents_and_attributes, copy_s3_to_s3
 
-AWS_DEV_CONFIG = {
-    # Hack to run locally
-    # "africa_dev_conn_id": '',
-    # "sqs_queue": '',
-    # "africa_dev_index_conn_id": '',
-    # "sqs_index_queue": '',
-    "usgs_api_main_url": "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/",
-    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
-    "africa_dev_usgs_conn_id": SYNC_LANDSAT_USGS_CONNECTION_ID,
-    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    "africa_dev_index_conn_id": INDEX_LANDSAT_CONNECTION_ID,
-    "sqs_index_queue": INDEX_LANDSAT_CONNECTION_SQS_QUEUE,
-    "sns_topic_arn": "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
-    "s3_destination_bucket_name": "deafrica-landsat-dev",
-    "s3_source_bucket_name": "usgs-landsat",
-}
+USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/"
+USGS_S3_BUCKET_NAME = "usgs-landsat"
 
-
-def publish_to_sns_topic(message: dict, attributes: dict = {}):
-    sns_hook = AwsSnsHook(aws_conn_id=AWS_DEV_CONFIG["africa_dev_conn_id"])
-
-    response = sns_hook.publish_to_target(
-        target_arn=AWS_DEV_CONFIG["sns_topic_arn"],
-        message=json.dumps(message),
-        message_attributes=attributes,
-    )
-
-    logging.info(f"response {response}")
-
-
-def get_contents_and_attributes(
-    s3_conn_id: str = AWS_DEV_CONFIG["africa_dev_conn_id"],
-    bucket_name: str = AWS_DEV_CONFIG["s3_source_bucket_name"],
-    key: str = None,
-    params: dict = {},
-):
-    """
-
-    :param params:
-    :param s3_conn_id: (str) s3_conn_id: Airflow AWS credentials
-    :param bucket_name: (str) bucket_name: AWS S3 bucket which the function will connect to
-    :param key: (str) Path to the content which the function will access
-    :return: (dict) content
-    """
-    try:
-        if not key:
-            raise Exception("Key must be informed to be able connecting to AWS S3")
-
-        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-        # TODO Test here
-        s3_obj = s3_hook.get_resource_type("s3", region_name="us-west-2").Object(
-            bucket_name, key
-        )
-        response = s3_obj.get(**params)
-        response_body = response.get("Body")
-        json_body = response_body.read()
-
-        return json.loads(json_body)
-
-        # hook = S3Hook(aws_conn_id=s3_conn_id)
-        # contents = hook.read_key(key=key, bucket_name=bucket_name)
-        # contents_dict = json.loads(contents)
-        #
-        # return contents_dict
-    except Exception as error:
-        logging.info(error)
-        raise
-
-
-def copy_s3_to_s3(
-    source_key: str,
-    destination_key: str = None,
-    s3_conn_id: str = AWS_DEV_CONFIG["africa_dev_conn_id"],
-    source_bucket: str = AWS_DEV_CONFIG["s3_source_bucket_name"],
-    destination_bucket: str = AWS_DEV_CONFIG["s3_destination_bucket_name"],
-):
-    """
-    Function to copy files from one S3 bucket to another.
-
-    :param source_key: (str) Source file path
-    :param destination_key: (str) Destination file path
-    :param s3_conn_id:(str) Airflow connection id
-    :param source_bucket:(str) Source S3 bucket name
-    :param destination_bucket:(str) Destination S3 bucket name
-    :return: None
-    """
-    try:
-
-        if not source_key:
-            raise Exception(
-                "Source key must be informed to be able connecting to AWS S3"
-            )
-        elif source_key and not destination_key:
-            # If destination_key is not informed, build the same structure as the source_key
-            destination_key = source_key.replace(source_bucket, destination_bucket)
-
-        logging.info(
-            f"Copy functions Parameters "
-            f"{source_key} - "
-            f"{destination_key} - "
-            f"{s3_conn_id} - "
-            f"{source_bucket} - "
-            f"{destination_bucket}"
-        )
-
-        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-
-        # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
-        response = s3_hook.get_conn().copy_object(
-            Bucket=destination_bucket,
-            Key=destination_key,
-            CopySource={"Bucket": source_bucket, "Key": source_key, "VersionId": None},
-            ACL="public-read",
-            RequesterPayer="requester",
-        )
-
-        logging.info(f"returned {response}")
-
-    except Exception as error:
-        logging.error(error)
-        raise error
+AFRICA_SNS_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
+AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
 
 
 def get_queue():
@@ -156,17 +40,15 @@ def get_queue():
     Connect to the right queue
     :return: QUEUE
     """
-    try:
-        logging.info(f'Connecting to AWS SQS {AWS_DEV_CONFIG["sqs_queue"]}')
-        logging.info(f'Conn_id Name {AWS_DEV_CONFIG["africa_dev_conn_id"]}')
-        sqs_hook = SQSHook(aws_conn_id=AWS_DEV_CONFIG["africa_dev_conn_id"])
-        sqs = sqs_hook.get_resource_type("sqs")
-        queue = sqs.get_queue_by_name(QueueName=AWS_DEV_CONFIG["sqs_queue"])
 
-        return queue
+    logging.info(f'Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
+    logging.info(f'Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}')
 
-    except Exception as error:
-        raise error
+    sqs_hook = SQSHook(aws_conn_id=SYNC_LANDSAT_CONNECTION_ID)
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=SYNC_LANDSAT_CONNECTION_SQS_QUEUE)
+
+    return queue
 
 
 def get_messages(
@@ -182,26 +64,23 @@ def get_messages(
     :param limit:Must be between 1 and 10, if provided.
     :return: Generator
     """
-    try:
-        queue = get_queue()
 
-        count = 0
-        while True:
-            messages = queue.receive_messages(
-                VisibilityTimeout=visibility_timeout,
-                MaxNumberOfMessages=1,
-                WaitTimeSeconds=10,
-                MessageAttributeNames=message_attributes,
-            )
-            if len(messages) == 0 or (limit and count >= limit):
-                break
-            else:
-                for message in messages:
-                    count += 1
-                    yield json.loads(message.body)
+    queue = get_queue()
 
-    except Exception as error:
-        raise error
+    count = 0
+    while True:
+        messages = queue.receive_messages(
+            VisibilityTimeout=visibility_timeout,
+            MaxNumberOfMessages=1,
+            WaitTimeSeconds=10,
+            MessageAttributeNames=message_attributes,
+        )
+        if len(messages) == 0 or (limit and count >= limit):
+            break
+        else:
+            for message in messages:
+                count += 1
+                yield json.loads(message.body)
 
 
 def convert_dict_to_pystac_item(message: dict):
@@ -210,11 +89,8 @@ def convert_dict_to_pystac_item(message: dict):
     :param message: (dict) message from the SQS already converted from a JSON to DICT
     :return: (Pystac Item) Item
     """
-    try:
-        item = Item.from_dict(message)
-        return item
-    except Exception as error:
-        raise error
+
+    return Item.from_dict(message)
 
 
 def delete_messages(messages: list = None):
@@ -223,10 +99,7 @@ def delete_messages(messages: list = None):
     :param messages:
     :return:
     """
-    try:
-        [message.delete() for message in messages]
-    except Exception as error:
-        raise error
+    [message.delete() for message in messages]
 
 
 def replace_links(item: Item):
@@ -235,40 +108,36 @@ def replace_links(item: Item):
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
-    try:
 
-        self_item = item.get_links(rel="self")
-        usgs_self_target = (
-            self_item[0].target
-            if len(self_item) == 1 and hasattr(self_item[0], "target")
-            else ""
-        )
+    self_item = item.get_links(rel="self")
+    usgs_self_target = (
+        self_item[0].target
+        if len(self_item) == 1 and hasattr(self_item[0], "target")
+        else ""
+    )
 
-        # Remove all Links
-        [item.remove_links(rel=link.rel) for link in item.get_links()]
+    # Remove all Links
+    [item.remove_links(rel=link.rel) for link in item.get_links()]
 
-        # Add New Links
-        self_link = Link(
-            rel="self", target=f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/'
-        )
-        item.add_link(self_link)
+    # Add New Links
+    self_link = Link(
+        rel="self", target=f's3://{AFRICA_S3_BUCKET_NAME}/'
+    )
+    item.add_link(self_link)
 
-        derived_from = Link(
-            rel="derived_from",
-            target=usgs_self_target
-            if usgs_self_target
-            else "https://landsatlook.usgs.gov/sat-api/",
-        )
-        item.add_link(derived_from)
+    derived_from = Link(
+        rel="derived_from",
+        target=usgs_self_target
+        if usgs_self_target
+        else "https://landsatlook.usgs.gov/sat-api/",
+    )
+    item.add_link(derived_from)
 
-        product_overview = Link(
-            rel="product_overview",
-            target=f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/',
-        )
-        item.add_link(product_overview)
-
-    except Exception as error:
-        raise error
+    product_overview = Link(
+        rel="product_overview",
+        target=f's3://{AFRICA_S3_BUCKET_NAME}/',
+    )
+    item.add_link(product_overview)
 
 
 def replace_asset_links(item: Item):
@@ -277,19 +146,14 @@ def replace_asset_links(item: Item):
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
-    try:
-
-        assets = item.get_assets()
-        for key, asset in assets.items():
-            asset_href = (asset.href if hasattr(asset, "href") else "").replace(
-                "https://landsatlook.usgs.gov/data/",
-                f's3://{AWS_DEV_CONFIG["s3_destination_bucket_name"]}/',
-            )
-            if asset_href:
-                asset.href = asset_href
-
-    except Exception as error:
-        raise error
+    assets = item.get_assets()
+    for key, asset in assets.items():
+        asset_href = (asset.href if hasattr(asset, "href") else "").replace(
+            "https://landsatlook.usgs.gov/data/",
+            f's3://{AFRICA_S3_BUCKET_NAME}/',
+        )
+        if asset_href:
+            asset.href = asset_href
 
 
 def add_odc_product_property(item: Item):
@@ -298,28 +162,23 @@ def add_odc_product_property(item: Item):
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
-    try:
 
-        properties = item.properties
-        sat = properties.get("eo:platform", "")
+    properties = item.properties
+    sat = properties.get("eo:platform", "")
 
-        if sat == "LANDSAT_8":
-            value = "ls8_l2sr"
-        elif sat == "LANDSAT_7":
-            value = "ls7_l2sr"
-        elif sat == "LANDSAT_5":
-            value = "ls5_l2sr"
-        else:
-            logging.error(
-                f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
-            )
-            raise Exception(
-                f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
-            )
-        properties.update({"odc:product": value})
+    digital_earth_africa_url = 'https://explorer-af.digitalearth.africa/product/'
 
-    except Exception as error:
-        raise error
+    if sat == "LANDSAT_8":
+        value = "ls8_l2sr"
+    elif sat == "LANDSAT_7":
+        value = "ls7_l2sr"
+    elif sat == "LANDSAT_5":
+        value = "ls5_l2sr"
+    else:
+        raise Exception(
+            f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
+        )
+    properties.update({"odc:product": f'{digital_earth_africa_url}{value}'})
 
 
 def find_s3_path_from_item(item: Item):
@@ -331,20 +190,17 @@ def find_s3_path_from_item(item: Item):
     :param item:(Pystac Item) Pystac Item
     :return: (String) full path to the json item
     """
-    try:
-        assets = item.get_assets()
-        asset = assets.get("index")
-        if asset and hasattr(asset, "href"):
-            file_name = f'{asset.href.split("/")[-1]}_ST_stac.json'
-            asset_s3_path = asset.href.replace(
-                "https://landsatlook.usgs.gov/stac-browser/", ""
-            )
-            full_path = f"{asset_s3_path}/{file_name}"
 
-            return full_path
+    assets = item.get_assets()
+    asset = assets.get("index")
+    if asset and hasattr(asset, "href"):
+        file_name = f'{asset.href.split("/")[-1]}_ST_stac.json'
+        asset_s3_path = asset.href.replace(
+            "https://landsatlook.usgs.gov/stac-browser/", ""
+        )
+        full_path = f"{asset_s3_path}/{file_name}"
 
-    except Exception as error:
-        raise error
+        return full_path
 
 
 def find_url_path_from_item(item: Item):
@@ -355,18 +211,15 @@ def find_url_path_from_item(item: Item):
     :param item:(Pystac Item) Pystac Item
     :return: (String) full URL to the API
     """
-    try:
-        # eg.:  https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/LE07_L2SP_118044_20210115_20210209_02_T1
-        assets = item.get_assets()
-        asset = assets.get("index")
-        if asset and hasattr(asset, "href"):
-            file_name = f'{asset.href.split("/")[-1]}'
-            full_path = f'{AWS_DEV_CONFIG["usgs_api_main_url"]}/{file_name}'
-            logging.info(f"path {full_path}")
-            return full_path
 
-    except Exception as error:
-        raise error
+    # eg.:  https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/LE07_L2SP_118044_20210115_20210209_02_T1
+    assets = item.get_assets()
+    asset = assets.get("index")
+    if asset and hasattr(asset, "href"):
+        file_name = f'{asset.href.split("/")[-1]}'
+        full_path = f'{USGS_API_MAIN_URL}/{file_name}'
+        logging.info(f"path {full_path}")
+        return full_path
 
 
 def merge_assets_api(sr_item: Item):
@@ -375,28 +228,25 @@ def merge_assets_api(sr_item: Item):
     :param sr_item:(Pystac Item) SR Pystac Item
     :return: St Pystac Item
     """
-    try:
-        # Request API
-        response = request_url(url=find_url_path_from_item(item=sr_item))
-        new_item = convert_dict_to_pystac_item(message=response)
 
-        return new_item
+    # Request API
+    response = request_url(url=find_url_path_from_item(item=sr_item))
+    new_item = convert_dict_to_pystac_item(message=response)
 
-        # logging.info(f'new_item {new_item}')
-        #
-        # item_assets = item.get_assets()
-        # new_item_assets = new_item.get_assets()
-        #
-        # logging.info(f'item_assets.keys() {item_assets.keys()}')
-        #
-        # for asset in new_item_assets:
-        #     logging.info(f'asset {asset}')
-        #
-        # missing_keys = [key for key, asset in new_item_assets.items() if key not in item_assets.keys()]
-        # logging.info(f'missing_keys {missing_keys}')
+    return new_item
 
-    except Exception as error:
-        raise error
+    # logging.info(f'new_item {new_item}')
+    #
+    # item_assets = item.get_assets()
+    # new_item_assets = new_item.get_assets()
+    #
+    # logging.info(f'item_assets.keys() {item_assets.keys()}')
+    #
+    # for asset in new_item_assets:
+    #     logging.info(f'asset {asset}')
+    #
+    # missing_keys = [key for key, asset in new_item_assets.items() if key not in item_assets.keys()]
+    # logging.info(f'missing_keys {missing_keys}')
 
 
 def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
@@ -405,43 +255,21 @@ def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
     :param sr_item: SR Pystac Item
     :return: ST Pystac Item
     """
-    try:
 
-        full_path = find_s3_path_from_item(item=sr_item)
+    full_path = find_s3_path_from_item(item=sr_item)
 
-        if full_path:
-            logging.info(f"Accessing file {full_path}")
+    if full_path:
+        logging.info(f"Accessing file {full_path}")
 
-            params = {"RequestPayer": "requester"}
-            response = get_contents_and_attributes(
-                # s3_conn_id=AWS_DEV_CONFIG['africa_dev_usgs_conn_id'],
-                bucket_name=AWS_DEV_CONFIG["s3_source_bucket_name"],
-                key=full_path,
-                params=params,
-            )
+        params = {"RequestPayer": "requester"}
+        response = get_s3_contents_and_attributes(
+            s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+            bucket_name=USGS_S3_BUCKET_NAME,
+            key=full_path,
+            params=params,
+        )
 
-            # conn = BaseHook.get_connection(AWS_DEV_CONFIG['africa_dev_conn_id'])
-            #
-            # if conn:
-            #     extras = conn.get_extra()
-            #     logging.info(f'extras {extras}')
-            #     conn.set_extra("{'region_name': 'us-west-2'}")
-            #     conn.rotate_fernet_key()
-            #     logging.info(f'extras After {conn.get_extra()}')
-
-            # s3_hook = S3Hook(aws_conn_id=AWS_DEV_CONFIG['africa_dev_conn_id'])
-            # s3_obj = s3_hook.get_resource_type('s3').Object(AWS_DEV_CONFIG['s3_source_bucket_name'], full_path)
-            #
-            # response = s3_obj.get(
-            #     **{
-            #         'RequestPayer': 'requester'
-            #     }
-            # )
-
-            return convert_dict_to_pystac_item(response)
-
-    except Exception as error:
-        raise error
+        return convert_dict_to_pystac_item(response)
 
 
 def merge_assets(item: Item):
@@ -452,29 +280,23 @@ def merge_assets(item: Item):
     """
     # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
     # s3://usgs-landsat/collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/LC08_L1GT_157019_20201207_20201217_02_T2_stac.json"
-    try:
-        # TODO REMOVE it's here jus for test
-        # merge_assets_api(item)
 
-        new_item = retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
+    # TODO REMOVE it's here jus for test
+    # merge_assets_api(item)
 
-        if new_item:
-            new_item_assets = new_item.get_assets()
+    new_item = retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
 
-            assets = item.get_assets()
+    if new_item:
+        new_item_assets = new_item.get_assets()
 
-            # Add missing assets to the original item
-            [
-                item.add_asset(key=key, asset=asset)
-                for key, asset in new_item_assets.items()
-                if key not in assets.keys()
-            ]
+        assets = item.get_assets()
 
-            #  TODO remove this, it's a stopper just for tests
-            # raise Exception('everything working!!')
-
-    except Exception as error:
-        raise error
+        # Add missing assets to the original item
+        [
+            item.add_asset(key=key, asset=asset)
+            for key, asset in new_item_assets.items()
+            if key not in assets.keys()
+        ]
 
 
 def bulk_convert_dict_to_pystac_item(messages: Generator):
@@ -485,10 +307,7 @@ def bulk_convert_dict_to_pystac_item(messages: Generator):
     :param messages: (list) List of dicts from SQS
     :return: (list) List of Pystac Items
     """
-    try:
-        return [convert_dict_to_pystac_item(message) for message in messages]
-    except Exception as error:
-        raise error
+    return [convert_dict_to_pystac_item(message) for message in messages]
 
 
 def bulk_items_replace_links(items):
@@ -499,11 +318,7 @@ def bulk_items_replace_links(items):
     :return:None
     """
 
-    try:
-        [replace_links(item=item) for item in items]
-
-    except Exception as error:
-        raise error
+    [replace_links(item=item) for item in items]
 
 
 def bulk_items_replace_assets_link_to_s3_link(items):
@@ -513,10 +328,8 @@ def bulk_items_replace_assets_link_to_s3_link(items):
     :param items:(list) List of Pystac Items
     :return:None
     """
-    try:
-        [replace_asset_links(item=item) for item in items]
-    except Exception as error:
-        raise error
+
+    [replace_asset_links(item=item) for item in items]
 
 
 def bulk_items_add_odc_product_property(items: list):
@@ -525,10 +338,8 @@ def bulk_items_add_odc_product_property(items: list):
     :param items: (list) List of Pystac Items
     :return: None
     """
-    try:
-        [add_odc_product_property(item=item) for item in items]
-    except Exception as error:
-        raise error
+
+    [add_odc_product_property(item=item) for item in items]
 
 
 def bulk_items_merge_assets(items: list):
@@ -538,10 +349,8 @@ def bulk_items_merge_assets(items: list):
     :param items: (list) List of Pystac Items
     :return: None
     """
-    try:
-        [merge_assets(item=item) for item in items]
-    except Exception as error:
-        raise error
+
+    [merge_assets(item=item) for item in items]
 
 
 def retrieve_asset_s3_path_from_item(item: Item):
@@ -550,28 +359,26 @@ def retrieve_asset_s3_path_from_item(item: Item):
     :param item: (Pystac Item) Item which will be retrieved the asset path
     :return: (dict) Returns a dict which the key is the Item id and the value is a list with the assets' S3 links
     """
-    try:
-        assets = item.get_assets()
-        url_to_replace = "https://landsatlook.usgs.gov/data/"
-        if assets:
-            asset_items = assets.items()
-            logging.info(f"asset_items {asset_items}")
-            new_asset_hrefs = {
-                item.id: [
-                    asset.href.replace(
-                        url_to_replace, f'/{AWS_DEV_CONFIG["s3_source_bucket_name"]}/'
-                    )
-                    for key, asset in assets.items()
-                    if hasattr(asset, "href")
-                    # Ignores the index key
-                    and url_to_replace in asset.href
-                ]
-            }
+    # TODO Rodrigo
+    assets = item.get_assets()
+    url_to_replace = "https://landsatlook.usgs.gov/data/"
+    if assets:
+        asset_items = assets.items()
+        logging.info(f"asset_items {asset_items}")
+        new_asset_hrefs = {
+            item.id: [
+                asset.href.replace(
+                    url_to_replace, ''
+                )
+                for key, asset in assets.items()
+                if hasattr(asset, "href")
+                # Ignores the index key
+                and url_to_replace in asset.href
+            ]
+        }
 
-            return new_asset_hrefs
-        logging.error(f"WARNING No assets to be copied in the Item ({item.id})")
-    except Exception as error:
-        raise error
+        return new_asset_hrefs
+    logging.error(f"WARNING No assets to be copied in the Item ({item.id})")
 
 
 def store_original_asset_s3_address(items: list):
@@ -581,13 +388,10 @@ def store_original_asset_s3_address(items: list):
     :param items: (list) List of Pystac Items
     :return: (dict) which the key is the item id and the value is a list of the item's S3 paths
     """
-    try:
-        result = {}
-        [result.update(retrieve_asset_s3_path_from_item(item)) for item in items]
-        return result
 
-    except Exception as error:
-        raise error
+    result = {}
+    [result.update(retrieve_asset_s3_path_from_item(item)) for item in items]
+    return result
 
 
 def transfer_data_from_usgs_to_africa(asset_address_list: dict):
@@ -598,41 +402,63 @@ def transfer_data_from_usgs_to_africa(asset_address_list: dict):
     :return: None
     """
 
-    try:
-        # Limit number of threads
-        num_of_threads = 20
-        results = []
-        with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-            # TODO change message
-            logging.info(
-                f"Transferring {num_of_threads} assets simultaneously (Python threads)"
-            )
+    # Limit number of threads
+    num_of_threads = 20
+    results = []
+    with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+        # TODO change message
+        logging.info(
+            f"Transferring {num_of_threads} assets simultaneously (Python threads)"
+        )
 
-            arguments = {
-                "s3_conn_id": "",
-                "source_bucket": "",
-                "destination_bucket": "",
-                "source_key": "",
-                "destination_key": "",
-            }
-            # task = {
-            #     asset_id: executor.submit(copy_s3_tos_3, arguments)
-            #     for asset_id, asset_links in asset_address_list.items()
-            # }
+        for asset_id, asset_links in asset_address_list.items():
 
-            for asset_id, asset_links in asset_address_list.items():
+            task = [
+                executor.submit(
+                    copy_s3_to_s3,
+                    SYNC_LANDSAT_CONNECTION_ID,
+                    USGS_S3_BUCKET_NAME,
+                    AFRICA_S3_BUCKET_NAME,
+                    link,
+                    "requester"
+                ) for link in asset_links
+            ]
 
-                task = [executor.submit(copy_s3_to_s3, link) for link in asset_links]
+            for future in as_completed(task):
+                future.result()
 
-                for future in as_completed(task):
-                    result = future.result()
-                    logging.info(f"transfer_data_from_usgs_to_africa result {result}")
-                    results.append(result)
-                    logging.info(f"Assets transferred")
+    return results
 
-        return results
-    except Exception as error:
-        raise error
+
+def make_stac_transformation(item: Item):
+    """
+
+    :param item:
+    :return:
+    """
+    pass
+
+
+def transform_old_stac_to_newer_stac(items: list):
+    """
+    Function to get a list of Pystac Items and transform into stac file version 1.0.0-beta2
+    :param items:(list) Pystac Item List
+    :return:(list) stac1 Items
+    """
+    return [make_stac_transformation(item) for item in items]
+
+
+def save_stac1_to_s3(item):
+    """
+    Function to save json stac 1 file into Africa S3
+    :param item:
+    :return:
+    """
+    pass
+
+
+def save_stac1_items_to_s3(stac_1_items: list):
+    [save_stac1_to_s3(item=item) for item in stac_1_items]
 
 
 def process():
@@ -645,7 +471,7 @@ def process():
     try:
         logging.info("Starting process")
         # Retrieve messages from the queue
-        messages = get_messages(limit=20)
+        messages = get_messages(limit=2)
 
         if not messages:
             logging.info("No messages were found!")
@@ -687,13 +513,21 @@ def process():
         transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_dict)
         logging.info(f"{len(transferred_items)} Transferred from USGS to AFRICA")
 
+        # Transform stac to 1.0.0-beta.2
+        # TODO complete function
+        # stac_1_items = transform_old_stac_to_newer_stac(items)
+
+        # Save new stac 1 Items into Africa's S3
+        # TODO complete function
+        # save_stac1_items_to_s3(stac_1_items)
+
         # Send to the SNS
-        # logging.info(f'sending {len(items)} Items to the SNS')
-        # [publish_to_sns_topic(item.to_dict()) for item in items]
+        # logging.info(f'Starting process to send {len(items)} Items to the SNS')
+        # [
+        #     publish_to_sns_topic(item.to_dict()) for item in items
+        # ]
         logging.info("The END")
 
-    except StopIteration:
-        logging.info(f"All {count_messages} messages read")
     except Exception as error:
         logging.error(error)
         raise error
