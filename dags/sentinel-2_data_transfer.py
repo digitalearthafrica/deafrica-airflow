@@ -94,7 +94,7 @@ def get_src_link(message_content):
             return link["href"]
 
 
-def correct_stac_link(metadata):
+def correct_stac_links(metadata):
     """
     Replace the https link of the source bucket with s3 link of the destination bucket
     """
