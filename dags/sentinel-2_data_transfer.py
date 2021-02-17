@@ -119,7 +119,7 @@ def correct_stac_links(metadata):
     stac = json.loads(
         stac.replace(
             "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-            f"s3://deafrica-sentinel-2",
+            "s3://deafrica-sentinel-2",
         )
     )
     # Update source link
@@ -128,7 +128,7 @@ def correct_stac_links(metadata):
         if x["rel"] == "derived_from":
             x["href"] = src_link.replace(
                 "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-                f"s3://sentinel-cogs",
+                "s3://sentinel-cogs",
             )
 
     return stac
