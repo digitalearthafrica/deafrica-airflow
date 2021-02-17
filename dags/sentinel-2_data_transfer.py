@@ -130,10 +130,11 @@ def correct_stac_links(metadata):
     return stac
 
 
-def publish_to_sns(message, attributes):
+def publish_to_sns(updated_stac, attributes):
     """
     Publish a message to a SNS topic
-    param message: message body
+    param updated_stac: STAC with updated links for the destination bucket
+    param attributes: Original message attributes
     """
 
     if "collection" in message_attributes:
@@ -265,7 +266,7 @@ def copy_s3_objects(ti, **kwargs):
                 continue
             updated_stac = correct_stac_link(metadata)
             start_transfer(updated_stac)
-            publish_to_sns_topic(updated_stac, attributes)
+            publish_to_sns(updated_stac, attributes)
             message.delete()
             successful += 1
         except ValueError as err:
