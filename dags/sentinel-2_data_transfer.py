@@ -23,9 +23,11 @@ AFRICA_CONN_ID = "deafrica-prod-migration"
 US_CONN_ID = "deafrica-migration_us"
 DEST_BUCKET_NAME = "deafrica-sentinel-2"
 SRC_BUCKET_NAME = "sentinel-cogs"
-SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+SENTINEL2_TOPIC_ARN = (
+    "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+)
 SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
-CONCURRENCY = 1
+CONCURRENCY = 16
 
 default_args = {
     "owner": "Airflow",
@@ -91,13 +93,12 @@ def get_src_link(message_content):
         if link["rel"] == "derived_from":
             return link["href"]
 
-def correct_stac_link(message):
+
+def correct_stac_link(metadata):
     """
     Replace the https link of the source bucket with s3 link of the destination bucket
     """
 
-    body = json.loads(message.body)
-    metadata = json.loads(body.get("Message"))
     # Extrac source link before updating STAC file
     src_link = get_self_link(metadata)
     # Drop canonical and via-cirrus links
@@ -120,25 +121,24 @@ def correct_stac_link(message):
     links = [x for x in stac["links"] if x["rel"] == "derived_from"]
     for x in stac["links"]:
         # Replace derived-from link with s3 links to sentinel-cogs bucket
-        if x["rel"] == "derived_from":            
+        if x["rel"] == "derived_from":
             x["href"] = src_link.replace(
-                "https://sentinel-cogs.s3.us-west-2.amazonaws.com", f"s3://sentinel-cogs"
+                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+                f"s3://sentinel-cogs",
             )
 
     return stac
 
 
-def publish_to_sns_topic(message, updated_stac):
+def publish_to_sns_topic(updated_stac, message_attributes):
     """
     Publish a message to a SNS topic
     param message: message body
     """
 
-    body = json.loads(message.body)
-    attributes = body.get("MessageAttributes", {})
-    if "collection" in attributes:
-        del attributes["collection"]
-    attributes["product"] = "s2_l2a"
+    if "collection" in message_attributes:
+        del message_attributes["collection"]
+    message_attributes["product"] = "s2_l2a"
 
     sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
@@ -146,7 +146,7 @@ def publish_to_sns_topic(message, updated_stac):
     response = sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
         message=json.dumps(updated_stac),
-        message_attributes=attributes,
+        message_attributes=message_attributes,
     )
 
 
@@ -182,8 +182,7 @@ def start_transfer(metadata):
     try:
         s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
         s3_hook.load_string(
-            string_data=json.dumps(metadata),         
-            replace=True,
+            string_data=json.dumps(metadata),
             key=key,
             bucket_name=DEST_BUCKET_NAME
         )
@@ -231,10 +230,8 @@ def start_transfer(metadata):
         raise ValueError(f"{scene_path} failed to copy")
 
 
-def is_valid_tile_id(message, valid_tile_ids):
+def is_valid_tile_id(metadata, valid_tile_ids):
 
-    body = json.loads(message.body)
-    metadata = json.loads(body["Message"])
     tile_id = metadata["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
@@ -258,13 +255,17 @@ def copy_s3_objects(ti, **kwargs):
     valid_tile_ids = africa_tile_ids()
 
     for message in messages:
+        message_body = json.loads(message.body)
+        metadata = json.loads(message_body["Message"])
+        attributes = message_body.get("MessageAttributes", {})
+
         try:
-            if not is_valid_tile_id(message, valid_tile_ids):
+            if not is_valid_tile_id(metadata, valid_tile_ids):
                 message.delete()
                 continue
-            updated_stac = correct_stac_link(message)
+            updated_stac = correct_stac_link(metadata)
             start_transfer(updated_stac)
-            publish_to_sns_topic(message, updated_stac)
+            publish_to_sns_topic(updated_stac, attributes)
             message.delete()
             successful += 1
         except ValueError as err:
