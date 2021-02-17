@@ -264,7 +264,7 @@ def copy_s3_objects(ti, **kwargs):
             if not is_valid_tile_id(metadata, valid_tile_ids):
                 message.delete()
                 continue
-            updated_stac = correct_stac_link(metadata)
+            updated_stac = correct_stac_links(metadata)
             start_transfer(updated_stac)
             publish_to_sns(updated_stac, attributes)
             message.delete()
