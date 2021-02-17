@@ -14,6 +14,7 @@ import pandas as pd
 
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
@@ -71,7 +72,10 @@ def africa_tile_ids():
 
     africa_tile_ids = set(
         pd.read_csv(
-            "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+            (
+                "https://raw.githubusercontent.com/digitalearthafrica/"
+                "deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+            )
         ).values.ravel()
     )
 
@@ -96,7 +100,8 @@ def get_src_link(message_content):
 
 def correct_stac_links(metadata):
     """
-    Replace the https link of the source bucket with s3 link of the destination bucket
+    Replace the https link of the source bucket
+    with s3 link of the destination bucket
     """
 
     # Extrac source link before updating STAC file
@@ -118,7 +123,6 @@ def correct_stac_links(metadata):
         )
     )
     # Update source link
-    links = [x for x in stac["links"] if x["rel"] == "derived_from"]
     for x in stac["links"]:
         # Replace derived-from link with s3 links to sentinel-cogs bucket
         if x["rel"] == "derived_from":
@@ -137,17 +141,17 @@ def publish_to_sns(updated_stac, attributes):
     param attributes: Original message attributes
     """
 
-    if "collection" in message_attributes:
-        del message_attributes["collection"]
-    message_attributes["product"] = "s2_l2a"
+    if "collection" in attributes:
+        del attributes["collection"]
+    attributes["product"] = "s2_l2a"
 
     sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
-    response = sns_hook.publish_to_target(
+    sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
         message=json.dumps(updated_stac),
-        message_attributes=message_attributes,
+        message_attributes=attributes,
     )
 
 
@@ -183,9 +187,7 @@ def start_transfer(metadata):
     try:
         s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
         s3_hook.load_string(
-            string_data=json.dumps(metadata),
-            key=key,
-            bucket_name=DEST_BUCKET_NAME
+            string_data=json.dumps(metadata), key=key, bucket_name=DEST_BUCKET_NAME
         )
     except Exception as exc:
         raise ValueError(f"{key} failed to copy")
