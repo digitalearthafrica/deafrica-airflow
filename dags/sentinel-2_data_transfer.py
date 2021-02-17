@@ -197,7 +197,7 @@ def start_transfer(metadata):
     # Check that all bands and STAC exist
     if len(urls) != 17:
         raise ValueError(
-            f"There are less than 18 files in {metadata.get('id')} scene, failing"
+            f"There are less than 17 files in {metadata.get('id')} scene, failing"
         )
 
     scene_path = Path(key).parent
