@@ -130,7 +130,7 @@ def correct_stac_links(metadata):
     return stac
 
 
-def publish_to_sns_topic(updated_stac, message_attributes):
+def publish_to_sns(message, attributes):
     """
     Publish a message to a SNS topic
     param message: message body
