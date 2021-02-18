@@ -13,7 +13,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import (
+    PythonOperator,
+    BranchPythonOperator,
+)
 
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
@@ -92,46 +95,49 @@ def get_self_link(message_content):
     return self_link
 
 
-def get_src_link(message_content):
+def get_derived_from_link(message_content):
     for link in message_content["links"]:
         if link["rel"] == "derived_from":
             return link["href"]
 
 
-def correct_stac_links(metadata):
+def correct_stac_links(stac_item):
     """
     Replace the https link of the source bucket
     with s3 link of the destination bucket
     """
 
-    # Extrac source link before updating STAC file
-    src_link = get_self_link(metadata)
-    # Drop canonical and via-cirrus links
-    metadata["links"] = [
-        x
-        for x in metadata["links"]
-        if x["rel"] != "canonical" and x["rel"] != "via-cirrus"
-    ]
+    # Extract source link before updating STAC file
+    src_link = get_self_link(stac_item)
 
     # Update links to match destination
-    stac = json.dumps(metadata)
-    "Replace https with s3 uri"
-    stac = json.loads(
-        stac.replace(
-            "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-            "s3://deafrica-sentinel-2",
-        )
+    stac_str = json.dumps(stac_item)
+    # "Replace https with s3 uri"
+    stac_item = stac_str.replace(
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+        "s3://deafrica-sentinel-2",
     )
-    # Update source link
-    for x in stac["links"]:
+    updated_stac = json.loads(stac_item)
+    # Update self and derived_from links
+    for x in updated_stac["links"]:
         # Replace derived-from link with s3 links to sentinel-cogs bucket
         if x["rel"] == "derived_from":
             x["href"] = src_link.replace(
                 "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
                 "s3://sentinel-cogs",
             )
-
-    return stac
+        elif x["rel"] == "self":
+            x["href"] = src_link.replace(
+                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+                "s3://deafrica-sentinel-2",
+            )
+    # Drop canonical and via-cirrus links
+    updated_stac["links"] = [
+        x
+        for x in updated_stac["links"]
+        if x["rel"] != "canonical" and x["rel"] != "via-cirrus"
+    ]
+    return updated_stac
 
 
 def publish_to_sns(updated_stac, attributes):
@@ -170,37 +176,45 @@ def write_scene(src_key):
     return True
 
 
-def start_transfer(metadata):
+def start_transfer(stac_item):
     """
     Transfer a scene from source to destination bucket
     """
 
     s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
-    s3_filepath = get_src_link(metadata)
+    s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
-        raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
+        raise ValueError(
+            f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
+        )
 
     try:
         s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
         s3_hook.load_string(
-            string_data=json.dumps(metadata), key=key, bucket_name=DEST_BUCKET_NAME
+            string_data=json.dumps(stac_item),
+            key=key,
+            bucket_name=DEST_BUCKET_NAME,
         )
     except Exception as exc:
         raise ValueError(f"{key} failed to copy")
     urls = []
     # Add URL of .tif files
     urls.extend(
-        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+        [
+            v["href"]
+            for k, v in stac_item["assets"].items()
+            if "geotiff" in v["type"]
+        ]
     )
 
     # Check that all bands and STAC exist
     if len(urls) != 17:
         raise ValueError(
-            f"There are less than 17 files in {metadata.get('id')} scene, failing"
+            f"There are less than 17 files in {stac_item.get('id')} scene, failing"
         )
 
     scene_path = Path(key).parent
@@ -209,11 +223,15 @@ def start_transfer(metadata):
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+        key_exists = s3_hook_oregon.check_for_key(
+            key, bucket_name=SRC_BUCKET_NAME
+        )
         src_keys.append(src_key)
 
         if not key_exists:
-            raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
+            raise ValueError(
+                f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
+            )
 
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
@@ -233,12 +251,14 @@ def start_transfer(metadata):
         raise ValueError(f"{scene_path} failed to copy")
 
 
-def is_valid_tile_id(metadata, valid_tile_ids):
+def is_valid_tile_id(stac_item, valid_tile_ids):
 
-    tile_id = metadata["id"].split("_")[1]
+    tile_id = stac_item["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
-        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
+        print(
+            f"{tile_id} is not in the list of Africa tiles for {stac_item.get('id')}"
+        )
         return False
     return True
 
@@ -259,14 +279,14 @@ def copy_s3_objects(ti, **kwargs):
 
     for message in messages:
         message_body = json.loads(message.body)
-        metadata = json.loads(message_body["Message"])
+        stac_item = json.loads(message_body["Message"])
         attributes = message_body.get("MessageAttributes", {})
 
         try:
-            if not is_valid_tile_id(metadata, valid_tile_ids):
+            if not is_valid_tile_id(stac_item, valid_tile_ids):
                 message.delete()
                 continue
-            updated_stac = correct_stac_links(metadata)
+            updated_stac = correct_stac_links(stac_item)
             start_transfer(updated_stac)
             publish_to_sns(updated_stac, attributes)
             message.delete()
@@ -282,8 +302,9 @@ def copy_s3_objects(ti, **kwargs):
 def trigger_sensor(ti, **kwargs):
     """
     Function to fork tasks
-    If there are messages in the queue, it pushes them to task index object, and calls the copy function
-    otherwise it calls a task that terminates the DAG run
+    If there are messages in the queue, it pushes them to task index
+    object, and calls the copy function otherwise it calls a task that
+    terminates the DAG run
     :param ti: Task instance
     :return: String id of the downstream task
     """
@@ -312,7 +333,9 @@ def terminate(ti, **kwargs):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
-        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
+        failed_msg_counts += ti.xcom_pull(
+            key="failed", task_ids=f"data_transfer_{idx}"
+        )
 
     print(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
@@ -335,7 +358,9 @@ with DAG(
         provide_context=True,
     )
 
-    END_DAG = PythonOperator(task_id="no_messages__end", python_callable=end_dag)
+    END_DAG = PythonOperator(
+        task_id="no_messages__end", python_callable=end_dag
+    )
 
     TERMINATE_DAG = PythonOperator(
         task_id="terminate", python_callable=terminate, provide_context=True
