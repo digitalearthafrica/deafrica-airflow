@@ -291,6 +291,7 @@ def copy_s3_objects(ti, **kwargs):
             publish_to_sns(updated_stac, attributes)
             message.delete()
             successful += 1
+            break
         except ValueError as err:
             failed += 1
             print(err)
