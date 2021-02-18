@@ -271,7 +271,7 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=AFRICA_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
