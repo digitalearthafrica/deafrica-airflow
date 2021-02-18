@@ -23,15 +23,15 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-AFRICA_CONN_ID = "deafrica-prod-migration"
-US_CONN_ID = "deafrica-migration_us"
-DEST_BUCKET_NAME = "deafrica-sentinel-2"
+FRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
+US_CONN_ID = "deafrica_migration_us"
+DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
-    "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+    "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
 )
-SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
-CONCURRENCY = 16
+SQS_QUEUE = "deafrica-dev-eks-sentinel-2-sync"
+CONCURRENCY = 1
 
 default_args = {
     "owner": "Airflow",
