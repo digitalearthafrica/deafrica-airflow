@@ -13,19 +13,24 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import (
+    PythonOperator,
+    BranchPythonOperator,
+)
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-AFRICA_CONN_ID = "deafrica-prod-migration"
+AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
 US_CONN_ID = "deafrica-migration_us"
-DEST_BUCKET_NAME = "deafrica-sentinel-2"
+DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
-SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
-SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
-CONCURRENCY = 16
+SENTINEL2_TOPIC_ARN = (
+    "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
+)
+SQS_QUEUE = "deafrica-dev-eks-sentinel-2-sync"
+CONCURRENCY = 1
 
 default_args = {
     "owner": "Airflow",
@@ -107,7 +112,8 @@ def publish_to_sns_topic(message):
 
     "Replace https with s3 uri"
     metadata_str = metadata.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
+        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+        "s3://deafrica-sentinel-2",
     )
     response = sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
@@ -144,9 +150,7 @@ def start_transfer(message):
 
     # Check file exists
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(
-        key, bucket_name=SRC_BUCKET_NAME
-    )
+    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
         raise ValueError(
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
@@ -155,7 +159,11 @@ def start_transfer(message):
     urls = [s3_filepath]
     # Add URL of .tif files
     urls.extend(
-        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+        [
+            v["href"]
+            for k, v in metadata["assets"].items()
+            if "geotiff" in v["type"]
+        ]
     )
 
     # Check that all bands and STAC exist
@@ -205,7 +213,9 @@ def is_valid_tile_id(message, valid_tile_ids):
     tile_id = metadata["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
-        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
+        print(
+            f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}"
+        )
         return False
     return True
 
@@ -274,7 +284,9 @@ def terminate(ti, **kwargs):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
-        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
+        failed_msg_counts += ti.xcom_pull(
+            key="failed", task_ids=f"data_transfer_{idx}"
+        )
 
     print(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
@@ -297,7 +309,9 @@ with DAG(
         provide_context=True,
     )
 
-    END_DAG = PythonOperator(task_id="no_messages__end", python_callable=end_dag)
+    END_DAG = PythonOperator(
+        task_id="no_messages__end", python_callable=end_dag
+    )
 
     TERMINATE_DAG = PythonOperator(
         task_id="terminate", python_callable=terminate, provide_context=True
