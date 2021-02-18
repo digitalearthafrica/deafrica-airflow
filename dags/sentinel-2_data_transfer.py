@@ -23,7 +23,7 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-FRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
+AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
 US_CONN_ID = "deafrica_migration_us"
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
