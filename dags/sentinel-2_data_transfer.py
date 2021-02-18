@@ -13,7 +13,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import pandas as pd
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import (
+    PythonOperator,
+    BranchPythonOperator,
+)
+
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
@@ -23,7 +27,9 @@ AFRICA_CONN_ID = "deafrica-prod-migration"
 US_CONN_ID = "deafrica-migration_us"
 DEST_BUCKET_NAME = "deafrica-sentinel-2"
 SRC_BUCKET_NAME = "sentinel-cogs"
-SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+SENTINEL2_TOPIC_ARN = (
+    "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
+)
 SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
 CONCURRENCY = 16
 
@@ -69,7 +75,10 @@ def africa_tile_ids():
 
     africa_tile_ids = set(
         pd.read_csv(
-            "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+            (
+                "https://raw.githubusercontent.com/digitalearthafrica/"
+                "deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+            )
         ).values.ravel()
     )
 
@@ -83,35 +92,71 @@ def get_self_link(message_content):
     for link in message_content["links"]:
         if link["rel"] == "canonical":
             self_link = link["href"]
+    return self_link
 
-    return self_link.replace(
+
+def get_derived_from_link(message_content):
+    for link in message_content["links"]:
+        if link["rel"] == "derived_from":
+            return link["href"]
+
+
+def correct_stac_links(stac_item):
+    """
+    Replace the https link of the source bucket
+    with s3 link of the destination bucket
+    """
+
+    # Extract source link before updating STAC file
+    src_link = get_self_link(stac_item)
+
+    # Update links to match destination
+    stac_str = json.dumps(stac_item)
+    # "Replace https with s3 uri"
+    stac_item = stac_str.replace(
         "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-        f"s3://{SRC_BUCKET_NAME}",
+        "s3://deafrica-sentinel-2",
     )
+    updated_stac = json.loads(stac_item)
+    # Update self and derived_from links
+    for x in updated_stac["links"]:
+        # Replace derived-from link with s3 links to sentinel-cogs bucket
+        if x["rel"] == "derived_from":
+            x["href"] = src_link.replace(
+                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+                "s3://sentinel-cogs",
+            )
+        elif x["rel"] == "self":
+            x["href"] = src_link.replace(
+                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+                "s3://deafrica-sentinel-2",
+            )
+    # Drop canonical and via-cirrus links
+    updated_stac["links"] = [
+        x
+        for x in updated_stac["links"]
+        if x["rel"] != "canonical" and x["rel"] != "via-cirrus"
+    ]
+    return updated_stac
 
 
-def publish_to_sns_topic(message):
+def publish_to_sns(updated_stac, attributes):
     """
     Publish a message to a SNS topic
-    param message: message body
+    param updated_stac: STAC with updated links for the destination bucket
+    param attributes: Original message attributes
     """
 
-    body = json.loads(message.body)
-    attributes = body.get("MessageAttributes", {})
     if "collection" in attributes:
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    metadata = body.get("Message")
     sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
-    metadata_str = metadata.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com", "s3://deafrica-sentinel-2"
-    )
-    response = sns_hook.publish_to_target(
+    sns_hook.publish_to_target(
         target_arn=SENTINEL2_TOPIC_ARN,
-        message=metadata_str,
+        message=json.dumps(updated_stac),
         message_attributes=attributes,
     )
 
@@ -131,37 +176,45 @@ def write_scene(src_key):
     return True
 
 
-def start_transfer(message):
+def start_transfer(stac_item):
     """
     Transfer a scene from source to destination bucket
     """
 
-    body = json.loads(message.body)
-    metadata = json.loads(body["Message"])
-
     s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
-    s3_filepath = get_self_link(metadata)
+    s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(
-        key, bucket_name=SRC_BUCKET_NAME
-    )
+    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
         raise ValueError(
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
-    urls = [s3_filepath]
+    try:
+        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook.load_string(
+            string_data=json.dumps(stac_item),
+            key=key,
+            bucket_name=DEST_BUCKET_NAME,
+        )
+    except Exception as exc:
+        raise ValueError(f"{key} failed to copy")
+    urls = []
     # Add URL of .tif files
     urls.extend(
-        [v["href"] for k, v in metadata["assets"].items() if "geotiff" in v["type"]]
+        [
+            v["href"]
+            for k, v in stac_item["assets"].items()
+            if "geotiff" in v["type"]
+        ]
     )
 
     # Check that all bands and STAC exist
-    if len(urls) != 18:
+    if len(urls) != 17:
         raise ValueError(
-            f"There are less than 18 files in {metadata.get('id')} scene, failing"
+            f"There are less than 17 files in {stac_item.get('id')} scene, failing"
         )
 
     scene_path = Path(key).parent
@@ -192,20 +245,20 @@ def start_transfer(message):
             else:
                 copied_files.append(result)
 
-    if len(copied_files) == 18:
+    if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
 
 
-def is_valid_tile_id(message, valid_tile_ids):
+def is_valid_tile_id(stac_item, valid_tile_ids):
 
-    body = json.loads(message.body)
-    metadata = json.loads(body["Message"])
-    tile_id = metadata["id"].split("_")[1]
+    tile_id = stac_item["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
-        print(f"{tile_id} is not in the list of Africa tiles for {metadata.get('id')}")
+        print(
+            f"{tile_id} is not in the list of Africa tiles for {stac_item.get('id')}"
+        )
         return False
     return True
 
@@ -225,12 +278,17 @@ def copy_s3_objects(ti, **kwargs):
     valid_tile_ids = africa_tile_ids()
 
     for message in messages:
+        message_body = json.loads(message.body)
+        stac_item = json.loads(message_body["Message"])
+        attributes = message_body.get("MessageAttributes", {})
+
         try:
-            if not is_valid_tile_id(message, valid_tile_ids):
+            if not is_valid_tile_id(stac_item, valid_tile_ids):
                 message.delete()
                 continue
-            start_transfer(message)
-            publish_to_sns_topic(message)
+            updated_stac = correct_stac_links(stac_item)
+            start_transfer(updated_stac)
+            publish_to_sns(updated_stac, attributes)
             message.delete()
             successful += 1
         except ValueError as err:
@@ -244,8 +302,9 @@ def copy_s3_objects(ti, **kwargs):
 def trigger_sensor(ti, **kwargs):
     """
     Function to fork tasks
-    If there are messages in the queue, it pushes them to task index object, and calls the copy function
-    otherwise it calls a task that terminates the DAG run
+    If there are messages in the queue, it pushes them to task index
+    object, and calls the copy function otherwise it calls a task that
+    terminates the DAG run
     :param ti: Task instance
     :return: String id of the downstream task
     """
@@ -274,7 +333,9 @@ def terminate(ti, **kwargs):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
-        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
+        failed_msg_counts += ti.xcom_pull(
+            key="failed", task_ids=f"data_transfer_{idx}"
+        )
 
     print(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
@@ -297,7 +358,9 @@ with DAG(
         provide_context=True,
     )
 
-    END_DAG = PythonOperator(task_id="no_messages__end", python_callable=end_dag)
+    END_DAG = PythonOperator(
+        task_id="no_messages__end", python_callable=end_dag
+    )
 
     TERMINATE_DAG = PythonOperator(
         task_id="terminate", python_callable=terminate, provide_context=True
