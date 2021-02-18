@@ -9,12 +9,11 @@ repos:
     rev: 20.8b1
     hooks:
       - id: black
-  - repo: local
+  - repo: https://github.com/pycqa/pylint
+    rev: pylint-2.6.2
     hooks:
-    -   id: pylint-dags
-        name: pylint-dags
-        entry: env PYTHONPATH=plugins pylint
-        language: system
+      - id: pylint
         files: dags/
-        types: [python]
-        args: ["--load-plugins=pylint_airflow", "--disable=C,W", "--disable=similarities"]
+        additional_dependencies: ['pylint_airflow']
+        entry: env PYTHONPATH=plugins pylint
+        args: ["--load-plugins=pylint_airflow", "--disable=C,W,import-error", "--disable=similarities"]
