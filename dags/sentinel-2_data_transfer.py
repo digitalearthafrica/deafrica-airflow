@@ -18,13 +18,13 @@ from airflow.operators.python_operator import (
     BranchPythonOperator,
 )
 
+
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
-US_CONN_ID = "deafrica_migration_us"
+CONN_ID = "sentinel_2_sync"
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
@@ -151,7 +151,7 @@ def publish_to_sns(updated_stac, attributes):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
+    sns_hook = AwsSnsHook(aws_conn_id=CONN_ID)
 
     "Replace https with s3 uri"
     sns_hook.publish_to_target(
@@ -166,7 +166,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
@@ -181,10 +181,11 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
+    AWS_DEFAULT_REGION = "us-west-2"
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
@@ -192,8 +193,9 @@ def start_transfer(stac_item):
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
+    AWS_DEFAULT_REGION = "af-south-1"
     try:
-        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook = S3Hook(aws_conn_id=CONN_ID)
         s3_hook.load_string(
             string_data=json.dumps(stac_item),
             key=key,
@@ -220,6 +222,7 @@ def start_transfer(stac_item):
     scene_path = Path(key).parent
     print(f"Copying {scene_path}")
 
+    AWS_DEFAULT_REGION = "us-west-2"
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
@@ -232,7 +235,7 @@ def start_transfer(stac_item):
             raise ValueError(
                 f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
             )
-
+    AWS_DEFAULT_REGION = "af-south-1"
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
         task = {executor.submit(write_scene, key): key for key in src_keys}
@@ -271,7 +274,8 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=AFRICA_CONN_ID)
+    AWS_DEFAULT_REGION = "af-south-1"
+    sqs_hook = SQSHook(aws_conn_id=CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
@@ -310,7 +314,7 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
