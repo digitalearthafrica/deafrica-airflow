@@ -27,6 +27,8 @@ from airflow.models import Variable
 from airflow.hooks.S3_hook import S3Hook
 
 CONN_ID = "sentinel_2_sync"
+US_CONN_ID = "sentinel_2_sync_oregon"
+
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
@@ -169,8 +171,6 @@ def write_scene(src_key):
     param message: key to write
     """
 
-    Variable.set("AWS_DEFAULT_REGION", "af-south-1")
-
     s3_hook = S3Hook(aws_conn_id=CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
@@ -186,11 +186,10 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook_oregon = S3Hook(aws_conn_id=CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
-    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
@@ -198,7 +197,6 @@ def start_transfer(stac_item):
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
-    os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
     try:
         s3_hook = S3Hook(aws_conn_id=CONN_ID)
         s3_hook.load_string(
@@ -227,7 +225,6 @@ def start_transfer(stac_item):
     scene_path = Path(key).parent
     print(f"Copying {scene_path}")
 
-    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
