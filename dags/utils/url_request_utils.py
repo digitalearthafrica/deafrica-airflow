@@ -1,5 +1,7 @@
 import json
+import logging
 
+import botocore
 import requests
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
@@ -79,8 +81,7 @@ def get_s3_contents_and_attributes(
     )
     response = s3_obj.get(**params)
     response_body = response.get("Body")
-    json_body = response_body.read()
-    return json.loads(json_body)
+    return response_body.read()
 
 
 def copy_s3_to_s3(
@@ -88,26 +89,22 @@ def copy_s3_to_s3(
     source_bucket: str,
     destination_bucket: str,
     source_key: str,
-    request_payer: str = None,
     destination_key: str = None,
+    request_payer: str = None,
 ):
     """
     Function to copy files from one S3 bucket to another.
 
-    :param request_payer: (str) When None the S3 owner will pay, when <requester> the solicitor will pay
-    :param source_key: (str) Source file path
-    :param destination_key: (str) Destination file path
+    :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
+    :param source_key:(str) Source file path
+    :param destination_key:(str) Destination file path
     :param s3_conn_id:(str) Airflow connection id
     :param source_bucket:(str) Source S3 bucket name
     :param destination_bucket:(str) Destination S3 bucket name
     :return: None
     """
 
-    if not source_key:
-        raise Exception(
-            "Source key must be informed to be able connecting to AWS S3"
-        )
-    elif source_key and not destination_key:
+    if source_key and not destination_key:
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key.replace(source_bucket, destination_bucket)
 
@@ -129,6 +126,34 @@ def copy_s3_to_s3(
     )
 
 
+def key_not_existent(
+        s3_conn_id: str,
+        region_name: str,
+        bucket_name: str,
+        key: str,
+):
+    """
+    Check on a S3 bucket if a object exist or not, if not returns the path, otherwise returns blank
+
+    :param s3_conn_id:(str) Airflow connection id
+    :param region_name:
+    :param bucket_name:(str) S3 bucket name
+    :param key:(str) File path
+    :return:(bool) True if exist, False if not
+    """
+    try:
+        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+        s3_resource = s3_hook.get_resource_type("s3", region_name=region_name)
+        s3_obj = s3_resource.Object(bucket_name, key)
+        s3_obj.load()
+    except botocore.exceptions.ClientError as error:
+        if error.response['Error']['Code'] == "404":
+            return key
+
+    logging.info(f"Object {key} already exist at {bucket_name}")
+    return ''
+
+
 def publish_to_sns_topic(
         aws_conn_id: str,
         target_arn: str,
@@ -136,17 +161,21 @@ def publish_to_sns_topic(
         attributes: dict = {}
 ):
     """
-
-    :param target_arn:
-    :param aws_conn_id:
-    :param message:
-    :param attributes:
-    :return:
+    Function to publish a message to a SNS
+    :param target_arn:(str)
+    :param aws_conn_id:(str)
+    :param message:(str)
+    :param attributes:(dict)
+    :return:None
     """
     sns_hook = AwsSnsHook(aws_conn_id=aws_conn_id)
+
+    logging.info(f'SNS sns_hook {sns_hook}')
 
     response = sns_hook.publish_to_target(
         target_arn=target_arn,
         message=message,
         message_attributes=attributes,
     )
+
+    logging.info(f'SNS response {response}')

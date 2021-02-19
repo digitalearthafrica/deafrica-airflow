@@ -4,35 +4,33 @@
 import json
 import logging
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable
 
-
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
-from airflow.hooks.S3_hook import S3Hook
-
 from pystac import Item, Link
 
-from infra.connections import (
-    SYNC_LANDSAT_CONNECTION_ID,
-    INDEX_LANDSAT_CONNECTION_ID,
-    SYNC_LANDSAT_USGS_CONNECTION_ID,
-)
-from infra.variables import (
-    SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    INDEX_LANDSAT_CONNECTION_SQS_QUEUE,
+from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+
+from utils.stac import transform_stac_to_stac
+from utils.url_request_utils import (
+    request_url,
+    get_s3_contents_and_attributes,
+    copy_s3_to_s3,
+    key_not_existent
 )
 
 # ######### AWS CONFIG ############
-from utils.url_request_utils import request_url, check_s3_copy_return, get_s3_contents_and_attributes, copy_s3_to_s3
-
+# ######### USGS ############
 USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/"
+USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
 USGS_S3_BUCKET_NAME = "usgs-landsat"
-
+USGS_AWS_REGION = "us-west-2"
+# ######### AFRICA ############
 AFRICA_SNS_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
 AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
+AFRICA_AWS_REGION = "af-south-1"
 
 
 def get_queue():
@@ -269,7 +267,7 @@ def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
             params=params,
         )
 
-        return convert_dict_to_pystac_item(response)
+        return convert_dict_to_pystac_item(json.loads(response))
 
 
 def merge_assets(item: Item):
@@ -357,77 +355,93 @@ def retrieve_asset_s3_path_from_item(item: Item):
     """
     Function to change the asset URL into an S3 to be copied straight from the bucket
     :param item: (Pystac Item) Item which will be retrieved the asset path
-    :return: (dict) Returns a dict which the key is the Item id and the value is a list with the assets' S3 links
+    :return: (list) Returns a list with assets' S3 links
     """
-    # TODO Rodrigo
     assets = item.get_assets()
-    url_to_replace = "https://landsatlook.usgs.gov/data/"
-    if assets:
-        asset_items = assets.items()
-        logging.info(f"asset_items {asset_items}")
-        new_asset_hrefs = {
-            item.id: [
-                asset.href.replace(
-                    url_to_replace, ''
-                )
-                for key, asset in assets.items()
-                if hasattr(asset, "href")
-                # Ignores the index key
-                and url_to_replace in asset.href
-            ]
-        }
 
-        return new_asset_hrefs
+    if assets:
+        return [
+            asset.href.replace(
+                USGS_DATA_URL, ''
+            )
+            for key, asset in assets.items()
+            if hasattr(asset, "href")
+            # Ignores the index key
+            and USGS_DATA_URL in asset.href
+        ]
+
     logging.error(f"WARNING No assets to be copied in the Item ({item.id})")
 
 
-def store_original_asset_s3_address(items: list):
+def store_original_asset_s3_path(items: list):
     """
-    Function to from a list of Items convert their assets' href URL into S3 paths and return a dict which the key is
-    the item id and the value is a list of the item's S3 paths
+    Function to create a list with all original assets path
     :param items: (list) List of Pystac Items
-    :return: (dict) which the key is the item id and the value is a list of the item's S3 paths
+    :return: (list) Returns a list with all paths
     """
-
-    result = {}
-    [result.update(retrieve_asset_s3_path_from_item(item)) for item in items]
+    result = []
+    [result.extend(retrieve_asset_s3_path_from_item(item)) for item in items]
     return result
 
 
-def transfer_data_from_usgs_to_africa(asset_address_list: dict):
+def filter_just_missing_assets(asset_paths: list):
+    """
+
+    :param asset_paths:(list)
+    :return:
+    """
+    # Limit number of threads
+    num_of_threads = 20
+    with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+        logging.info('FILTERING MISSING ASSETS')
+
+        tasks = [
+                executor.submit(
+                    key_not_existent,
+                    SYNC_LANDSAT_CONNECTION_ID,
+                    AFRICA_AWS_REGION,
+                    AFRICA_S3_BUCKET_NAME,
+                    link
+                ) for link in asset_paths
+            ]
+
+        return [future.result() for future in as_completed(tasks)]
+
+
+def transfer_data_from_usgs_to_africa(asset_address_paths: list):
     """
     Function to transfer data from USGS' S3 to Africa's S3
 
-    :param asset_address_list:(list) List of dicts with the asset id and links
+    :param asset_address_paths:(list) Big dicts with the asset id and links
     :return: None
     """
 
     # Limit number of threads
     num_of_threads = 20
-    results = []
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
         # TODO change message
         logging.info(
             f"Transferring {num_of_threads} assets simultaneously (Python threads)"
         )
 
-        for asset_id, asset_links in asset_address_list.items():
+        # Check if the key was already copied
+        missing_assets = filter_just_missing_assets(asset_address_paths)
 
-            task = [
-                executor.submit(
-                    copy_s3_to_s3,
-                    SYNC_LANDSAT_CONNECTION_ID,
-                    USGS_S3_BUCKET_NAME,
-                    AFRICA_S3_BUCKET_NAME,
-                    link,
-                    "requester"
-                ) for link in asset_links
-            ]
+        logging.info(f'missing_assets {missing_assets}')
 
-            for future in as_completed(task):
-                future.result()
+        task = [
+            executor.submit(
+                copy_s3_to_s3,
+                SYNC_LANDSAT_CONNECTION_ID,
+                USGS_S3_BUCKET_NAME,
+                AFRICA_S3_BUCKET_NAME,
+                link,
+                link.replace(USGS_S3_BUCKET_NAME, AFRICA_S3_BUCKET_NAME),
+                "requester"
+            ) for link in missing_assets
+        ]
 
-    return results
+        return [future.result() for future in as_completed(task) if future.result()]
 
 
 def make_stac_transformation(item: Item):
@@ -436,7 +450,44 @@ def make_stac_transformation(item: Item):
     :param item:
     :return:
     """
-    pass
+    # self_link = ''
+    # source_link = ''
+    # LINKS [
+    # <Link rel=self target=s3://deafrica-landsat-dev/>,
+    # <Link rel=derived_from target=https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items/LC08_L2SP_198048_20130330_20200913_02_T1>,
+    # <Link rel=product_overview target=s3://deafrica-landsat-dev/>
+    # ]
+    # logging.info(f'LINKS {[link for link in item.get_links()]}')
+
+    file = None
+    for key, asset in item.get_assets().items():
+        if key == "SR_B2.TIF":
+            # blue_asset = getattr(asset, "SR_B2.TIF")
+            blue_asset = item.assets["SR_B2.TIF"]
+            logging.info(f"Here is the blue Asset {blue_asset}")
+            if hasattr(blue_asset, "href"):
+                logging.info(f"Asset HREF {blue_asset.href}")
+
+                file = get_s3_contents_and_attributes(
+                    s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                    bucket_name=AFRICA_S3_BUCKET_NAME,
+                    region_name=AFRICA_AWS_REGION,
+                    key=blue_asset.href.replace('s3://deafrica-landsat-dev/', '')
+                )
+
+            else:
+                logging.info(f"NO HREF")
+            break
+
+    logging.info(f'just before test the type is {type(file)}')
+    test = transform_stac_to_stac(
+        item=item,
+        blue_asset=file
+        # self_link=self_link,
+        # source_link=source_link
+    )
+    logging.info(f'TEST RESULT Seems work')
+    return json.loads(test.to_dict())
 
 
 def transform_old_stac_to_newer_stac(items: list):
@@ -471,7 +522,7 @@ def process():
     try:
         logging.info("Starting process")
         # Retrieve messages from the queue
-        messages = get_messages(limit=2)
+        messages = get_messages(limit=1)
 
         if not messages:
             logging.info("No messages were found!")
@@ -491,10 +542,8 @@ def process():
         bulk_items_merge_assets(items=items)
         logging.info("Assets Merged")
 
-        logging.info(
-            "Start process to store all S3 asset href witch will be retrieved from USGS"
-        )
-        asset_addresses_dict = store_original_asset_s3_address(items=items)
+        logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
+        asset_addresses_paths = store_original_asset_s3_path(items=items)
         logging.info("S3 asset hrefs stored")
 
         logging.info("Start process to replace assets links")
@@ -510,13 +559,13 @@ def process():
 
         # Copy files from USGS' S3 and store into Africa's S3
         logging.info("Start process to transfer data from USGS S3 to Africa S3")
-        transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_dict)
-        logging.info(f"{len(transferred_items)} Transferred from USGS to AFRICA")
+        transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
+        logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
 
         # Transform stac to 1.0.0-beta.2
         # TODO complete function
-        # stac_1_items = transform_old_stac_to_newer_stac(items)
-
+        stac_1_items = transform_old_stac_to_newer_stac(items)
+        logging.info(f"I have {len(stac_1_items)} stac {len(items)} items")
         # Save new stac 1 Items into Africa's S3
         # TODO complete function
         # save_stac1_items_to_s3(stac_1_items)
@@ -524,7 +573,11 @@ def process():
         # Send to the SNS
         # logging.info(f'Starting process to send {len(items)} Items to the SNS')
         # [
-        #     publish_to_sns_topic(item.to_dict()) for item in items
+        #     publish_to_sns_topic(
+        #         aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+        #         target_arn=AFRICA_SNS_TOPIC_ARN,
+        #         message=json.dumps(item.to_dict())
+        #     ) for item in items
         # ]
         logging.info("The END")
 

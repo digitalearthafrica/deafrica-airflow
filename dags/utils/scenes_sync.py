@@ -144,15 +144,17 @@ def request_api_and_send(url: str, params=None):
         if params is None:
             params = {}
 
+        logging.info(f"Requesting URL {url} with parameters {params}")
+
         # Request API
         returned = request_url(url=url, params=params)
 
+        logging.info(f"API returned: {returned}")
+
         # Retrieve daily requests
         if params:
-
             logging.debug(f"Found {returned['meta']['found']}")
 
-            # TODO to speed up the process, it's possible to create threads to execute the send function at this point
             validate_and_send(api_return=returned)
 
             if (
@@ -164,12 +166,10 @@ def request_api_and_send(url: str, params=None):
             ):
                 if (
                     returned["meta"]["returned"] == returned["meta"]["limit"]
-                    and (returned["meta"]["page"] * returned["meta"]["limit"])
-                    < returned["meta"]["found"]
+                    and (returned["meta"]["page"] * returned["meta"]["limit"]) < returned["meta"]["found"]
                 ):
                     params.update({"page": returned["meta"]["page"] + 1})
                     request_api_and_send(url=url, params=params)
-
         else:
             # Came from the bulk CSV file
             validate_and_send(api_return=returned)
@@ -215,8 +215,6 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 "bbox": json.dumps(africa_bbox),
                 "time": date.date().isoformat(),
             }
-
-            logging.info(f"Requesting URL {main_url} with parameters {params}")
 
             # Request daily JSON API
             request_api_and_send(url=main_url, params=params)
