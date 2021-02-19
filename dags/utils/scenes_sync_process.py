@@ -13,7 +13,7 @@ from pystac import Item, Link
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
-from utils.stac import transform_stac_to_stac
+# from utils.stac import transform_stac_to_stac
 from utils.url_request_utils import (
     request_url,
     get_s3_contents_and_attributes,
@@ -480,14 +480,14 @@ def make_stac_transformation(item: Item):
             break
 
     logging.info(f'just before test the type is {type(file)}')
-    test = transform_stac_to_stac(
-        item=item,
-        blue_asset=file
-        # self_link=self_link,
-        # source_link=source_link
-    )
-    logging.info(f'TEST RESULT Seems work')
-    return json.loads(test.to_dict())
+    # test = transform_stac_to_stac(
+    #     item=item,
+    #     blue_asset=file
+    #     # self_link=self_link,
+    #     # source_link=source_link
+    # )
+    # logging.info(f'TEST RESULT Seems work')
+    # return json.loads(test.to_dict())
 
 
 def transform_old_stac_to_newer_stac(items: list):
