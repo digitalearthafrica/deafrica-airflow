@@ -44,7 +44,7 @@ with dag:
 
     # Test Start and End dates
     start_date = datetime.now().replace(day=1, month=1, year=2021)
-    end_date = datetime.now().replace(day=18, month=1, year=2021)
+    end_date = datetime.now().replace(day=2, month=1, year=2021)
 
     # start_date = DEFAULT_ARGS['start_date']
     # end_date = datetime.now()
