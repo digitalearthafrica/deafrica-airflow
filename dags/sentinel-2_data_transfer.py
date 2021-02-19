@@ -23,6 +23,7 @@ from airflow.operators.python_operator import (
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+from airflow.models import Variable
 from airflow.hooks.S3_hook import S3Hook
 
 CONN_ID = "sentinel_2_sync"
@@ -167,8 +168,9 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
-    print("Default connection: ", os.environ["AWS_DEFAULT_REGION"])
+
+    Variable.set("AWS_DEFAULT_REGION", "af-south-1")
+
     s3_hook = S3Hook(aws_conn_id=CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
