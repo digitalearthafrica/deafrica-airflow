@@ -167,6 +167,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
+    os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
     s3_hook = S3Hook(aws_conn_id=CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
