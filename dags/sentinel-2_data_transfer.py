@@ -27,8 +27,7 @@ from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.models import Variable
 from airflow.hooks.S3_hook import S3Hook
 
-CONN_ID = "sentinel_2_sync"
-US_CONN_ID = "sentinel_2_sync_oregon"
+CONN_ID = "sentinel_2_sync_oregon"
 
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
@@ -240,6 +239,7 @@ def start_transfer(stac_item):
             )
 
     os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
+    s3_hook.get
     print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     copied_files = []
     for key in src_keys:
