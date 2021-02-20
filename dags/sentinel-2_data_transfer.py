@@ -245,12 +245,13 @@ def start_transfer(stac_item):
     copied_files = []
     for key in src_keys:
         try:
-            s3_hook.copy_object(
-                source_bucket_key=key,
-                dest_bucket_key=key,
-                source_bucket_name=SRC_BUCKET_NAME,
-                dest_bucket_name=DEST_BUCKET_NAME,
+            s3_resource = s3_hook.get_resource_type(
+                "s3", region_name="af-south-1"
             )
+            copy_source = {"Bucket": SRC_BUCKET_NAME, "Key": key}
+            bucket = s3_resource.Bucket(DEST_BUCKET_NAME)
+            bucket.copy(copy_source, key)
+
         except Exception as exc:
             exc_type, exc_value, exc_traceback = sys.exc_info()
             print("exc_value: ", exc_value)
