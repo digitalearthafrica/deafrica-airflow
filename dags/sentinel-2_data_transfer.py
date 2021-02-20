@@ -187,7 +187,9 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook = S3Hook(aws_conn_id=US_CONN_ID)
+    print("Initial AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
+    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
+    s3_hook = S3Hook(aws_conn_id=CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
@@ -238,6 +240,7 @@ def start_transfer(stac_item):
             )
 
     os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
+    print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     copied_files = []
     for key in src_keys:
         try:
