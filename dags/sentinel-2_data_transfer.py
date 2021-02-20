@@ -375,7 +375,7 @@ with DAG(
     catchup=False,
     start_date=datetime(2020, 6, 12),
     concurrency=CONCURRENCY,
-    schedule_interval="0 */1 * * *",
+    schedule_interval="@once",
 ) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
