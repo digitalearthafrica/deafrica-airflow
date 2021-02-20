@@ -239,7 +239,6 @@ def start_transfer(stac_item):
             )
 
     os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
-    s3_hook.get
     print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     copied_files = []
     for key in src_keys:
