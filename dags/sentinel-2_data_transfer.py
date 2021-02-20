@@ -190,6 +190,7 @@ def start_transfer(stac_item):
     s3_hook = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
+    print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     # Check file exists
     bucket_name, key = s3_hook.parse_s3_url(s3_filepath)
     key_exists = s3_hook.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
@@ -227,10 +228,8 @@ def start_transfer(stac_item):
 
     src_keys = []
     for src_url in urls:
-        bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(
-            key, bucket_name=SRC_BUCKET_NAME
-        )
+        bucket_name, src_key = s3_hook.parse_s3_url(src_url)
+        key_exists = s3_hook.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
         src_keys.append(src_key)
 
         if not key_exists:
