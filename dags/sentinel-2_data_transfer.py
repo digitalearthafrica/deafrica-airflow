@@ -201,6 +201,7 @@ def start_transfer(stac_item):
         )
 
     try:
+        os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
         s3_hook.load_string(
             string_data=json.dumps(stac_item),
             key=key,
@@ -227,6 +228,7 @@ def start_transfer(stac_item):
     scene_path = Path(key).parent
     print(f"Copying {scene_path}")
 
+    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook.parse_s3_url(src_url)
