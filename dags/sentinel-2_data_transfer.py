@@ -243,14 +243,13 @@ def start_transfer(stac_item):
     os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
     print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     copied_files = []
+    s3_hook_af = S3Hook(aws_conn_id=CONN_ID)
+    s3_resource = s3_hook_af.get_resource_type("s3", region_name="af-south-1")
     for key in src_keys:
         try:
-            s3_resource = s3_hook.get_resource_type(
-                "s3", region_name="af-south-1"
-            )
             copy_source = {"Bucket": SRC_BUCKET_NAME, "Key": key}
-            bucket = s3_resource.Bucket(DEST_BUCKET_NAME)
-            bucket.copy(copy_source, key)
+            dest_bucket = s3_resource.Bucket(DEST_BUCKET_NAME)
+            dest_bucket.copy(copy_source, key)
 
         except Exception as exc:
             exc_type, exc_value, exc_traceback = sys.exc_info()
