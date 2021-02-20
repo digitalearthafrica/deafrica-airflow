@@ -7,6 +7,7 @@ arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 """
 import json
 import os
+import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -186,19 +187,18 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
-    bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+    bucket_name, key = s3_hook.parse_s3_url(s3_filepath)
+    key_exists = s3_hook.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
         raise ValueError(
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
     try:
-        s3_hook = S3Hook(aws_conn_id=CONN_ID)
         s3_hook.load_string(
             string_data=json.dumps(stac_item),
             key=key,
@@ -237,18 +237,35 @@ def start_transfer(stac_item):
             raise ValueError(
                 f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
             )
+
     os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
     copied_files = []
-    with ThreadPoolExecutor(max_workers=20) as executor:
-        task = {executor.submit(write_scene, key): key for key in src_keys}
-        for future in as_completed(task):
-            scene_to_copy = task[future]
-            try:
-                result = future.result()
-            except Exception as exc:
-                raise ValueError(f"{scene_to_copy} failed to copy")
-            else:
-                copied_files.append(result)
+    for key in src_keys:
+        try:
+            s3_hook.copy_object(
+                source_bucket_key=key,
+                dest_bucket_key=key,
+                source_bucket_name=SRC_BUCKET_NAME,
+                dest_bucket_name=DEST_BUCKET_NAME,
+            )
+        except Exception as exc:
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            print("exc_value: ", exc_value)
+            print("exc_traceback: ", exc_traceback)
+            raise ValueError(f"{key} failed to copy")
+        else:
+            copied_files.append(key)
+
+    # with ThreadPoolExecutor(max_workers=20) as executor:
+    #     task = {executor.submit(write_scene, key): key for key in src_keys}
+    #     for future in as_completed(task):
+    #         scene_to_copy = task[future]
+    #         try:
+    #             result = future.result()
+    #         except Exception as exc:
+    #             raise ValueError(f"{scene_to_copy} failed to copy")
+    #         else:
+    # copied_files.append(result)
 
     if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
@@ -300,7 +317,7 @@ def copy_s3_objects(ti, **kwargs):
             break
         except ValueError as err:
             failed += 1
-            print(err)
+            exit(0)
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
