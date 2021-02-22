@@ -31,7 +31,7 @@ SENTINEL2_TOPIC_ARN = (
     "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic"
 )
 SQS_QUEUE = "deafrica-prod-eks-sentinel-2-data-transfer"
-CONCURRENCY = 16
+CONCURRENCY = 1
 
 default_args = {
     "owner": "Airflow",
@@ -291,9 +291,11 @@ def copy_s3_objects(ti, **kwargs):
             publish_to_sns(updated_stac, attributes)
             message.delete()
             successful += 1
+            break
         except ValueError as err:
             failed += 1
             print(err)
+            break
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
@@ -349,7 +351,7 @@ with DAG(
     catchup=False,
     start_date=datetime(2020, 6, 12),
     concurrency=CONCURRENCY,
-    schedule_interval="0 */1 * * *",
+    schedule_interval="@once",
 ) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
