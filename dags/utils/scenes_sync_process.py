@@ -3,34 +3,45 @@
 """
 import json
 import logging
+import rasterio
+
 from collections.abc import Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
-from pystac import Item, Link
+from pystac import (
+    Item,
+    Link
+)
+
+from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
-# from utils.stac import transform_stac_to_stac
 from utils.url_request_utils import (
-    request_url,
     get_s3_contents_and_attributes,
     copy_s3_to_s3,
-    key_not_existent
+    key_not_existent, save_obj_to_s3, publish_to_sns_topic
 )
 
 # ######### AWS CONFIG ############
 # ######### USGS ############
-USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/"
-USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
 USGS_S3_BUCKET_NAME = "usgs-landsat"
 USGS_AWS_REGION = "us-west-2"
+USGS_INDEX_URL = "https://landsatlook.usgs.gov/stac-browser/"
+USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/"
+USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
+
 # ######### AFRICA ############
 AFRICA_SNS_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
-AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
 AFRICA_AWS_REGION = "af-south-1"
+AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
+AFRICA_S3_BUCKET_PATH = f's3://{AFRICA_S3_BUCKET_NAME}/'
+AFRICA_S3_BUCKET_URL = f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.amazonaws.com/"
 
 
 def get_queue():
@@ -78,7 +89,7 @@ def get_messages(
         else:
             for message in messages:
                 count += 1
-                yield json.loads(message.body)
+                yield message
 
 
 def convert_dict_to_pystac_item(message: dict):
@@ -91,7 +102,7 @@ def convert_dict_to_pystac_item(message: dict):
     return Item.from_dict(message)
 
 
-def delete_messages(messages: list = None):
+def delete_messages(messages):
     """
     Delete messages from the queue
     :param messages:
@@ -111,7 +122,7 @@ def replace_links(item: Item):
     usgs_self_target = (
         self_item[0].target
         if len(self_item) == 1 and hasattr(self_item[0], "target")
-        else ""
+        else None
     )
 
     # Remove all Links
@@ -119,7 +130,8 @@ def replace_links(item: Item):
 
     # Add New Links
     self_link = Link(
-        rel="self", target=f's3://{AFRICA_S3_BUCKET_NAME}/'
+        rel="self",
+        target=AFRICA_S3_BUCKET_URL
     )
     item.add_link(self_link)
 
@@ -127,13 +139,13 @@ def replace_links(item: Item):
         rel="derived_from",
         target=usgs_self_target
         if usgs_self_target
-        else "https://landsatlook.usgs.gov/sat-api/",
+        else USGS_API_MAIN_URL,
     )
     item.add_link(derived_from)
 
     product_overview = Link(
         rel="product_overview",
-        target=f's3://{AFRICA_S3_BUCKET_NAME}/',
+        target=AFRICA_S3_BUCKET_URL,
     )
     item.add_link(product_overview)
 
@@ -144,11 +156,15 @@ def replace_asset_links(item: Item):
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
+
     assets = item.get_assets()
     for key, asset in assets.items():
         asset_href = (asset.href if hasattr(asset, "href") else "").replace(
-            "https://landsatlook.usgs.gov/data/",
-            f's3://{AFRICA_S3_BUCKET_NAME}/',
+            USGS_DATA_URL,
+            AFRICA_S3_BUCKET_PATH,
+        ).replace(
+            USGS_INDEX_URL,
+            AFRICA_S3_BUCKET_PATH
         )
         if asset_href:
             asset.href = asset_href
@@ -167,11 +183,11 @@ def add_odc_product_property(item: Item):
     digital_earth_africa_url = 'https://explorer-af.digitalearth.africa/product/'
 
     if sat == "LANDSAT_8":
-        value = "ls8_l2sr"
+        value = "ls8_c2l2"
     elif sat == "LANDSAT_7":
-        value = "ls7_l2sr"
+        value = "ls7_c2l2"
     elif sat == "LANDSAT_5":
-        value = "ls5_l2sr"
+        value = "ls5_c2l2"
     else:
         raise Exception(
             f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
@@ -179,12 +195,13 @@ def add_odc_product_property(item: Item):
     properties.update({"odc:product": f'{digital_earth_africa_url}{value}'})
 
 
-def find_s3_path_from_item(item: Item):
+def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     """
     Function to from the href URL within the index in the list of links,
     replace protocol and domain returning just the path, in addition this function completes the file's name
     and adds the extantion json
 
+    :param start_url: (str) URL that will be removed from the href
     :param item:(Pystac Item) Pystac Item
     :return: (String) full path to the json item
     """
@@ -192,59 +209,10 @@ def find_s3_path_from_item(item: Item):
     assets = item.get_assets()
     asset = assets.get("index")
     if asset and hasattr(asset, "href"):
-        file_name = f'{asset.href.split("/")[-1]}_ST_stac.json'
-        asset_s3_path = asset.href.replace(
-            "https://landsatlook.usgs.gov/stac-browser/", ""
-        )
-        full_path = f"{asset_s3_path}/{file_name}"
-
-        return full_path
-
-
-def find_url_path_from_item(item: Item):
-    """
-    Function to from the href URL within the index in the list of links,
-    replace URL and add file name.
-
-    :param item:(Pystac Item) Pystac Item
-    :return: (String) full URL to the API
-    """
-
-    # eg.:  https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-st/items/LE07_L2SP_118044_20210115_20210209_02_T1
-    assets = item.get_assets()
-    asset = assets.get("index")
-    if asset and hasattr(asset, "href"):
         file_name = f'{asset.href.split("/")[-1]}'
-        full_path = f'{USGS_API_MAIN_URL}/{file_name}'
-        logging.info(f"path {full_path}")
-        return full_path
+        asset_s3_path = asset.href.replace(start_url, "")
 
-
-def merge_assets_api(sr_item: Item):
-    """
-    Function to instead get from the S3 bucket, get the ST file from the API
-    :param sr_item:(Pystac Item) SR Pystac Item
-    :return: St Pystac Item
-    """
-
-    # Request API
-    response = request_url(url=find_url_path_from_item(item=sr_item))
-    new_item = convert_dict_to_pystac_item(message=response)
-
-    return new_item
-
-    # logging.info(f'new_item {new_item}')
-    #
-    # item_assets = item.get_assets()
-    # new_item_assets = new_item.get_assets()
-    #
-    # logging.info(f'item_assets.keys() {item_assets.keys()}')
-    #
-    # for asset in new_item_assets:
-    #     logging.info(f'asset {asset}')
-    #
-    # missing_keys = [key for key, asset in new_item_assets.items() if key not in item_assets.keys()]
-    # logging.info(f'missing_keys {missing_keys}')
+        return {'path': asset_s3_path, 'file_name': file_name}
 
 
 def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
@@ -254,9 +222,14 @@ def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
     :return: ST Pystac Item
     """
 
-    full_path = find_s3_path_from_item(item=sr_item)
+    path_and_mame = find_s3_path_and_file_name_from_item(
+        item=sr_item,
+        start_url=USGS_INDEX_URL
+    )
 
-    if full_path:
+    if path_and_mame and path_and_mame.get('path') and path_and_mame.get('file_name'):
+        full_path = f"{path_and_mame['path']}/{path_and_mame['file_name']}_ST_stac.json"
+
         logging.info(f"Accessing file {full_path}")
 
         params = {"RequestPayer": "requester"}
@@ -278,9 +251,6 @@ def merge_assets(item: Item):
     """
     # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
     # s3://usgs-landsat/collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/LC08_L1GT_157019_20201207_20201217_02_T2_stac.json"
-
-    # TODO REMOVE it's here jus for test
-    # merge_assets_api(item)
 
     new_item = retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
 
@@ -305,7 +275,11 @@ def bulk_convert_dict_to_pystac_item(messages: Generator):
     :param messages: (list) List of dicts from SQS
     :return: (list) List of Pystac Items
     """
-    return [convert_dict_to_pystac_item(message) for message in messages]
+    return [
+        convert_dict_to_pystac_item(
+            json.loads(message.body)
+        ) for message in messages
+    ]
 
 
 def bulk_items_replace_links(items):
@@ -405,7 +379,7 @@ def filter_just_missing_assets(asset_paths: list):
                 ) for link in asset_paths
             ]
 
-        return [future.result() for future in as_completed(tasks)]
+        return [future.result() for future in as_completed(tasks) if future.result()]
 
 
 def transfer_data_from_usgs_to_africa(asset_address_paths: list):
@@ -419,9 +393,9 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
     # Limit number of threads
     num_of_threads = 20
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-        # TODO change message
         logging.info(
-            f"Transferring {num_of_threads} assets simultaneously (Python threads)"
+            f"Transferring {num_of_threads} assets simultaneously (Python threads) "
+            f"from {USGS_S3_BUCKET_NAME} to {AFRICA_S3_BUCKET_NAME}"
         )
 
         # Check if the key was already copied
@@ -436,7 +410,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
                 USGS_S3_BUCKET_NAME,
                 AFRICA_S3_BUCKET_NAME,
                 link,
-                link.replace(USGS_S3_BUCKET_NAME, AFRICA_S3_BUCKET_NAME),
+                link,
                 "requester"
             ) for link in missing_assets
         ]
@@ -450,44 +424,17 @@ def make_stac_transformation(item: Item):
     :param item:
     :return:
     """
-    # self_link = ''
-    # source_link = ''
-    # LINKS [
-    # <Link rel=self target=s3://deafrica-landsat-dev/>,
-    # <Link rel=derived_from target=https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items/LC08_L2SP_198048_20130330_20200913_02_T1>,
-    # <Link rel=product_overview target=s3://deafrica-landsat-dev/>
-    # ]
-    # logging.info(f'LINKS {[link for link in item.get_links()]}')
 
-    file = None
-    for key, asset in item.get_assets().items():
-        if key == "SR_B2.TIF":
-            # blue_asset = getattr(asset, "SR_B2.TIF")
-            blue_asset = item.assets["SR_B2.TIF"]
-            logging.info(f"Here is the blue Asset {blue_asset}")
-            if hasattr(blue_asset, "href"):
-                logging.info(f"Asset HREF {blue_asset.href}")
+    with rasterio.Env(
+            aws_unsigned=True,
+            AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com'
+    ):
 
-                file = get_s3_contents_and_attributes(
-                    s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
-                    bucket_name=AFRICA_S3_BUCKET_NAME,
-                    region_name=AFRICA_AWS_REGION,
-                    key=blue_asset.href.replace('s3://deafrica-landsat-dev/', '')
-                )
-
-            else:
-                logging.info(f"NO HREF")
-            break
-
-    logging.info(f'just before test the type is {type(file)}')
-    # test = transform_stac_to_stac(
-    #     item=item,
-    #     blue_asset=file
-    #     # self_link=self_link,
-    #     # source_link=source_link
-    # )
-    # logging.info(f'TEST RESULT Seems work')
-    # return json.loads(test.to_dict())
+        return transform_stac_to_stac(
+            item=item,
+            # self_link=self_link,
+            # source_link=source_link
+        )
 
 
 def transform_old_stac_to_newer_stac(items: list):
@@ -499,17 +446,47 @@ def transform_old_stac_to_newer_stac(items: list):
     return [make_stac_transformation(item) for item in items]
 
 
-def save_stac1_to_s3(item):
+def save_stac1_to_s3(item_obj: Item):
     """
     Function to save json stac 1 file into Africa S3
-    :param item:
+    :param item_obj:(str) json to be saved in S3
     :return:
     """
-    pass
+    path_and_file_name = find_s3_path_and_file_name_from_item(
+        item=item_obj,
+        start_url=AFRICA_S3_BUCKET_URL
+    )
+    logging.info(f"destination {path_and_file_name['path']}/{path_and_file_name['file_name']}_stac_1.json")
+    save_obj_to_s3(
+        s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+        file=bytes(json.dumps(item_obj.to_dict()).encode('UTF-8')),
+        destination_key=f"{path_and_file_name['path']}/{path_and_file_name['file_name']}_stac_1.json",
+        destination_bucket=AFRICA_S3_BUCKET_NAME,
+    )
 
 
 def save_stac1_items_to_s3(stac_1_items: list):
-    [save_stac1_to_s3(item=item) for item in stac_1_items]
+    """
+
+    :param stac_1_items:
+    :return:
+    """
+    [save_stac1_to_s3(item_obj=item) for item in stac_1_items]
+
+
+def push_stac_items_to_sns(stac_1_items: list):
+    """
+    Function to push conveterd items to the SNS.
+    :param stac_1_items:(list) List of Pystac Items already in the version 1.0.0-beta2
+    :return: None
+    """
+    [
+        publish_to_sns_topic(
+            aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+            target_arn=AFRICA_SNS_TOPIC_ARN,
+            message=json.dumps(item.to_dict())
+        ) for item in stac_1_items
+    ]
 
 
 def process():
@@ -563,23 +540,24 @@ def process():
         logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
 
         # Transform stac to 1.0.0-beta.2
-        # TODO complete function
+        logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
         stac_1_items = transform_old_stac_to_newer_stac(items)
-        logging.info(f"I have {len(stac_1_items)} stac {len(items)} items")
+        logging.info(f"{len(stac_1_items)} transformed from stac 0.7.0 to 1.0.0-beta.2")
         # Save new stac 1 Items into Africa's S3
-        # TODO complete function
-        # save_stac1_items_to_s3(stac_1_items)
+
+        logging.info(f"Saving new Items to S3 bucket as JSON")
+        save_stac1_items_to_s3(stac_1_items)
+        logging.info(f"Items saved")
 
         # Send to the SNS
-        # logging.info(f'Starting process to send {len(items)} Items to the SNS')
-        # [
-        #     publish_to_sns_topic(
-        #         aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
-        #         target_arn=AFRICA_SNS_TOPIC_ARN,
-        #         message=json.dumps(item.to_dict())
-        #     ) for item in items
-        # ]
-        logging.info("The END")
+        logging.info(f'Starting process to send {len(items)} Items to the SNS')
+        push_stac_items_to_sns(stac_1_items=stac_1_items)
+        logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
+
+        logging.info(f'Deleting messages')
+        delete_messages(messages)
+        logging.info('Messages deleted')
+        logging.info("Whole Process finished successfully")
 
     except Exception as error:
         logging.error(error)

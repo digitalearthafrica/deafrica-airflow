@@ -84,6 +84,25 @@ def get_s3_contents_and_attributes(
     return response_body.read()
 
 
+def save_obj_to_s3(
+    s3_conn_id: str,
+    file: bytes,
+    destination_key: str,
+    destination_bucket: str,
+    acl: str = "public-read"
+):
+    s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+
+    s3_hook.load_bytes(
+        bytes_data=file,
+        key=destination_key,
+        bucket_name=destination_bucket,
+        replace=True,
+        encrypt=False,
+        acl_policy=acl
+    )
+
+
 def copy_s3_to_s3(
     s3_conn_id: str,
     source_bucket: str,
@@ -91,16 +110,19 @@ def copy_s3_to_s3(
     source_key: str,
     destination_key: str = None,
     request_payer: str = None,
+    acl: str = "public-read"
 ):
     """
     Function to copy files from one S3 bucket to another.
 
-    :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
     :param source_key:(str) Source file path
     :param destination_key:(str) Destination file path
     :param s3_conn_id:(str) Airflow connection id
     :param source_bucket:(str) Source S3 bucket name
     :param destination_bucket:(str) Destination S3 bucket name
+    :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
+    :param acl:
+
     :return: None
     """
 
@@ -120,7 +142,7 @@ def copy_s3_to_s3(
                 "Key": source_key,
                 "VersionId": None
             },
-            ACL="public-read",
+            ACL=acl,
             RequestPayer=request_payer,
         )
     )
@@ -170,12 +192,12 @@ def publish_to_sns_topic(
     """
     sns_hook = AwsSnsHook(aws_conn_id=aws_conn_id)
 
-    logging.info(f'SNS sns_hook {sns_hook}')
-
-    response = sns_hook.publish_to_target(
-        target_arn=target_arn,
-        message=message,
-        message_attributes=attributes,
+    check_s3_copy_return(
+        sns_hook.publish_to_target(
+            target_arn=target_arn,
+            message=message,
+            message_attributes=attributes,
+        )
     )
 
-    logging.info(f'SNS response {response}')
+
