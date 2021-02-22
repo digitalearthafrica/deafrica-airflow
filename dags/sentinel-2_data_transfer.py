@@ -1,13 +1,10 @@
 """
 # Migrate(copy) data between S3 buckets
-
 DAG to periodically check a SQS and copy new data to Cape Town
 The SQS is subscribed to the following SNS topic:
 arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 """
 import json
-import os
-import sys
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -20,15 +17,13 @@ from airflow.operators.python_operator import (
     BranchPythonOperator,
 )
 
-
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
-from airflow.models import Variable
 from airflow.hooks.S3_hook import S3Hook
 
-CONN_ID = "sentinel_2_sync_oregon"
-
+AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
+US_CONN_ID = "deafrica_migration_us"
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
@@ -155,7 +150,7 @@ def publish_to_sns(updated_stac, attributes):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    sns_hook = AwsSnsHook(aws_conn_id=CONN_ID)
+    sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
     sns_hook.publish_to_target(
@@ -170,8 +165,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-
-    s3_hook = S3Hook(aws_conn_id=CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
@@ -186,22 +180,19 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    print("Initial AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
-    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
-    s3_hook = S3Hook(aws_conn_id=CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
-    print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     # Check file exists
-    bucket_name, key = s3_hook.parse_s3_url(s3_filepath)
-    key_exists = s3_hook.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+    bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
+    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
         raise ValueError(
             f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
     try:
-        os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
+        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
         s3_hook.load_string(
             string_data=json.dumps(stac_item),
             key=key,
@@ -228,11 +219,12 @@ def start_transfer(stac_item):
     scene_path = Path(key).parent
     print(f"Copying {scene_path}")
 
-    os.environ["AWS_DEFAULT_REGION"] = "us-west-2"
     src_keys = []
     for src_url in urls:
-        bucket_name, src_key = s3_hook.parse_s3_url(src_url)
-        key_exists = s3_hook.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+        bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
+        key_exists = s3_hook_oregon.check_for_key(
+            key, bucket_name=SRC_BUCKET_NAME
+        )
         src_keys.append(src_key)
 
         if not key_exists:
@@ -240,35 +232,17 @@ def start_transfer(stac_item):
                 f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
             )
 
-    os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
-    print("AWS_DEFAULT_REGION: ", os.environ["AWS_DEFAULT_REGION"])
     copied_files = []
-    s3_hook_af = S3Hook(aws_conn_id=CONN_ID)
-    s3_resource = s3_hook_af.get_resource_type("s3", region_name="af-south-1")
-    for key in src_keys:
-        try:
-            copy_source = {"Bucket": SRC_BUCKET_NAME, "Key": key}
-            dest_bucket = s3_resource.Bucket(DEST_BUCKET_NAME)
-            dest_bucket.copy(copy_source, key)
-
-        except Exception as exc:
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            print("exc_value: ", exc_value)
-            print("exc_traceback: ", exc_traceback)
-            raise ValueError(f"{key} failed to copy")
-        else:
-            copied_files.append(key)
-
-    # with ThreadPoolExecutor(max_workers=20) as executor:
-    #     task = {executor.submit(write_scene, key): key for key in src_keys}
-    #     for future in as_completed(task):
-    #         scene_to_copy = task[future]
-    #         try:
-    #             result = future.result()
-    #         except Exception as exc:
-    #             raise ValueError(f"{scene_to_copy} failed to copy")
-    #         else:
-    # copied_files.append(result)
+    with ThreadPoolExecutor(max_workers=20) as executor:
+        task = {executor.submit(write_scene, key): key for key in src_keys}
+        for future in as_completed(task):
+            scene_to_copy = task[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                raise ValueError(f"{scene_to_copy} failed to copy")
+            else:
+                copied_files.append(result)
 
     if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
@@ -296,8 +270,7 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    os.environ["AWS_DEFAULT_REGION"] = "af-south-1"
-    sqs_hook = SQSHook(aws_conn_id=CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=AFRICA_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
@@ -320,10 +293,12 @@ def copy_s3_objects(ti, **kwargs):
             break
         except ValueError as err:
             failed += 1
-            exit(0)
+            print(err)
+            break
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
+    
 
 
 def trigger_sensor(ti, **kwargs):
@@ -336,7 +311,7 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
@@ -376,7 +351,7 @@ with DAG(
     catchup=False,
     start_date=datetime(2020, 6, 12),
     concurrency=CONCURRENCY,
-    schedule_interval="@once",
+    schedule_interval="0 */1 * * *",
 ) as dag:
 
     BRANCH_OPT = BranchPythonOperator(
