@@ -46,8 +46,6 @@ jobs:
           export AIRFLOW__CORE__PLUGINS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/plugins"
           export AIRFLOW__CORE__DAGS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/dags"
           airflow initdb
-          airflow connections --add --conn_id aws_nci_db_backup --conn_type aws --conn_login AWSKEY --conn_password AWS_PASS
-          airflow connections --add --conn_id lpgs_gadi --conn_type ssh --conn_login USERNAME --conn_password PASS
           airflow info
           airflow list_dags
           # check if list_dags has error if yes exit CI
