@@ -185,22 +185,15 @@ def start_transfer(stac_item):
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
-    bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+    bucket_name, stac_key = s3_hook_oregon.parse_s3_url(s3_filepath)
+    key_exists = s3_hook_oregon.check_for_key(
+        stac_key, bucket_name=SRC_BUCKET_NAME
+    )
     if not key_exists:
         raise ValueError(
-            f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
+            f"{stac_key} does not exist in the {SRC_BUCKET_NAME} bucket"
         )
 
-    try:
-        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
-        s3_hook.load_string(
-            string_data=json.dumps(stac_item),
-            key=key,
-            bucket_name=DEST_BUCKET_NAME,
-        )
-    except Exception as exc:
-        raise ValueError(f"{key} failed to copy")
     urls = []
     # Add URL of .tif files
     urls.extend(
@@ -217,20 +210,20 @@ def start_transfer(stac_item):
             f"There are less than 17 files in {stac_item.get('id')} scene, failing"
         )
 
-    scene_path = Path(key).parent
+    scene_path = Path(stac_key).parent
     print(f"Copying {scene_path}")
 
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
         key_exists = s3_hook_oregon.check_for_key(
-            key, bucket_name=SRC_BUCKET_NAME
+            src_key, bucket_name=SRC_BUCKET_NAME
         )
         src_keys.append(src_key)
 
         if not key_exists:
             raise ValueError(
-                f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
+                f"{src_key} does not exist in the {SRC_BUCKET_NAME} bucket"
             )
 
     copied_files = []
@@ -245,10 +238,21 @@ def start_transfer(stac_item):
             else:
                 copied_files.append(result)
 
+    # write the STAC file to s3
     if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
+    try:
+        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook.load_string(
+            string_data=json.dumps(stac_item),
+            key=stac_key,
+            replace=True,
+            bucket_name=DEST_BUCKET_NAME,
+        )
+    except Exception as exc:
+        raise ValueError(f"{stac_key} failed to copy")
 
 
 def is_valid_tile_id(stac_item, valid_tile_ids):
