@@ -38,6 +38,7 @@ jobs:
         run: |
           pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.14
           pip install pylint pylint-airflow
+          pip install -r requirement.txt
           pylint --load-plugins=pylint_airflow --disable=C,W --disable=similarities dags
       - name: setup airflow and run list_dags
         run: |
