@@ -239,23 +239,20 @@ def start_transfer(stac_item):
                 copied_files.append(result)
 
     # write the STAC file to s3
-    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
-    if s3_hook.list_keys(DEST_BUCKET_NAME, prefix=scene_path) == 17:
-        try:
-            s3_hook.load_string(
-                string_data=json.dumps(stac_item),
-                key=stac_key,
-                replace=True,
-                bucket_name=DEST_BUCKET_NAME,
-            )
-            copied_files.append(stac_key)
-        except Exception as exc:
-            raise ValueError(f"{stac_key} failed to copy")
-
-    if len(copied_files) == 18:
+    if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
+    try:
+        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook.load_string(
+            string_data=json.dumps(stac_item),
+            key=stac_key,
+            replace=True,
+            bucket_name=DEST_BUCKET_NAME,
+        )
+    except Exception as exc:
+        raise ValueError(f"{stac_key} failed to copy")
 
 
 def is_valid_tile_id(stac_item, valid_tile_ids):
