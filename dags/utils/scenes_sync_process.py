@@ -126,12 +126,13 @@ def replace_links(item: Item):
     )
 
     # Remove all Links
-    [item.remove_links(rel=link.rel) for link in item.get_links()]
+    item.clear_links()
 
-    # Add New Links
     self_link = Link(
         rel="self",
-        target=AFRICA_S3_BUCKET_URL
+        target=usgs_self_target.replace(USGS_API_MAIN_URL, AFRICA_S3_BUCKET_PATH)
+        if usgs_self_target
+        else AFRICA_S3_BUCKET_PATH,
     )
     item.add_link(self_link)
 
@@ -145,7 +146,7 @@ def replace_links(item: Item):
 
     product_overview = Link(
         rel="product_overview",
-        target=AFRICA_S3_BUCKET_URL,
+        target=generate_odc_product_href(item=item),
     )
     item.add_link(product_overview)
 
@@ -170,29 +171,66 @@ def replace_asset_links(item: Item):
             asset.href = asset_href
 
 
-def add_odc_product_property(item: Item):
+def identify_landsat(item: Item):
+    """
+    Function to identify the satellite that the Item was extract from
+    :param item:(Pystac Item)
+    :return:(str) Datacube sat name format
+    """
+    properties = item.properties
+
+    sat = properties.get("eo:platform", "")
+
+    if sat == "LANDSAT_8":
+        return 'landsat-8'
+    elif sat == "LANDSAT_7":
+        return 'landsat-7'
+    elif sat == "LANDSAT_5":
+        return 'landsat-5'
+    else:
+        raise Exception(
+            f'The sat is {"{0} that is not supported for this process".format(sat) if sat else "not informed"}'
+        )
+
+
+def generate_odc_product_href(item: Item):
+    """
+    Function to generate custom href to odc:product
+    :param item: (Pystac Item)
+    :return: (str) href
+    """
+
+    digital_earth_africa_url = 'https://explorer-af.digitalearth.africa/product/'
+
+    sat = identify_landsat(item=item)
+    if sat == "landsat-8":
+        value = "ls8_c2l2"
+    elif sat == "landsat-7":
+        value = "ls7_c2l2"
+    elif sat == "landsat-5":
+        value = "ls5_c2l2"
+
+    else:
+        raise Exception(
+            f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
+        )
+
+    return f'{digital_earth_africa_url}{value}'
+
+
+def add_odc_product_and_change_platform_properties(item: Item):
     """
     Function to add Africa's custom property
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
 
-    properties = item.properties
-    sat = properties.get("eo:platform", "")
-
-    digital_earth_africa_url = 'https://explorer-af.digitalearth.africa/product/'
-
-    if sat == "LANDSAT_8":
-        value = "ls8_c2l2"
-    elif sat == "LANDSAT_7":
-        value = "ls7_c2l2"
-    elif sat == "LANDSAT_5":
-        value = "ls5_c2l2"
-    else:
-        raise Exception(
-            f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
-        )
-    properties.update({"odc:product": f'{digital_earth_africa_url}{value}'})
+    item.properties.update(
+        {
+            "odc:product": generate_odc_product_href(item=item),
+            "eo:platform": identify_landsat(item=item)
+        }
+    )
 
 
 def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
@@ -304,14 +342,14 @@ def bulk_items_replace_assets_link_to_s3_link(items):
     [replace_asset_links(item=item) for item in items]
 
 
-def bulk_items_add_odc_product_property(items: list):
+def bulk_items_add_odc_product_and_change_platform_properties(items: list):
     """
     Function to handle multiple items and add our custom property.
     :param items: (list) List of Pystac Items
     :return: None
     """
 
-    [add_odc_product_property(item=item) for item in items]
+    [add_odc_product_and_change_platform_properties(item=item) for item in items]
 
 
 def bulk_items_merge_assets(items: list):
@@ -429,11 +467,15 @@ def make_stac_transformation(item: Item):
             aws_unsigned=True,
             AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com'
     ):
+        self_link = item.get_single_link('self')
+        self_target = self_link.target
+        source_link = item.get_single_link('derived_from')
+        source_target = source_link.target
 
         return transform_stac_to_stac(
             item=item,
-            # self_link=self_link,
-            # source_link=source_link
+            self_link=self_target,
+            source_link=source_target
         )
 
 
@@ -456,20 +498,24 @@ def save_stac1_to_s3(item_obj: Item):
         item=item_obj,
         start_url=AFRICA_S3_BUCKET_URL
     )
+
+    file_name = f"{path_and_file_name['file_name']}_stac.json"
+
     logging.info(f"destination {path_and_file_name['path']}/{path_and_file_name['file_name']}_stac_1.json")
+
     save_obj_to_s3(
         s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
         file=bytes(json.dumps(item_obj.to_dict()).encode('UTF-8')),
-        destination_key=f"{path_and_file_name['path']}/{path_and_file_name['file_name']}_stac_1.json",
+        destination_key=f"{path_and_file_name['path']}/{file_name}",
         destination_bucket=AFRICA_S3_BUCKET_NAME,
     )
 
 
 def save_stac1_items_to_s3(stac_1_items: list):
     """
-
-    :param stac_1_items:
-    :return:
+    Function to handle a list of Pystac Items and send to S3
+    :param stac_1_items:(list) List of Pystac Items to be send to S3 as JSON
+    :return: None
     """
     [save_stac1_to_s3(item_obj=item) for item in stac_1_items]
 
@@ -480,6 +526,8 @@ def push_stac_items_to_sns(stac_1_items: list):
     :param stac_1_items:(list) List of Pystac Items already in the version 1.0.0-beta2
     :return: None
     """
+    [logging.info(f"Pushing {item.to_dict()}") for item in stac_1_items]
+
     [
         publish_to_sns_topic(
             aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
@@ -528,11 +576,8 @@ def process():
         logging.info("Assets links replaced")
 
         logging.info("Start process to add custom property odc:product")
-        bulk_items_add_odc_product_property(items=items)
+        bulk_items_add_odc_product_and_change_platform_properties(items=items)
         logging.info("Custom property odc:product added")
-
-        # TODO access S3, copy files and save final SR JSON
-        # [logging.info(json.dumps(item.to_dict())) for item in items]
 
         # Copy files from USGS' S3 and store into Africa's S3
         logging.info("Start process to transfer data from USGS S3 to Africa S3")

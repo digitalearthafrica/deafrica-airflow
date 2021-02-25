@@ -9,11 +9,8 @@ and configuration installed.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.kubernetes.secret import Secret
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-
-from textwrap import dedent
-
+from airflow.kubernetes.secret import Secret
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -90,9 +87,10 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
-            "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
-            "deafrica-prod-eks-sentinel-2-indexing",
-            "s2_l2a",
+            "deafrica-dev-eks-index-landsat-scene",
+            "ls5_c2l2",
+            "ls7_c2l2",
+            "ls8_c2l2",
         ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
