@@ -60,14 +60,4 @@ jobs:
           export AIRFLOW__CORE__LOAD_EXAMPLES="False"
           export AIRFLOW__CORE__PLUGINS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/plugins"
           export AIRFLOW__CORE__DAGS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/dags"
-          /usr/bin/dumb-init  bash \
-          -c \
-          true \
-            && mkdir -p /home/airflow/.local/bin \
-            && export PATH="/home/airflow/.local/bin:$PATH" \
-            && echo "*** installing requirements..." \
-            && /home/airflow/scripts/install-requirements.sh \
-            && echo "*** installing extra pip packages..." \
-            && pip install --user  "authlib"  "Flask-AppBuilder==3.1.1"  \
-            && echo "*** running webserver..." \
-            && exec airflow webserver
+          airflow webserver
