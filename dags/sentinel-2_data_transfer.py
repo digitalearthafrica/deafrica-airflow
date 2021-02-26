@@ -78,7 +78,8 @@ def africa_tile_ids():
             (
                 "https://raw.githubusercontent.com/digitalearthafrica/"
                 "deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
-            )
+            ),
+            header=None,
         ).values.ravel()
     )
 
