@@ -55,3 +55,8 @@ jobs:
               echo "error in dags"
               exit 1
           fi
+      - name: try init webservice
+        run: |
+          export AIRFLOW__CORE__LOAD_EXAMPLES="False"
+          export AIRFLOW__CORE__PLUGINS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/plugins"
+          export AIRFLOW__CORE__DAGS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/dags"
