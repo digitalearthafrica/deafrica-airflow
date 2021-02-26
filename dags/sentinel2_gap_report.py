@@ -46,11 +46,14 @@ def generate_buckets_diff():
 
     africa_tile_ids = set(
         pd.read_csv(
-            "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
+            "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
+            header=None,
         ).values.ravel()
     )
 
-    s3_inventory = s3(SRC_BUCKET_NAME, US_CONN_ID, "us-west-2", MANIFEST_SUFFIX)
+    s3_inventory = s3(
+        SRC_BUCKET_NAME, US_CONN_ID, "us-west-2", MANIFEST_SUFFIX
+    )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
     for bucket, key, *rest in s3_inventory.list_keys():
@@ -114,4 +117,3 @@ with DAG(
     READ_INVENTORIES = PythonOperator(
         task_id="compare_s2_inventories", python_callable=generate_buckets_diff
     )
-
