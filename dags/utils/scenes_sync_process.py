@@ -222,7 +222,7 @@ def generate_odc_product_href(item: Item):
     return f'{digital_earth_africa_url}{value}'
 
 
-def add_odc_product_and_change_platform_properties(item: Item):
+def add_odc_product_and_odc_region_code_properties(item: Item):
     """
     Function to add Africa's custom property
     :param item: (Pystac Item) Pystac Item
@@ -232,7 +232,10 @@ def add_odc_product_and_change_platform_properties(item: Item):
     item.properties.update(
         {
             "odc:product": generate_odc_product_href(item=item),
-            # "eo:platform": identify_landsat(item=item)
+            "odc:region_code": "{path:03d}{row:03d}".format(
+                    path=int(item.properties["landsat:wrs_path"]),
+                    row=int(item.properties["landsat:wrs_row"]),
+                )
         }
     )
 
@@ -346,14 +349,14 @@ def bulk_items_replace_assets_link_to_s3_link(items):
     [replace_asset_links(item=item) for item in items]
 
 
-def bulk_items_add_odc_product_and_change_platform_properties(items: list):
+def bulk_items_add_odc_product_and_odc_region_code_properties(items: list):
     """
     Function to handle multiple items and add our custom property.
     :param items: (list) List of Pystac Items
     :return: None
     """
 
-    [add_odc_product_and_change_platform_properties(item=item) for item in items]
+    [add_odc_product_and_odc_region_code_properties(item=item) for item in items]
 
 
 def bulk_items_merge_assets(items: list):
@@ -587,7 +590,7 @@ def process():
         logging.info("Assets links replaced")
 
         logging.info("Start process to add custom property odc:product")
-        bulk_items_add_odc_product_and_change_platform_properties(items=items)
+        bulk_items_add_odc_product_and_odc_region_code_properties(items=items)
         logging.info("Custom property odc:product added")
 
         # Copy files from USGS' S3 and store into Africa's S3
