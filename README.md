@@ -53,4 +53,4 @@ invoke it manually by running `pre-commit run --all-files`
 | --------------------------|:---------------:|
 | [Airflow Oregon](https://airflow.digitalearth.africa)        | develop         |
 | [Airflow Cape Town Prod](https://airflow-af.digitalearth.africa)| main            |
-| [Airflow Cape Town Dev](https://airflow.dev.digitalearth.africa) | develop         |
+| [Airflow Cape Town Dev](https://airflow.dev.digitalearth.africa) | develop-af         |

@@ -10,6 +10,7 @@ on:
     branches:
       - master
       - develop
+      - develop-af
     paths:
       - 'dags/**'
       - 'scripts/**'
@@ -30,10 +31,28 @@ jobs:
           update-conda: true
           python-version: ${{ matrix.python-version }}
           conda-channels: anaconda, conda-forge
-      - run: conda --version
-      - run: which python
-      - run: |
-          pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.11
-          pip install shapely pyproj
+      - name: Check conda version
+        run: conda --version
+      - name: Check python
+        run: which python
+      - name: Install airflow and run pylint
+        run: |
+          pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.14
           pip install pylint pylint-airflow
-          PYTHONPATH=plugins pylint --load-plugins=pylint_airflow --disable=C,W --disable=similarities dags
+          pip install -r requirements.txt
+          pylint --load-plugins=pylint_airflow --disable=C,W --disable=similarities dags
+      - name: setup airflow and run list_dags
+        run: |
+          export AIRFLOW__CORE__LOAD_EXAMPLES="False"
+          export AIRFLOW__CORE__PLUGINS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/plugins"
+          export AIRFLOW__CORE__DAGS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/dags"
+          airflow initdb
+          airflow info
+          airflow list_dags
+          # check if list_dags has error if yes exit CI
+          daglist=`airflow list_dags`
+          errorstring="Error"
+          if [[ $daglist == *"$errorstring"* ]]; then
+              echo "error in dags"
+              exit 1
+          fi
