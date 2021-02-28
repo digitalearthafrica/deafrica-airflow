@@ -57,5 +57,5 @@ jobs:
       #     fi
       - name: test web readiness
         run: |
-          apt install dumb-init
+          sudo apt-get install dumb-init
           ls -la /usr/bin/
