@@ -3,6 +3,8 @@
 """
 import json
 import logging
+import os
+
 import rasterio
 
 from collections.abc import Generator
@@ -27,6 +29,8 @@ from utils.url_request_utils import (
     copy_s3_to_s3,
     key_not_existent, save_obj_to_s3, publish_to_sns_topic
 )
+
+os.environ['CURL_CA_BUNDLE'] = '/etc/ssl/certs/ca-certificates.crt'
 
 # ######### AWS CONFIG ############
 # ######### USGS ############
@@ -218,7 +222,7 @@ def generate_odc_product_href(item: Item):
     return f'{digital_earth_africa_url}{value}'
 
 
-def add_odc_product_and_change_platform_properties(item: Item):
+def add_odc_product_and_odc_region_code_properties(item: Item):
     """
     Function to add Africa's custom property
     :param item: (Pystac Item) Pystac Item
@@ -228,7 +232,10 @@ def add_odc_product_and_change_platform_properties(item: Item):
     item.properties.update(
         {
             "odc:product": generate_odc_product_href(item=item),
-            "eo:platform": identify_landsat(item=item)
+            "odc:region_code": "{path:03d}{row:03d}".format(
+                    path=int(item.properties["landsat:wrs_path"]),
+                    row=int(item.properties["landsat:wrs_row"]),
+                )
         }
     )
 
@@ -342,14 +349,14 @@ def bulk_items_replace_assets_link_to_s3_link(items):
     [replace_asset_links(item=item) for item in items]
 
 
-def bulk_items_add_odc_product_and_change_platform_properties(items: list):
+def bulk_items_add_odc_product_and_odc_region_code_properties(items: list):
     """
     Function to handle multiple items and add our custom property.
     :param items: (list) List of Pystac Items
     :return: None
     """
 
-    [add_odc_product_and_change_platform_properties(item=item) for item in items]
+    [add_odc_product_and_odc_region_code_properties(item=item) for item in items]
 
 
 def bulk_items_merge_assets(items: list):
@@ -462,7 +469,6 @@ def make_stac_transformation(item: Item):
     :param item:
     :return:
     """
-
     with rasterio.Env(
             aws_unsigned=True,
             AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com'
@@ -472,11 +478,18 @@ def make_stac_transformation(item: Item):
         source_link = item.get_single_link('derived_from')
         source_target = source_link.target
 
-        return transform_stac_to_stac(
+        # properti = item.properties.pop('odc:product')
+
+        returned = transform_stac_to_stac(
             item=item,
             self_link=self_target,
             source_link=source_target
         )
+
+        if not returned.properties.get('proj:epsg'):
+            raise Exception('<proj:epsg> property is required')
+
+        return returned
 
 
 def transform_old_stac_to_newer_stac(items: list):
@@ -485,6 +498,7 @@ def transform_old_stac_to_newer_stac(items: list):
     :param items:(list) Pystac Item List
     :return:(list) stac1 Items
     """
+
     return [make_stac_transformation(item) for item in items]
 
 
@@ -576,7 +590,7 @@ def process():
         logging.info("Assets links replaced")
 
         logging.info("Start process to add custom property odc:product")
-        bulk_items_add_odc_product_and_change_platform_properties(items=items)
+        bulk_items_add_odc_product_and_odc_region_code_properties(items=items)
         logging.info("Custom property odc:product added")
 
         # Copy files from USGS' S3 and store into Africa's S3
