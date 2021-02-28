@@ -58,4 +58,12 @@ jobs:
       - name: test web readiness
         run: |
           sudo apt-get install dumb-init
-          ls -la /usr/bin/
+          /usr/bin/dumb-init -- bash -c > true \
+            && mkdir -p /home/airflow/.local/bin \
+            && export PATH="/home/airflow/.local/bin:$PATH" \
+            && echo "*** installing requirements..." \
+            && /home/airflow/scripts/install-requirements.sh \
+            && echo "*** installing extra pip packages..." \
+            && pip install --user  "authlib"  "Flask-AppBuilder==3.1.1"  \
+            && echo "*** running webserver..." \
+            && exec airflow webserver
