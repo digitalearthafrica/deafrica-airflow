@@ -23,10 +23,8 @@ jobs:
     - uses: actions/checkout@v2
     - name: run docker webserver
       run: |
-        docker run -it \
-           -e "AIRFLOW__CORE__PLUGINS_FOLDER='/opt/plugins' \
-           -e "AIRFLOW__CORE__DAGS_FOLDER='/opt/dags' \
-           -e "AIRFLOW_DB_UPGRADE=true" \
-           --mount type=bind,source=dags,target=/opt/dags \
-           --mount type=bind,source=plugins,target=/opt/plugins \
-           apache/airflow:master-python3.6 airflow webserver
+        curl -LfO 'https://airflow.apache.org/docs/apache-airflow/1.10.14/docker-compose.yaml'
+        mkdir ./dags ./logs ./plugins
+        echo -e "AIRFLOW_UID=$(id -u)\nAIRFLOW_GID=0" > .env
+        docker-compose up airflow-init
+        docker-compose up
