@@ -30,7 +30,6 @@ jobs:
     - name: example tests
       run: |
         kubectl cluster-info
-        kubectl create deployment --image nginx my-nginx
-        # kubectl create deployment --image apache/airflow my-airflow
+        kubectl create deployment --image apache/airflow my-airflow
         kubectl get pod -A
         kubectl get deployments -A
