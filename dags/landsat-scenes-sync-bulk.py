@@ -1,3 +1,8 @@
+"""
+# Landsat Bulk Sync automation
+DAG to retrieve Landsat 5, 7 and 8 GZIP bulk data from USGS, unzip, filter and send the right ones to our SQS.
+
+"""
 # [START import_module]
 from datetime import timedelta, datetime
 
