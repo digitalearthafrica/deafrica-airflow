@@ -23,4 +23,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: run docker webserver
       run: |
-        docker run -p 8080:8080 -e LOAD_EX=./dags puckel/docker-airflow webserver
+        docker run -p 8080:8080 \
+        -v ./dags/:/usr/local/airflow/dags \
+        -v ./plugins/:/usr/local/airflow/plugins \
+        puckel/docker-airflow webserver
