@@ -41,4 +41,4 @@ jobs:
            -d \
            --mount source=dags,target=/opt/dags \
            apache/airflow:master-python3.6 airflow webserver
-        docker logs -f --unitl=30s dockertest
+        docker logs -f --until=30s dockertest
