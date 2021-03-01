@@ -31,4 +31,4 @@ jobs:
       run: |
         kubectl cluster-info
         kubectl create deployment --image apache/airflow my-airflow
-        kubectl get po
+        kubectl get pod
