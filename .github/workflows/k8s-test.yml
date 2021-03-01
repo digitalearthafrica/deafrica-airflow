@@ -35,10 +35,10 @@ jobs:
         kubectl get deployments -A
     - name: run docker webserver
       run: |
-        docker run -it \
-           -- env "AIRFLOW__CORE__PLUGINS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/plugins' \
-           -- env "AIRFLOW__CORE__DAGS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/dags' \
+        docker run --name dockertest -it \
+           -e "AIRFLOW__CORE__PLUGINS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/plugins' \
+           -e "AIRFLOW__CORE__DAGS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/dags' \
            -d \
-           --name testwebserver \
            --mount source=dags,target=/opt/dags \
            apache/airflow:master-python3.6 airflow webserver
+        docker logs -f --unitl=30s dockertest
