@@ -33,3 +33,4 @@ jobs:
         kubectl create deployment --image nginx my-nginx
         # kubectl create deployment --image apache/airflow my-airflow
         kubectl get pod -A
+        kubectl get deployments -A
