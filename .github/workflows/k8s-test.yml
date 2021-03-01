@@ -21,24 +21,12 @@ jobs:
     timeout-minutes: 5
     steps:
     - uses: actions/checkout@v2
-    - name: install k8s
-      run: |
-        curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=777 sh -
-        cat /etc/rancher/k3s/k3s.yaml
-        mkdir -p ~/.kube
-        cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
-    - name: example tests
-      run: |
-        kubectl cluster-info
-        kubectl create deployment --image apache/airflow my-airflow
-        kubectl get pod -A
-        kubectl get deployments -A
     - name: run docker webserver
       run: |
-        docker run --name dockertest -it \
-           -e "AIRFLOW__CORE__PLUGINS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/plugins' \
-           -e "AIRFLOW__CORE__DAGS_FOLDER='/home/runner/work/deafrica-airflow/deafrica-airflow/dags' \
-           -d \
-           --mount source=dags,target=/opt/dags \
+        docker run -it \
+           -e "AIRFLOW__CORE__PLUGINS_FOLDER='/opt/plugins' \
+           -e "AIRFLOW__CORE__DAGS_FOLDER='/opt/dags' \
+           -e "AIRFLOW_DB_UPGRADE=true" \
+           --mount type=bind,source=dags,target=/opt/dags \
+           --mount type=bind,source=plugins,target=/opt/plugins \
            apache/airflow:master-python3.6 airflow webserver
-        docker logs -f --until=30s dockertest
