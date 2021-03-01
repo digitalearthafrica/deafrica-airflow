@@ -1,16 +1,13 @@
 """
-# Sentinel-2 indexing automation
-DAG to periodically index Sentinel-2 data. Eventually it could
-update explorer and ows schemas in RDS after a given Dataset has been
-indexed.
+# Landsat indexing automation
+DAG to periodically index Landsat 5, 7 and 8 data.
 This DAG uses k8s executors and in cluster with relevant tooling
 and configuration installed.
 """
-from datetime import datetime, timedelta
-
 from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
+from datetime import datetime, timedelta
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",

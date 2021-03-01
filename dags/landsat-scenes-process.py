@@ -1,3 +1,10 @@
+"""
+# Landsat Process automation
+DAG to periodically retrieve Landsat 5, 7 and 8 data from SQS, process, migrate data from USGS to Africa,
+generate stac 1.0 and send to SNS.
+
+"""
+
 # [START import_module]
 from datetime import timedelta, datetime
 
