@@ -35,4 +35,7 @@ jobs:
         kubectl get deployments -A
     - name: run docker webserver
       run: |
-        docker run -it apache/airflow:master-python3.6 airflow webserver
+        docker run -d \
+           --name testwebserver \
+           --mount source=dags,target=/opt/dags \
+           apache/airflow:master-python3.6 airflow webserver
