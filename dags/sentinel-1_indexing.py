@@ -19,6 +19,7 @@ import kubernetes.client.models as k8s
 
 QUEUE_NAME = "deafrica-dev-eks-sentinel-1-indexing-dev"
 PRODUCT_NAME = "s1_rtc"
+AWS_USER_K8S = "sentinel-1-indexing-user"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -39,22 +40,25 @@ DEFAULT_ARGS = {
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            "sentinel-1-indexing-user",
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", "sentinel-1-indexing-user", "AWS_ACCESS_KEY_ID"
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "sentinel-1-indexing-user",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
+        Secret(
+            "env",
+            "AWS_DEFAULT_REGION",
+            AWS_USER_K8S,
+            "AWS_DEFAULT_REGION",
+        ),
+        Secret(
+            "env",
+            "AWS_ACCESS_KEY_ID",
+            AWS_USER_K8S,
+            "AWS_ACCESS_KEY_ID"
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            AWS_USER_K8S,
+            "AWS_SECRET_ACCESS_KEY",
+        )
     ],
 }
 
@@ -69,7 +73,6 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password"),
     Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
 ]
-
 
 INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 OWS_IMAGE = "opendatacube/ows:1.8.2"
@@ -126,6 +129,8 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
+            "--update-if-exists",
+            "--allow-unsafe",
             QUEUE_NAME,
             PRODUCT_NAME,
         ],
@@ -169,5 +174,6 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    INDEXING >> OWS_UPDATE_EXTENTS
-    INDEXING >> EXPLORER_SUMMARY
+    INDEXING
+    # INDEXING >> OWS_UPDATE_EXTENTS
+    # INDEXING >> EXPLORER_SUMMARY
