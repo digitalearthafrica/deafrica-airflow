@@ -47,18 +47,13 @@ DEFAULT_ARGS = {
             AWS_USER_K8S,
             "AWS_DEFAULT_REGION",
         ),
+        Secret("env", "AWS_ACCESS_KEY_ID", AWS_USER_K8S, "AWS_ACCESS_KEY_ID"),
         Secret(
             "env",
-            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
             AWS_USER_K8S,
-            "AWS_ACCESS_KEY_ID"
+            "AWS_SECRET_ACCESS_KEY",
         ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            AWS_USER_K8S,
-            "AWS_SECRET_ACCESS_KEY",
-        )
     ],
 }
 
