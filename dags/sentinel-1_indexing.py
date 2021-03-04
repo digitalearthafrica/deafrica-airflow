@@ -69,7 +69,7 @@ EXPLORER_SECRETS = [
     Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
 ]
 
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
+INDEXER_IMAGE = "opendatacube/datacube-index:0.0.16"
 OWS_IMAGE = "opendatacube/ows:1.8.2"
 EXPLORER_IMAGE = "opendatacube/explorer:2.2.3"
 
@@ -137,37 +137,37 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
-        namespace="processing",
-        image=OWS_IMAGE,
-        arguments=OWS_BASH_COMMAND,
-        secrets=OWS_SECRETS,
-        labels={"step": "ows-mv"},
-        name="ows-update-extents",
-        task_id="ows-update-extents",
-        get_logs=True,
-        affinity=affinity,
-        is_delete_operator_pod=True,
-    )
+    # OWS_UPDATE_EXTENTS = KubernetesPodOperator(
+    #     namespace="processing",
+    #     image=OWS_IMAGE,
+    #     arguments=OWS_BASH_COMMAND,
+    #     secrets=OWS_SECRETS,
+    #     labels={"step": "ows-mv"},
+    #     name="ows-update-extents",
+    #     task_id="ows-update-extents",
+    #     get_logs=True,
+    #     affinity=affinity,
+    #     is_delete_operator_pod=True,
+    # )
 
-    EXPLORER_SUMMARY = KubernetesPodOperator(
-        namespace="processing",
-        image=EXPLORER_IMAGE,
-        arguments=[
-            "cubedash-gen",
-            "--no-init-database",
-            "--refresh-stats",
-            "--force-refresh",
-            PRODUCT_NAME,
-        ],
-        secrets=EXPLORER_SECRETS,
-        labels={"step": "explorer"},
-        name="explorer-summary",
-        task_id="explorer-summary-task",
-        get_logs=True,
-        affinity=affinity,
-        is_delete_operator_pod=True,
-    )
+    # EXPLORER_SUMMARY = KubernetesPodOperator(
+    #     namespace="processing",
+    #     image=EXPLORER_IMAGE,
+    #     arguments=[
+    #         "cubedash-gen",
+    #         "--no-init-database",
+    #         "--refresh-stats",
+    #         "--force-refresh",
+    #         PRODUCT_NAME,
+    #     ],
+    #     secrets=EXPLORER_SECRETS,
+    #     labels={"step": "explorer"},
+    #     name="explorer-summary",
+    #     task_id="explorer-summary-task",
+    #     get_logs=True,
+    #     affinity=affinity,
+    #     is_delete_operator_pod=True,
+    # )
 
     INDEXING
     # INDEXING >> OWS_UPDATE_EXTENTS
