@@ -26,14 +26,10 @@ AWS_CONFIG = {
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 
-ALLOWED_PATHROWS = set(
-    str(row.values[0][0])
-    for row in pd.read_csv(
-        "https://github.com/digitalearthafrica/deafrica-extent/blob/master/deafrica-usgs-pathrows.csv.gz?raw=true",
-        compression="gzip",
-        header=0,
-        chunksize=1,
-    )
+ALLOWED_PATHROWS = set(pd.read_csv(
+        "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-usgs-pathrows.csv.gz",
+        header=None,
+    ).values.ravel()
 )
 
 
