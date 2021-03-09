@@ -1,5 +1,6 @@
 """
-    Script to read queue, process messages and save on the S3 bucket
+    Script to read from SQS landsat Africa queue, process messages, save a stac 1.0 and
+    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS to be processed by Datacube
 """
 import json
 import logging
@@ -7,7 +8,6 @@ import os
 
 import rasterio
 
-from collections.abc import Generator
 from typing import Iterable
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -33,6 +33,7 @@ from utils.url_request_utils import (
 os.environ['CURL_CA_BUNDLE'] = '/etc/ssl/certs/ca-certificates.crt'
 
 # ######### AWS CONFIG ############
+# TODO Configuration used on 3 different DAGS find shared place to place that
 # ######### USGS ############
 USGS_S3_BUCKET_NAME = "usgs-landsat"
 USGS_AWS_REGION = "us-west-2"
@@ -49,9 +50,10 @@ AFRICA_S3_BUCKET_URL = f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.
 
 
 def get_queue():
+    # Todo move to utils
     """
-    Connect to the right queue
-    :return: QUEUE
+    Function to connect to the right queue and return an instance of that
+    :return: instance of a QUEUE
     """
 
     logging.info(f'Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
@@ -70,11 +72,11 @@ def get_messages(
     message_attributes: Iterable[str] = ["All"],
 ):
     """
-     Get messages from a queue resource.
+     Function to read messages from a queue resource and return a generator.
 
     :param message_attributes:
-    :param visibility_timeout:
-    :param limit:Must be between 1 and 10, if provided.
+    :param visibility_timeout: (int) Defaulted to 60
+    :param limit:(int) Must be between 1 and 10, if provided. If not informed will read till there are nothing left
     :return: Generator
     """
 
@@ -106,13 +108,14 @@ def convert_dict_to_pystac_item(message: dict):
     return Item.from_dict(message)
 
 
-def delete_messages(messages):
+def delete_message(message):
     """
     Delete messages from the queue
-    :param messages:
+    :param message:
     :return:
     """
-    [message.delete() for message in messages]
+
+    message.delete()
 
 
 def replace_links(item: Item):
@@ -150,7 +153,7 @@ def replace_links(item: Item):
 
     product_overview = Link(
         rel="product_overview",
-        target=generate_odc_product_href(item=item),
+        target=generate_odc_product_name(item=item),
     )
     item.add_link(product_overview)
 
@@ -175,63 +178,41 @@ def replace_asset_links(item: Item):
             asset.href = asset_href
 
 
-def identify_landsat(item: Item):
-    """
-    Function to identify the satellite that the Item was extract from
-    :param item:(Pystac Item)
-    :return:(str) Datacube sat name format
-    """
-    properties = item.properties
-
-    sat = properties.get("eo:platform", "")
-
-    if sat == "LANDSAT_8":
-        return 'landsat-8'
-    elif sat == "LANDSAT_7":
-        return 'landsat-7'
-    elif sat == "LANDSAT_5":
-        return 'landsat-5'
-    else:
-        raise Exception(
-            f'The sat is {"{0} that is not supported for this process".format(sat) if sat else "not informed"}'
-        )
-
-
-def generate_odc_product_href(item: Item):
+def generate_odc_product_name(item: Item):
     """
     Function to generate custom href to odc:product
     :param item: (Pystac Item)
     :return: (str) href
     """
 
-    digital_earth_africa_url = 'https://explorer-af.digitalearth.africa/product/'
+    properties = item.properties
 
-    sat = identify_landsat(item=item)
-    if sat == "landsat-8":
+    sat = properties.get("eo:platform", "")
+
+    if sat == "LANDSAT_8":
         value = "ls8_c2l2"
-    elif sat == "landsat-7":
+    elif sat == "LANDSAT_7":
         value = "ls7_c2l2"
-    elif sat == "landsat-5":
+    elif sat == "LANDSAT_5":
         value = "ls5_c2l2"
-
     else:
         raise Exception(
-            f'Property odc:product not added due the sat is {sat if sat else "not informed"}'
+            f'The sat is {"{0} that is not supported for this process".format(sat) if sat else "not informed"}'
         )
 
-    return f'{digital_earth_africa_url}{value}'
+    return value
 
 
 def add_odc_product_and_odc_region_code_properties(item: Item):
     """
-    Function to add Africa's custom property
+    Function to add Africa's custom properties odc:product and odc:region_code
     :param item: (Pystac Item) Pystac Item
     :return: None
     """
 
     item.properties.update(
         {
-            "odc:product": generate_odc_product_href(item=item),
+            "odc:product": generate_odc_product_name(item=item),
             "odc:region_code": "{path:03d}{row:03d}".format(
                     path=int(item.properties["landsat:wrs_path"]),
                     row=int(item.properties["landsat:wrs_row"]),
@@ -244,7 +225,7 @@ def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     """
     Function to from the href URL within the index in the list of links,
     replace protocol and domain returning just the path, in addition this function completes the file's name
-    and adds the extantion json
+    and adds the extension json
 
     :param start_url: (str) URL that will be removed from the href
     :param item:(Pystac Item) Pystac Item
@@ -254,6 +235,7 @@ def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     assets = item.get_assets()
     asset = assets.get("index")
     if asset and hasattr(asset, "href"):
+        logging.info(f'asset.href {asset.href}')
         file_name = f'{asset.href.split("/")[-1]}'
         asset_s3_path = asset.href.replace(start_url, "")
 
@@ -312,64 +294,6 @@ def merge_assets(item: Item):
         ]
 
 
-def bulk_convert_dict_to_pystac_item(messages: Generator):
-    """
-    Function to convert message from the SQS to a Pystac Item. Function loop over passed Generator and converts 16
-    messages simultaneously.
-
-    :param messages: (list) List of dicts from SQS
-    :return: (list) List of Pystac Items
-    """
-    return [
-        convert_dict_to_pystac_item(
-            json.loads(message.body)
-        ) for message in messages
-    ]
-
-
-def bulk_items_replace_links(items):
-    """
-    Function to handle multiple items, go through all links and replace URL href link for Africa S3 link.
-
-    :param items:(list) List of Pystac Items
-    :return:None
-    """
-
-    [replace_links(item=item) for item in items]
-
-
-def bulk_items_replace_assets_link_to_s3_link(items):
-    """
-    Function to handle multiple items, go through all assets and replace URL link for Africa S3 link.
-
-    :param items:(list) List of Pystac Items
-    :return:None
-    """
-
-    [replace_asset_links(item=item) for item in items]
-
-
-def bulk_items_add_odc_product_and_odc_region_code_properties(items: list):
-    """
-    Function to handle multiple items and add our custom property.
-    :param items: (list) List of Pystac Items
-    :return: None
-    """
-
-    [add_odc_product_and_odc_region_code_properties(item=item) for item in items]
-
-
-def bulk_items_merge_assets(items: list):
-    """
-    Function to handle multiple items and merge the missing assets.
-
-    :param items: (list) List of Pystac Items
-    :return: None
-    """
-
-    [merge_assets(item=item) for item in items]
-
-
 def retrieve_asset_s3_path_from_item(item: Item):
     """
     Function to change the asset URL into an S3 to be copied straight from the bucket
@@ -390,17 +314,6 @@ def retrieve_asset_s3_path_from_item(item: Item):
         ]
 
     logging.error(f"WARNING No assets to be copied in the Item ({item.id})")
-
-
-def store_original_asset_s3_path(items: list):
-    """
-    Function to create a list with all original assets path
-    :param items: (list) List of Pystac Items
-    :return: (list) Returns a list with all paths
-    """
-    result = []
-    [result.extend(retrieve_asset_s3_path_from_item(item)) for item in items]
-    return result
 
 
 def filter_just_missing_assets(asset_paths: list):
@@ -446,7 +359,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
         # Check if the key was already copied
         missing_assets = filter_just_missing_assets(asset_address_paths)
 
-        logging.info(f'missing_assets {missing_assets}')
+        logging.info(f'Copying missing assets {missing_assets}')
 
         task = [
             executor.submit(
@@ -492,16 +405,6 @@ def make_stac_transformation(item: Item):
         return returned
 
 
-def transform_old_stac_to_newer_stac(items: list):
-    """
-    Function to get a list of Pystac Items and transform into stac file version 1.0.0-beta2
-    :param items:(list) Pystac Item List
-    :return:(list) stac1 Items
-    """
-
-    return [make_stac_transformation(item) for item in items]
-
-
 def save_stac1_to_s3(item_obj: Item):
     """
     Function to save json stac 1 file into Africa S3
@@ -510,45 +413,20 @@ def save_stac1_to_s3(item_obj: Item):
     """
     path_and_file_name = find_s3_path_and_file_name_from_item(
         item=item_obj,
-        start_url=AFRICA_S3_BUCKET_URL
+        start_url=AFRICA_S3_BUCKET_PATH
     )
 
     file_name = f"{path_and_file_name['file_name']}_stac.json"
+    destination_key = f"{path_and_file_name['path']}/{file_name}"
 
-    logging.info(f"destination {path_and_file_name['path']}/{path_and_file_name['file_name']}_stac_1.json")
+    logging.info(f"destination {destination_key}")
 
     save_obj_to_s3(
         s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
         file=bytes(json.dumps(item_obj.to_dict()).encode('UTF-8')),
-        destination_key=f"{path_and_file_name['path']}/{file_name}",
+        destination_key=destination_key,
         destination_bucket=AFRICA_S3_BUCKET_NAME,
     )
-
-
-def save_stac1_items_to_s3(stac_1_items: list):
-    """
-    Function to handle a list of Pystac Items and send to S3
-    :param stac_1_items:(list) List of Pystac Items to be send to S3 as JSON
-    :return: None
-    """
-    [save_stac1_to_s3(item_obj=item) for item in stac_1_items]
-
-
-def push_stac_items_to_sns(stac_1_items: list):
-    """
-    Function to push conveterd items to the SNS.
-    :param stac_1_items:(list) List of Pystac Items already in the version 1.0.0-beta2
-    :return: None
-    """
-    [logging.info(f"Pushing {item.to_dict()}") for item in stac_1_items]
-
-    [
-        publish_to_sns_topic(
-            aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
-            target_arn=AFRICA_SNS_TOPIC_ARN,
-            message=json.dumps(item.to_dict())
-        ) for item in stac_1_items
-    ]
 
 
 def process():
@@ -557,67 +435,79 @@ def process():
     :return: None
     """
 
-    count_messages = 0
     try:
         logging.info("Starting process")
         # Retrieve messages from the queue
-        messages = get_messages(limit=1)
+        messages = get_messages()
 
         if not messages:
             logging.info("No messages were found!")
             return
 
-        logging.info("Start conversion from message to pystac item process")
-        items = bulk_convert_dict_to_pystac_item(messages=messages)
+        for message in messages:
 
-        count_messages += len(items)
-        logging.info(f"{count_messages} converted")
+            try:
+                logging.info(f"Message received {message.body}")
 
-        logging.info("Start process to replace links")
-        bulk_items_replace_links(items=items)
-        logging.info("Links Replaced")
+                logging.info("Start conversion from message to pystac item process")
+                item = convert_dict_to_pystac_item(json.loads(message.body))
+                logging.info(f"Message converted {item.to_dict()}")
 
-        logging.info("Start process to merge assets")
-        bulk_items_merge_assets(items=items)
-        logging.info("Assets Merged")
+                logging.info("Start process to replace links")
+                replace_links(item=item)
+                logging.info("Links Replaced")
 
-        logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
-        asset_addresses_paths = store_original_asset_s3_path(items=items)
-        logging.info("S3 asset hrefs stored")
+                logging.info("Start process to merge assets")
+                merge_assets(item=item)
+                logging.info("Assets Merged")
 
-        logging.info("Start process to replace assets links")
-        bulk_items_replace_assets_link_to_s3_link(items=items)
-        logging.info("Assets links replaced")
+                logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
+                asset_addresses_paths = retrieve_asset_s3_path_from_item(item)
+                logging.info("S3 asset hrefs stored")
 
-        logging.info("Start process to add custom property odc:product")
-        bulk_items_add_odc_product_and_odc_region_code_properties(items=items)
-        logging.info("Custom property odc:product added")
+                logging.info("Start process to replace assets links")
+                replace_asset_links(item=item)
+                logging.info("Assets links replaced")
 
-        # Copy files from USGS' S3 and store into Africa's S3
-        logging.info("Start process to transfer data from USGS S3 to Africa S3")
-        transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
-        logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
+                logging.info("Start process to add custom property odc:product")
+                add_odc_product_and_odc_region_code_properties(item=item)
+                logging.info("Custom property odc:product added")
 
-        # Transform stac to 1.0.0-beta.2
-        logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
-        stac_1_items = transform_old_stac_to_newer_stac(items)
-        logging.info(f"{len(stac_1_items)} transformed from stac 0.7.0 to 1.0.0-beta.2")
-        # Save new stac 1 Items into Africa's S3
+                # Copy files from USGS' S3 and store into Africa's S3
+                logging.info("Start process to transfer data from USGS S3 to Africa S3")
+                transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
+                logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
 
-        logging.info(f"Saving new Items to S3 bucket as JSON")
-        save_stac1_items_to_s3(stac_1_items)
-        logging.info(f"Items saved")
+                # Transform stac to 1.0.0-beta.2
+                logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
+                stac_1_item = make_stac_transformation(item)
+                logging.info(f"Stac transformed from version 0.7.0 to 1.0.0-beta.2")
+                # Save new stac 1 Items into Africa's S3
 
-        # Send to the SNS
-        logging.info(f'Starting process to send {len(items)} Items to the SNS')
-        push_stac_items_to_sns(stac_1_items=stac_1_items)
-        logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
+                logging.info(f"Saving new Items to S3 bucket as JSON")
+                save_stac1_to_s3(item_obj=stac_1_item)
+                logging.info(f"Items saved")
 
-        logging.info(f'Deleting messages')
-        delete_messages(messages)
-        logging.info('Messages deleted')
-        logging.info("Whole Process finished successfully")
+                # Send to the SNS
+                logging.info(f"Pushing Item to the SNS {stac_1_item.to_dict()}")
+                publish_to_sns_topic(
+                    aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                    target_arn=AFRICA_SNS_TOPIC_ARN,
+                    message=json.dumps(stac_1_item.to_dict())
+                )
+                logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
 
+                logging.info(f'Deleting messages')
+                delete_message(message)
+                logging.info('Messages deleted')
+
+            except Exception as error:
+                logging.error(f'ERROR processing message {message}')
+                logging.error(f'ERROR returned {error}')
+
+            logging.info("*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+
+        logging.info("Whole Process finished successfully :)")
     except Exception as error:
         logging.error(error)
         raise error

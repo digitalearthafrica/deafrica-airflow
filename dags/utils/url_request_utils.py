@@ -126,6 +126,11 @@ def copy_s3_to_s3(
     :return: None
     """
 
+    # logging.debug(
+    #     f"s3_conn_id {s3_conn_id} source_bucket {source_bucket} destination_bucket {destination_bucket}"
+    #     f" source_key {source_key} destination_key {destination_key} request_payer {request_payer} acl {acl}"
+    # )
+
     if source_key and not destination_key:
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key.replace(source_bucket, destination_bucket)
