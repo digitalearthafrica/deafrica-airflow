@@ -429,6 +429,26 @@ def save_stac1_to_s3(item_obj: Item):
     )
 
 
+def check_already_copied(item):
+
+    path_and_file_name = find_s3_path_and_file_name_from_item(
+        item=item,
+        start_url=AFRICA_S3_BUCKET_PATH
+    )
+
+    file_name = f"{path_and_file_name['file_name']}_stac.json"
+    key = f"{path_and_file_name['path']}/{file_name}"
+
+    exist = key_not_existent(
+        SYNC_LANDSAT_CONNECTION_ID,
+        AFRICA_AWS_REGION,
+        AFRICA_S3_BUCKET_NAME,
+        key
+    )
+
+    return bool(exist)
+
+
 def process():
     """
     Main function to process information from the queue
@@ -457,45 +477,50 @@ def process():
                 replace_links(item=item)
                 logging.info("Links Replaced")
 
-                logging.info("Start process to merge assets")
-                merge_assets(item=item)
-                logging.info("Assets Merged")
+                logging.info("Checking if Stac was already processed")
+                already_processed = check_already_copied(item=item)
+                logging.info(f"Stac {'processed' if already_processed else 'NOT processed'}!")
 
-                logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
-                asset_addresses_paths = retrieve_asset_s3_path_from_item(item)
-                logging.info("S3 asset hrefs stored")
+                if not already_processed:
+                    logging.info("Start process to merge assets")
+                    merge_assets(item=item)
+                    logging.info("Assets Merged")
 
-                logging.info("Start process to replace assets links")
-                replace_asset_links(item=item)
-                logging.info("Assets links replaced")
+                    logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
+                    asset_addresses_paths = retrieve_asset_s3_path_from_item(item)
+                    logging.info("S3 asset hrefs stored")
 
-                logging.info("Start process to add custom property odc:product")
-                add_odc_product_and_odc_region_code_properties(item=item)
-                logging.info("Custom property odc:product added")
+                    logging.info("Start process to replace assets links")
+                    replace_asset_links(item=item)
+                    logging.info("Assets links replaced")
 
-                # Copy files from USGS' S3 and store into Africa's S3
-                logging.info("Start process to transfer data from USGS S3 to Africa S3")
-                transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
-                logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
+                    logging.info("Start process to add custom property odc:product")
+                    add_odc_product_and_odc_region_code_properties(item=item)
+                    logging.info("Custom property odc:product added")
 
-                # Transform stac to 1.0.0-beta.2
-                logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
-                stac_1_item = make_stac_transformation(item)
-                logging.info(f"Stac transformed from version 0.7.0 to 1.0.0-beta.2")
-                # Save new stac 1 Items into Africa's S3
+                    # Copy files from USGS' S3 and store into Africa's S3
+                    logging.info("Start process to transfer data from USGS S3 to Africa S3")
+                    transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
+                    logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
 
-                logging.info(f"Saving new Items to S3 bucket as JSON")
-                save_stac1_to_s3(item_obj=stac_1_item)
-                logging.info(f"Items saved")
+                    # Transform stac to 1.0.0-beta.2
+                    logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
+                    stac_1_item = make_stac_transformation(item)
+                    logging.info(f"Stac transformed from version 0.7.0 to 1.0.0-beta.2")
+                    # Save new stac 1 Items into Africa's S3
 
-                # Send to the SNS
-                logging.info(f"Pushing Item to the SNS {stac_1_item.to_dict()}")
-                publish_to_sns_topic(
-                    aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
-                    target_arn=AFRICA_SNS_TOPIC_ARN,
-                    message=json.dumps(stac_1_item.to_dict())
-                )
-                logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
+                    logging.info(f"Saving new Items to S3 bucket as JSON")
+                    save_stac1_to_s3(item_obj=stac_1_item)
+                    logging.info(f"Items saved")
+
+                    # Send to the SNS
+                    logging.info(f"Pushing Item to the SNS {stac_1_item.to_dict()}")
+                    publish_to_sns_topic(
+                        aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                        target_arn=AFRICA_SNS_TOPIC_ARN,
+                        message=json.dumps(stac_1_item.to_dict())
+                    )
+                    logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
 
                 logging.info(f'Deleting messages')
                 delete_message(message)

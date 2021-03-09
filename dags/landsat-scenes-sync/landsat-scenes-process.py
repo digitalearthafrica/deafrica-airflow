@@ -45,27 +45,14 @@ dag = DAG(
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
-    retrieve_messages = [PythonOperator(
-        task_id=f"Read_messages",
-        python_callable=process,
-        op_kwargs=dict(),
-        dag=dag,
-    )]
-
-    # processes = []
-    #
-    # count_tasks = ((end_date - start_date).days + 1)
-    # while count_tasks > 0:
-    #     processes.append(
-    #         PythonOperator(
-    #             task_id=f'Task-Day-{requested_date.date().isoformat()}',
-    #             python_callable=retrieve_json_data_and_send,
-    #             op_kwargs=dict(date=requested_date),
-    #             dag=dag,
-    #         )
-    #     )
-    #     requested_date -= timedelta(days=1)
-    #     count_tasks -= 1
+    retrieve_messages = [
+        PythonOperator(
+            task_id=f"Processing_Messages_DEAfrica",
+            python_callable=process,
+            op_kwargs=dict(),
+            dag=dag,
+        )
+    ]
 
     END = DummyOperator(task_id="end-tasks")
 
