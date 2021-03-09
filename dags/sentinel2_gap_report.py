@@ -102,7 +102,7 @@ def generate_buckets_diff():
                 {len(orphaned_keys)} scenes no longer exist in s3://sentinel-cogs"
     print(message)
 
-    if len(missing_scenes) > 0 or len(orphaned_keys) > 0:
+    if len(missing_scenes) > 200 or len(orphaned_keys) > 200:
         raise AirflowException(message)
 
 
