@@ -1,4 +1,7 @@
-IMAGE_ECR = "538673716275.dkr.ecr.ap-southeast-2.amazonaws.com"
+"""
+# KubernetesPodOperator shared configurations
+"""
+IMAGE_ECR = "543785577597.dkr.ecr.af-south-1.amazonaws.com"
 
 NODE_AFFINITY = {
     "nodeAffinity": {

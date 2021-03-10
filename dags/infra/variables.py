@@ -1,7 +1,5 @@
 """
-# Environment shared variables read from airflow variable config, provided by infrastracture
-# https://airflow.apache.org/docs/stable/concepts.html?highlight=variable#storing-variables-in-environment-variables
-# Variables set using Environment Variables would not appear in the Airflow UI but you will be able to use it in your DAG file
+# Variables provided from infra to dags
 """
 from airflow.models import Variable
 
@@ -17,3 +15,4 @@ DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-d
 
 SECRET_EXPLORER_WRITER_NAME = Variable.get("explorer_secret", "explorer-writer")
 SECRET_OWS_WRITER_NAME = Variable.get("ows_secret", "ows-writer")
+SECRET_ODC_WRITER_NAME = Variable.get("ows_secret", "odc-writer")
