@@ -30,7 +30,7 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "AWS_DEFAULT_REGION": "us-east-2",
+        "AWS_DEFAULT_REGION": "us-west-2",
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_PORT": "5432",
     },
@@ -38,9 +38,9 @@ DEFAULT_ARGS = {
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
     "secrets": [
-        Secret("env", "DB_DATABASE", "explorer-admin", "database-name"),
-        Secret("env", "DB_USERNAME", "explorer-admin", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "explorer-admin", "postgres-password"),
+        Secret("env", "DB_DATABASE", "explorer-db", "database-name"),
+        Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password"),
     ],
 }
 
