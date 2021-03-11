@@ -40,8 +40,8 @@ DEFAULT_ARGS = {
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
     "secrets": [
-        Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password"),
+        Secret("env", "DB_USERNAME", "dba-admin", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "dba-admin", "postgres-password"),
     ],
 }
 
