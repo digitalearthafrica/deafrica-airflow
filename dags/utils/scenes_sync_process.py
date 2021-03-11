@@ -12,8 +12,6 @@ from typing import Iterable
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-
-from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from pystac import (
     Item,
     Link
@@ -27,7 +25,7 @@ from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from utils.url_request_utils import (
     get_s3_contents_and_attributes,
     copy_s3_to_s3,
-    key_not_existent, save_obj_to_s3, publish_to_sns_topic
+    key_not_existent, save_obj_to_s3, publish_to_sns_topic, get_queue
 )
 
 os.environ['CURL_CA_BUNDLE'] = '/etc/ssl/certs/ca-certificates.crt'
@@ -49,23 +47,6 @@ AFRICA_S3_BUCKET_PATH = f's3://{AFRICA_S3_BUCKET_NAME}/'
 AFRICA_S3_BUCKET_URL = f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.amazonaws.com/"
 
 
-def get_queue():
-    # Todo move to utils
-    """
-    Function to connect to the right queue and return an instance of that
-    :return: instance of a QUEUE
-    """
-
-    logging.info(f'Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
-    logging.info(f'Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}')
-
-    sqs_hook = SQSHook(aws_conn_id=SYNC_LANDSAT_CONNECTION_ID)
-    sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SYNC_LANDSAT_CONNECTION_SQS_QUEUE)
-
-    return queue
-
-
 def get_messages(
     limit: int = None,
     visibility_timeout: int = 60,
@@ -80,7 +61,13 @@ def get_messages(
     :return: Generator
     """
 
-    queue = get_queue()
+    logging.info(f'Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
+    logging.info(f'Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}')
+
+    queue = get_queue(
+        aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+        queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    )
 
     count = 0
     while True:

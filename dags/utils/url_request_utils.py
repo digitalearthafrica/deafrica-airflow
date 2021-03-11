@@ -3,7 +3,11 @@ import logging
 
 import botocore
 import requests
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+
+from airflow.contrib.hooks.aws_sns_hook import (
+    AwsSnsHook,
+    SQSHook
+)
 from airflow.hooks.S3_hook import S3Hook
 
 
@@ -201,3 +205,18 @@ def publish_to_sns_topic(
     )
 
 
+def get_queue(
+    aws_conn_id: str,
+    queue_name: str,
+):
+    # Todo move to utils
+    """
+    Function to connect to the right queue and return an instance of that
+    :return: instance of a QUEUE
+    """
+
+    sqs_hook = SQSHook(aws_conn_id=aws_conn_id)
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+
+    return queue
