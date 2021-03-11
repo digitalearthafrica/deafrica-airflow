@@ -19,6 +19,7 @@ local_tz = pendulum.timezone("Africa/Johannesburg")
 
 # Templated DAG arguments
 DB_HOSTNAME = "db-writer"
+DB_DATABASE = "africa"
 
 DEFAULT_ARGS = {
     "owner": "Tisham Dhar",
@@ -32,13 +33,13 @@ DEFAULT_ARGS = {
     "env_vars": {
         "AWS_DEFAULT_REGION": "us-west-2",
         "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_DATABASE": DB_DATABASE,
         "DB_PORT": "5432",
     },
     # Use K8S secrets to send DB Creds
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
     "secrets": [
-        Secret("env", "DB_DATABASE", "explorer-db", "database-name"),
         Secret("env", "DB_USERNAME", "explorer-db", "postgres-username"),
         Secret("env", "DB_PASSWORD", "explorer-db", "postgres-password"),
     ],
