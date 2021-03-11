@@ -87,7 +87,7 @@ with dag:
         task_id="update-schema",
         get_logs=True,
         is_delete_operator_pod=True,
-        affinity=affinity,
+        # affinity=affinity,
         # execution_timeout=timedelta(days=1),
     )
 
