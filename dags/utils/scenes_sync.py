@@ -8,23 +8,10 @@ import threading
 import requests
 import pandas as pd
 
-from airflow.contrib.hooks.aws_sqs_hook import SQSHook
-
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
-# ######### AWS CONFIG ############
-from utils.url_request_utils import request_url
-
-AWS_CONFIG = {
-    "africa_dev_conn_id": SYNC_LANDSAT_CONNECTION_ID,
-    "sqs_queue": SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    "arn": "arn:aws:sqs:ap-southeast-2:717690029437:Rodrigo_Test",
-}
-
-# ######### S3 CONFIG ############
-SRC_BUCKET_NAME = "sentinel-cogs"
-QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
+from utils.url_request_utils import request_url, publish_to_sqs_queue
 
 ALLOWED_PATHROWS = set(pd.read_csv(
         "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-usgs-pathrows.csv.gz",
@@ -40,11 +27,13 @@ def publish_messages(datasets):
     """
 
     def post_messages(messages_to_send):
-        queue.send_messages(Entries=messages_to_send)
-
-    sqs_hook = SQSHook(aws_conn_id=AWS_CONFIG["africa_dev_conn_id"])
-    sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=AWS_CONFIG["sqs_queue"])
+        logging.info(f'Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
+        publish_to_sqs_queue(
+            aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+            messages=messages_to_send
+        )
+        logging.info(f'messages sent {messages_to_send}')
 
     count = 0
     messages = []
@@ -56,6 +45,7 @@ def publish_messages(datasets):
         messages.append(message)
 
         count += 1
+        # Send 10 messages per time
         if count % 10 == 0:
             post_messages(messages)
             messages = []
@@ -64,6 +54,7 @@ def publish_messages(datasets):
     if len(messages) > 0:
         post_messages(messages)
 
+    logging.info(f"{count} messages sent successfully :)")
     return count
 
 
@@ -73,6 +64,8 @@ def get_allowed_features_json(retrieved_json):
     :param retrieved_json: (dict) retrieved value
     :return: (list)
     """
+    logging.info("Filtering the scenes and allowing just the Africa ones based on its PathRow")
+
     if retrieved_json.get("features") and retrieved_json["features"]:
         return [
             feature
@@ -80,8 +73,9 @@ def get_allowed_features_json(retrieved_json):
             if (
                 feature.get("properties")
                 and feature["properties"].get("landsat:wrs_path")
-                and f"{feature['properties']['landsat:wrs_path']}"
-                f"{feature['properties']['landsat:wrs_row']}" in ALLOWED_PATHROWS
+                and int(
+                    f"{feature['properties']['landsat:wrs_path']}{feature['properties']['landsat:wrs_row']}"
+                ) in ALLOWED_PATHROWS
             )
         ]
 
@@ -100,6 +94,8 @@ def validate_and_send(api_return):
     datasets = get_allowed_features_json(retrieved_json=api_return)
     if datasets:
         publish_messages(datasets=datasets)
+    else:
+        logging.info("No valid scenes were found!")
 
 
 def request_api_and_send(url: str, params=None):
@@ -122,12 +118,16 @@ def request_api_and_send(url: str, params=None):
 
     logging.info(f"API returned: {returned}")
 
+    logging.debug(f"Found {returned['meta']['found']}")
+
+    # Validate and send to Africa's SQS queue
+    validate_and_send(api_return=returned)
+
     # Retrieve daily requests
     if params:
-        logging.debug(f"Found {returned['meta']['found']}")
 
-        validate_and_send(api_return=returned)
-
+        logging.info('Checking for additional page data')
+        found = False
         if (
             returned.get("meta")
             and returned["meta"].get("page")
@@ -139,11 +139,21 @@ def request_api_and_send(url: str, params=None):
                 returned["meta"]["returned"] == returned["meta"]["limit"]
                 and (returned["meta"]["page"] * returned["meta"]["limit"]) < returned["meta"]["found"]
             ):
-                params.update({"page": returned["meta"]["page"] + 1})
+                found = True
+                page = returned["meta"]["page"] + 1
+
+                logging.info(f"Additional data found, requesting page {page}")
+
+                params.update({"page": page})
                 request_api_and_send(url=url, params=params)
-    else:
-        # Came from the bulk CSV file
-        validate_and_send(api_return=returned)
+
+                logging.info(
+                    "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+                )
+        if not found:
+            logging.info('No additional page data was found')
+
+    logging.info("Process Finished !! :)")
 
 
 def retrieve_json_data_and_send(date=None, display_ids=None):
@@ -165,10 +175,9 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
     try:
 
         if not date and not display_ids:
-            raise Exception(
-                "Date is required for daily JSON request. "
-                "For a bulk CSV request, Display_ids is required"
-            )
+            msg = "Date is required for daily JSON request. For a bulk CSV request, Display_ids is required"
+            logging.error(msg)
+            raise Exception(msg)
 
         main_url = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
         africa_bbox = [
@@ -179,6 +188,9 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
         ]
 
         if not display_ids:
+
+            logging.info(f"Starting Daily process")
+
             params = {
                 "limit": 100,
                 "bbox": json.dumps(africa_bbox),
@@ -189,6 +201,9 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
             request_api_and_send(url=main_url, params=params)
 
         else:
+
+            logging.info(f"Starting Bulk process")
+
             # Limit number of threads
             num_of_threads = 16
             count_tasks = len(display_ids)
@@ -211,7 +226,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                         args=(f"{main_url}/{display_id}",),
                     )
                     for display_id in display_ids[
-                        (count_tasks - num_of_threads) : count_tasks
+                        (count_tasks - num_of_threads): count_tasks
                     ]
                 ]
 
@@ -290,7 +305,7 @@ def filter_africa_location(file_path):
         and (
             row.get("WRS Path")
             and row.get("WRS Row")
-            and f"{row['WRS Path']}{row['WRS Row']}" in ALLOWED_PATHROWS
+            and int(f"{row['WRS Path']}{row['WRS Row']}") in ALLOWED_PATHROWS
         )
         # Filter to get just day
         and (
