@@ -3,6 +3,8 @@ import logging
 
 import botocore
 import requests
+
+from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
@@ -52,11 +54,11 @@ def check_s3_copy_return(returned: dict):
 
 
 def get_s3_contents_and_attributes(
-    s3_conn_id: str,
-    bucket_name: str,
-    key: str,
-    params: dict = {},
-    region_name: str = "us-west-2"
+        s3_conn_id: str,
+        bucket_name: str,
+        key: str,
+        params: dict = {},
+        region_name: str = "us-west-2"
 ):
     """
 
@@ -85,11 +87,11 @@ def get_s3_contents_and_attributes(
 
 
 def save_obj_to_s3(
-    s3_conn_id: str,
-    file: bytes,
-    destination_key: str,
-    destination_bucket: str,
-    acl: str = "public-read"
+        s3_conn_id: str,
+        file: bytes,
+        destination_key: str,
+        destination_bucket: str,
+        acl: str = "public-read"
 ):
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
@@ -104,13 +106,13 @@ def save_obj_to_s3(
 
 
 def copy_s3_to_s3(
-    s3_conn_id: str,
-    source_bucket: str,
-    destination_bucket: str,
-    source_key: str,
-    destination_key: str = None,
-    request_payer: str = None,
-    acl: str = "public-read"
+        s3_conn_id: str,
+        source_bucket: str,
+        destination_bucket: str,
+        source_key: str,
+        destination_key: str = None,
+        request_payer: str = None,
+        acl: str = "public-read"
 ):
     """
     Function to copy files from one S3 bucket to another.
@@ -201,3 +203,41 @@ def publish_to_sns_topic(
     )
 
 
+def publish_to_sqs_queue(
+        aws_conn_id: str,
+        queue_name: str,
+        messages: list,
+        attributes: dict = {}
+):
+    """
+    Function to publish a message to a SQS
+    :param queue_name:(str) AWS SQS queue name
+    :param aws_conn_id:(str) Airflow Connection ID
+    :param messages:(list) Messages list to be sent
+    :param attributes:(dict) not in use yet
+    :return:None
+    """
+
+    sqs_hook = SQSHook(aws_conn_id=aws_conn_id)
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+    returned = queue.send_messages(Entries=messages)
+    logging.info(f'RETURNED {returned}')
+    check_s3_copy_return(returned=returned)
+
+
+def get_queue(
+        aws_conn_id: str,
+        queue_name: str,
+):
+    # Todo move to utils
+    """
+    Function to connect to the right queue and return an instance of that
+    :return: instance of a QUEUE
+    """
+
+    sqs_hook = SQSHook(aws_conn_id=aws_conn_id)
+    sqs = sqs_hook.get_resource_type("sqs")
+    queue = sqs.get_queue_by_name(QueueName=queue_name)
+
+    return queue

@@ -27,8 +27,7 @@ to copy the data to Cape Town and upgrade the STAC metadata and create a notific
 Install pip modules
 
 ```bash
-    pip install --user --upgrade pip
-    pip install --user stactools[all] pystac rasterio    
+    pip install --user --upgrade pip && pip install --user stactools[all] pystac rasterio    
 ```
 
 ### Logic and utils
