@@ -9,6 +9,8 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from datetime import datetime, timedelta
 
+from infra.images import INDEXER_IMAGE
+
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -22,26 +24,17 @@ DEFAULT_ARGS = {
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
-        "DB_DATABASE": "africa",
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
-        Secret(
-            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
-        ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "indexing-aws-creds-prod",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
+        Secret("env", "AWS_DEFAULT_REGION", "landsat-indexing-user-creds", "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", "landsat-indexing-user-creds", "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", "landsat-indexing-user-creds", "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 
@@ -64,8 +57,6 @@ affinity = {
         }
     }
 }
-
-INDEXER_IMAGE = "opendatacube/datacube-index:latest"
 
 dag = DAG(
     "landsat-scenes-indexing",

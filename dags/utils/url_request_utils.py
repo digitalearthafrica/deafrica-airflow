@@ -222,8 +222,6 @@ def publish_to_sqs_queue(
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=queue_name)
     returned = queue.send_messages(Entries=messages)
-    logging.info(f'RETURNED {returned}')
-    check_s3_copy_return(returned=returned)
 
 
 def get_queue(
