@@ -32,9 +32,24 @@ DEFAULT_ARGS = {
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
-        Secret("env", "AWS_DEFAULT_REGION", "landsat-indexing-user-creds", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "landsat-indexing-user-creds", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "landsat-indexing-user-creds", "AWS_SECRET_ACCESS_KEY"),
+        Secret(
+            "env",
+            "AWS_DEFAULT_REGION",
+            "landsat-indexing-user-creds",
+            "AWS_DEFAULT_REGION",
+        ),
+        Secret(
+            "env",
+            "AWS_ACCESS_KEY_ID",
+            "landsat-indexing-user-creds",
+            "AWS_ACCESS_KEY_ID",
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            "landsat-indexing-user-creds",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
     ],
 }
 
@@ -73,7 +88,10 @@ with dag:
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
         arguments=[
-            "sqs-to-dc --stac deafrica-dev-eks-index-landsat-scene 'ls8_c2l2 ls7_c2l2 ls5_c2l2'"
+            "sqs-to-dc",
+            "--stac",
+            "deafrica-dev-eks-index-landsat-scene",
+            '"ls8_c2l2 ls7_c2l2 ls5_c2l2"',
         ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
