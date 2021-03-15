@@ -77,7 +77,12 @@ def get_messages(
             WaitTimeSeconds=10,
             MessageAttributeNames=message_attributes,
         )
-        if len(messages) == 0 or (limit and count >= limit):
+
+        if len(messages) == 0:
+            logging.info("No messages were found!")
+            break
+        if limit and count >= limit:
+            logging.info(f"limit of {limit} reached!")
             break
         else:
             for message in messages:
@@ -222,7 +227,9 @@ def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     assets = item.get_assets()
     asset = assets.get("index")
     if asset and hasattr(asset, "href"):
-        logging.info(f'asset.href {asset.href}')
+
+        logging.debug(f'asset.href {asset.href}')
+
         file_name = f'{asset.href.split("/")[-1]}'
         asset_s3_path = asset.href.replace(start_url, "")
 
@@ -244,7 +251,7 @@ def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
     if path_and_mame and path_and_mame.get('path') and path_and_mame.get('file_name'):
         full_path = f"{path_and_mame['path']}/{path_and_mame['file_name']}_ST_stac.json"
 
-        logging.info(f"Accessing file {full_path}")
+        logging.debug(f"Accessing file {full_path}")
 
         params = {"RequestPayer": "requester"}
         response = get_s3_contents_and_attributes(
@@ -420,12 +427,15 @@ def check_already_copied(item):
 
     path_and_file_name = find_s3_path_and_file_name_from_item(
         item=item,
-        start_url=AFRICA_S3_BUCKET_PATH
+        start_url=USGS_INDEX_URL
     )
 
     file_name = f"{path_and_file_name['file_name']}_stac.json"
     key = f"{path_and_file_name['path']}/{file_name}"
 
+    logging.info(f'Checking for {key}')
+
+    # If not exist return the path, if exist return None
     exist = key_not_existent(
         SYNC_LANDSAT_CONNECTION_ID,
         AFRICA_AWS_REGION,
@@ -433,7 +443,7 @@ def check_already_copied(item):
         key
     )
 
-    return bool(exist)
+    return not bool(exist)
 
 
 def process():
@@ -447,10 +457,6 @@ def process():
         # Retrieve messages from the queue
         messages = get_messages()
 
-        if not messages:
-            logging.info("No messages were found!")
-            return
-
         for message in messages:
 
             try:
@@ -460,15 +466,16 @@ def process():
                 item = convert_dict_to_pystac_item(json.loads(message.body))
                 logging.info(f"Message converted {item.to_dict()}")
 
-                logging.info("Start process to replace links")
-                replace_links(item=item)
-                logging.info("Links Replaced")
-
                 logging.info("Checking if Stac was already processed")
                 already_processed = check_already_copied(item=item)
                 logging.info(f"Stac {'processed' if already_processed else 'NOT processed'}!")
 
                 if not already_processed:
+
+                    logging.info("Start process to replace links")
+                    replace_links(item=item)
+                    logging.info("Links Replaced")
+
                     logging.info("Start process to merge assets")
                     merge_assets(item=item)
                     logging.info("Assets Merged")
