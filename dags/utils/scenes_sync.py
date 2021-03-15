@@ -67,6 +67,7 @@ def get_allowed_features_json(retrieved_json):
     logging.info("Filtering the scenes and allowing just the Africa ones based on its PathRow")
 
     if retrieved_json.get("features") and retrieved_json["features"]:
+        # Daily
         return [
             feature
             for feature in retrieved_json["features"]
@@ -80,6 +81,7 @@ def get_allowed_features_json(retrieved_json):
         ]
 
     elif not retrieved_json.get("features") and retrieved_json.get("properties"):
+        # Bulk
         return [retrieved_json]
 
     return []
@@ -118,13 +120,12 @@ def request_api_and_send(url: str, params=None):
 
     logging.info(f"API returned: {returned}")
 
-    logging.debug(f"Found {returned['meta']['found']}")
-
     # Validate and send to Africa's SQS queue
     validate_and_send(api_return=returned)
 
     # Retrieve daily requests
     if params:
+        logging.debug(f"Found {returned['meta']['found']}")
 
         logging.info('Checking for additional page data')
         found = False
