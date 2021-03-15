@@ -32,9 +32,24 @@ DEFAULT_ARGS = {
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
-        Secret("env", "AWS_DEFAULT_REGION", "landsat-indexing-user-creds", "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", "landsat-indexing-user-creds", "AWS_ACCESS_KEY_ID"),
-        Secret("env", "AWS_SECRET_ACCESS_KEY", "landsat-indexing-user-creds", "AWS_SECRET_ACCESS_KEY"),
+        Secret(
+            "env",
+            "AWS_DEFAULT_REGION",
+            "landsat-indexing-user-creds",
+            "AWS_DEFAULT_REGION",
+        ),
+        Secret(
+            "env",
+            "AWS_ACCESS_KEY_ID",
+            "landsat-indexing-user-creds",
+            "AWS_ACCESS_KEY_ID",
+        ),
+        Secret(
+            "env",
+            "AWS_SECRET_ACCESS_KEY",
+            "landsat-indexing-user-creds",
+            "AWS_SECRET_ACCESS_KEY",
+        ),
     ],
 }
 
