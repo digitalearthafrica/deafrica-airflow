@@ -88,10 +88,8 @@ with dag:
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
         arguments=[
-            "sqs-to-dc",
-            "--stac",
-            "deafrica-dev-eks-index-landsat-scene",
-            '"ls8_c2l2 ls7_c2l2 ls5_c2l2"',
+            "bash -c"
+            "'sqs-to-dc --stac deafrica-dev-eks-index-landsat-scene \"ls8_c2l2 ls7_c2l2 ls5_c2l2\"'",
         ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
