@@ -87,7 +87,12 @@ with dag:
         namespace="processing",
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
-        arguments=["sqs-to-dc --stac deafrica-dev-eks-index-landsat-scene ls8_c2l2"],
+        arguments=[
+            "sqs-to-dc",
+            "--stac",
+            "deafrica-dev-eks-index-landsat-scene",
+            "ls8_c2l2 ls7_c2l2 ls5_c2l2",
+        ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
         task_id="indexing-task",
