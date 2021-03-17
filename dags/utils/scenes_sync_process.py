@@ -354,7 +354,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
         missing_assets = filter_just_missing_assets(asset_address_paths)
 
         logging.info(f'Copying missing assets {missing_assets}')
-
+        logging.info('USING conn_sync_landsat_scene2')
         task = [
             executor.submit(
                 copy_s3_to_s3,
