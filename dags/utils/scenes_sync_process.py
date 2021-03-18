@@ -25,7 +25,10 @@ from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from utils.url_request_utils import (
     get_s3_contents_and_attributes,
     copy_s3_to_s3,
-    key_not_existent, save_obj_to_s3, publish_to_sns_topic, get_queue
+    key_not_existent,
+    save_obj_to_s3,
+    publish_to_sns_topic,
+    get_queue
 )
 
 os.environ['CURL_CA_BUNDLE'] = '/etc/ssl/certs/ca-certificates.crt'
