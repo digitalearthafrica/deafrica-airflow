@@ -130,27 +130,39 @@ def replace_links(item: Item):
     # Remove all Links
     item.clear_links()
 
-    self_link = Link(
-        rel="self",
-        target=usgs_self_target.replace(USGS_API_MAIN_URL, AFRICA_S3_BUCKET_PATH)
-        if usgs_self_target
-        else AFRICA_S3_BUCKET_PATH,
-    )
-    item.add_link(self_link)
-
+    # Add derived_from pointing to USGS
     derived_from = Link(
         rel="derived_from",
-        target=usgs_self_target
-        if usgs_self_target
-        else USGS_API_MAIN_URL,
+        target=usgs_self_target if usgs_self_target else USGS_API_MAIN_URL,
     )
     item.add_link(derived_from)
 
-    product_overview = Link(
-        rel="product_overview",
-        target=generate_odc_product_name(item=item),
+    # Add Self Link point to stac 1.0
+    path_and_mame = find_s3_path_and_file_name_from_item(
+        item=item,
+        start_url=USGS_INDEX_URL
     )
-    item.add_link(product_overview)
+
+    if path_and_mame and path_and_mame.get('path') and path_and_mame.get('file_name'):
+        file_name = f"{path_and_mame['file_name']}_stac.json"
+        self_path = f"{path_and_mame['path']}/{file_name}"
+
+        self_link = Link(
+            rel="self",
+            target=f'{AFRICA_S3_BUCKET_PATH}{self_path}'
+        )
+        item.add_link(self_link)
+        logging.info(f"Self link created {self_link}")
+    else:
+        raise Exception('There was a issue creating SELF link')
+
+    # Add product_overview
+    product_overview_link = Link(
+        rel="product_overview",
+        target=f'{AFRICA_S3_BUCKET_PATH}{path_and_mame["path"]}',
+    )
+    logging.info(f"Product Overview link created {product_overview_link}")
+    item.add_link(product_overview_link)
 
 
 def replace_asset_links(item: Item):
@@ -273,8 +285,6 @@ def merge_assets(item: Item):
     :param item: Pystac Item
     :return: None
     """
-    # s3://usgs-landsat.s3-us-west-2.amazonaws.com/collection02/level-2/standard/
-    # s3://usgs-landsat/collection02/level-1/standard/oli-tirs/2020/157/019/LC08_L1GT_157019_20201207_20201217_02_T2/LC08_L1GT_157019_20201207_20201217_02_T2_stac.json"
 
     new_item = retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
 
@@ -380,16 +390,19 @@ def make_stac_transformation(item: Item):
     :param item:
     :return:
     """
+
     with rasterio.Env(
             aws_unsigned=True,
-            AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com'
+            AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com',
+            CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
     ):
+        # TODO Remove the Links below once Stactools library is updated
         self_link = item.get_single_link('self')
         self_target = self_link.target
         source_link = item.get_single_link('derived_from')
         source_target = source_link.target
 
-        # properti = item.properties.pop('odc:product')
+        logging.info(f'item.assets.get("SR_B2.TIF") {item.assets["SR_B2.TIF"].href}')
 
         returned = transform_stac_to_stac(
             item=item,
@@ -409,13 +422,8 @@ def save_stac1_to_s3(item_obj: Item):
     :param item_obj:(str) json to be saved in S3
     :return:
     """
-    path_and_file_name = find_s3_path_and_file_name_from_item(
-        item=item_obj,
-        start_url=AFRICA_S3_BUCKET_PATH
-    )
 
-    file_name = f"{path_and_file_name['file_name']}_stac.json"
-    destination_key = f"{path_and_file_name['path']}/{file_name}"
+    destination_key = item_obj.get_single_link('self').target.replace(AFRICA_S3_BUCKET_PATH, '/')
 
     logging.info(f"destination {destination_key}")
 
