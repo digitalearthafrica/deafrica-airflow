@@ -386,7 +386,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
 
 def make_stac_transformation(item: Item):
     """
-
+    Function to transform a stac 07 to 10
     :param item:
     :return:
     """
@@ -423,7 +423,7 @@ def save_stac1_to_s3(item_obj: Item):
     :return:
     """
 
-    destination_key = item_obj.get_single_link('self').target.replace(AFRICA_S3_BUCKET_PATH, '/')
+    destination_key = item_obj.get_single_link('self').target.replace(AFRICA_S3_BUCKET_PATH, '')
 
     logging.info(f"destination {destination_key}")
 

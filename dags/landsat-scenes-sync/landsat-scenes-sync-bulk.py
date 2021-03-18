@@ -31,6 +31,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
+    "version": "0.1"
 }
 # [END default_args]
 

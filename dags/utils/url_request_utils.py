@@ -130,7 +130,7 @@ def copy_s3_to_s3(
 
     if source_key and not destination_key:
         # If destination_key is not informed, build the same structure as the source_key
-        destination_key = source_key.replace(source_bucket, destination_bucket)
+        destination_key = source_key
 
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 

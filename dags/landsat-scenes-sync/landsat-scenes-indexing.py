@@ -21,6 +21,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
+    "version": "0.1",
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
