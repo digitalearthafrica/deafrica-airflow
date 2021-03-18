@@ -106,13 +106,13 @@ def save_obj_to_s3(
 
 
 def copy_s3_to_s3(
-        s3_conn_id: str,
-        source_bucket: str,
-        destination_bucket: str,
-        source_key: str,
-        destination_key: str = None,
-        request_payer: str = None,
-        acl: str = "public-read"
+    s3_conn_id: str,
+    source_bucket: str,
+    destination_bucket: str,
+    source_key: str,
+    destination_key: str = None,
+    request_payer: str = None,
+    acl: str = "public-read"
 ):
     """
     Function to copy files from one S3 bucket to another.
@@ -127,7 +127,7 @@ def copy_s3_to_s3(
 
     :return: None
     """
-    logging.info(f'copy_s3_to_s3 source: {source_key} destination: {destination_key}')
+
     if source_key and not destination_key:
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key
