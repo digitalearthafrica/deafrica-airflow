@@ -22,7 +22,6 @@ from stactools.landsat.utils import transform_stac_to_stac
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
-
 from utils.url_request_utils import (
     get_s3_contents_and_attributes,
     copy_s3_to_s3,
