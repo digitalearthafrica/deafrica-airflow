@@ -1,4 +1,3 @@
-import boto3
 import json
 import logging
 
@@ -8,7 +7,6 @@ import requests
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
-from airflow.contrib.hooks.aws_hook import AwsHook
 
 
 def test_http_return(returned):
@@ -134,29 +132,20 @@ def copy_s3_to_s3(
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key.replace(source_bucket, destination_bucket)
 
-    aws_hook = AwsHook(aws_conn_id=s3_conn_id)
-
-    cred = aws_hook.get_session().get_credentials()
-
-    s3_bucket_client = boto3.client(
-        service_name="s3",
-        region_name='af-south-1',
-        endpoint_url='https://s3.af-south-1.amazonaws.com',
-        aws_access_key_id=cred.access_key,
-        aws_secret_access_key=cred.secret_key
-    )
+    s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
     return check_s3_copy_return(
-        s3_bucket_client.copy_object(
+        # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
+        s3_hook.get_conn().copy_object(
             Bucket=destination_bucket,
             Key=destination_key,
-            RequestPayer=request_payer,
-            ACL=acl,
             CopySource={
                 "Bucket": source_bucket,
                 "Key": source_key,
                 "VersionId": None
             },
+            ACL=acl,
+            RequestPayer=request_payer,
         )
     )
 
