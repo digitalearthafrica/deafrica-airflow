@@ -127,27 +127,29 @@ def copy_s3_to_s3(
 
     :return: None
     """
-
+    logging.info(f'copy_s3_to_s3 source: {source_key} destination: {destination_key}')
     if source_key and not destination_key:
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key
 
+    logging.info(f'copy_s3_to_s3 source: {source_key} destination: {destination_key}')
+
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
-    return check_s3_copy_return(
-        # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
-        s3_hook.get_conn().copy_object(
-            Bucket=destination_bucket,
-            Key=destination_key,
-            CopySource={
-                "Bucket": source_bucket,
-                "Key": source_key,
-                "VersionId": None
-            },
-            ACL=acl,
-            RequestPayer=request_payer,
-        )
+    # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
+    returned = s3_hook.get_conn().copy_object(
+        Bucket=destination_bucket,
+        Key=destination_key,
+        CopySource={
+            "Bucket": source_bucket,
+            "Key": source_key,
+            "VersionId": None
+        },
+        ACL=acl,
+        RequestPayer=request_payer,
     )
+
+    return check_s3_copy_return(returned)
 
 
 def key_not_existent(
