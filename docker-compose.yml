@@ -14,7 +14,7 @@ services:
         max-size: 10m
         max-file: "3"
   setup-airflow:
-    image: &image apache/airflow:1.10.11
+    image: &image apache/airflow:1.10.14
     depends_on:
       - postgres
     environment: &env
