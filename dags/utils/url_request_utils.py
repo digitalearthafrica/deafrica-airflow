@@ -149,6 +149,8 @@ def copy_s3_to_s3(
         RequestPayer=request_payer,
     )
 
+    logging.info(f'RETURNED - {returned}')
+
     return check_s3_copy_return(returned)
 
 
@@ -167,17 +169,23 @@ def key_not_existent(
     :param key:(str) File path
     :return:(bool) True if exist, False if not
     """
-    try:
-        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-        s3_resource = s3_hook.get_resource_type("s3", region_name=region_name)
-        s3_obj = s3_resource.Object(bucket_name, key)
-        s3_obj.load()
-    except botocore.exceptions.ClientError as error:
-        if error.response['Error']['Code'] == "404":
-            return key
 
-    logging.info(f"Object {key} already exist at {bucket_name}")
-    return ''
+    # TODO test code (check_for_key tests head_object while load retrieves a metadata obj)
+    s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+    exist = s3_hook.check_for_key(key, bucket_name=bucket_name)
+    return key if not exist else ''
+
+    # try:
+    #     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+    #     s3_resource = s3_hook.get_resource_type("s3", region_name=region_name)
+    #     s3_obj = s3_resource.Object(bucket_name, key)
+    #     s3_obj.load()
+    # except botocore.exceptions.ClientError as error:
+    #     if error.response['Error']['Code'] == "404":
+    #         return key
+    #
+    # logging.info(f"Object {key} already exist at {bucket_name}")
+    # return ''
 
 
 def publish_to_sns_topic(
