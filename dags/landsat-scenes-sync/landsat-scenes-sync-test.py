@@ -15,7 +15,6 @@ from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from utils.scenes_sync import ScenesSync
 
 # [END import_module]
 
