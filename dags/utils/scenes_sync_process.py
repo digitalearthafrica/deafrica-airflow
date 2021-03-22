@@ -12,10 +12,7 @@ from typing import Iterable
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from pystac import (
-    Item,
-    Link
-)
+from pystac import Item, Link
 
 from stactools.landsat.utils import transform_stac_to_stac
 
@@ -28,10 +25,10 @@ from utils.url_request_utils import (
     key_not_existent,
     save_obj_to_s3,
     publish_to_sns_topic,
-    get_queue
+    get_queue,
 )
 
-os.environ['CURL_CA_BUNDLE'] = '/etc/ssl/certs/ca-certificates.crt'
+os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 
 # ######### AWS CONFIG ############
 # TODO Configuration used on 3 different DAGS find shared place to place that
@@ -43,11 +40,15 @@ USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/"
 USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
 
 # ######### AFRICA ############
-AFRICA_SNS_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
+AFRICA_SNS_TOPIC_ARN = (
+    "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
+)
 AFRICA_AWS_REGION = "af-south-1"
 AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
-AFRICA_S3_BUCKET_PATH = f's3://{AFRICA_S3_BUCKET_NAME}/'
-AFRICA_S3_BUCKET_URL = f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.amazonaws.com/"
+AFRICA_S3_BUCKET_PATH = f"s3://{AFRICA_S3_BUCKET_NAME}/"
+AFRICA_S3_BUCKET_URL = (
+    f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.amazonaws.com/"
+)
 
 
 def get_messages(
@@ -64,8 +65,8 @@ def get_messages(
     :return: Generator
     """
 
-    logging.info(f'Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
-    logging.info(f'Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}')
+    logging.info(f"Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
+    logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     queue = get_queue(
         aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
@@ -139,22 +140,18 @@ def replace_links(item: Item):
 
     # Add Self Link point to stac 1.0
     path_and_mame = find_s3_path_and_file_name_from_item(
-        item=item,
-        start_url=USGS_INDEX_URL
+        item=item, start_url=USGS_INDEX_URL
     )
 
-    if path_and_mame and path_and_mame.get('path') and path_and_mame.get('file_name'):
+    if path_and_mame and path_and_mame.get("path") and path_and_mame.get("file_name"):
         file_name = f"{path_and_mame['file_name']}_stac.json"
         self_path = f"{path_and_mame['path']}/{file_name}"
 
-        self_link = Link(
-            rel="self",
-            target=f'{AFRICA_S3_BUCKET_PATH}{self_path}'
-        )
+        self_link = Link(rel="self", target=f"{AFRICA_S3_BUCKET_PATH}{self_path}")
         item.add_link(self_link)
         logging.info(f"Self link created {self_link}")
     else:
-        raise Exception('There was a issue creating SELF link')
+        raise Exception("There was a issue creating SELF link")
 
     # Add product_overview
     product_overview_link = Link(
@@ -174,12 +171,13 @@ def replace_asset_links(item: Item):
 
     assets = item.get_assets()
     for key, asset in assets.items():
-        asset_href = (asset.href if hasattr(asset, "href") else "").replace(
-            USGS_DATA_URL,
-            AFRICA_S3_BUCKET_PATH,
-        ).replace(
-            USGS_INDEX_URL,
-            AFRICA_S3_BUCKET_PATH
+        asset_href = (
+            (asset.href if hasattr(asset, "href") else "")
+            .replace(
+                USGS_DATA_URL,
+                AFRICA_S3_BUCKET_PATH,
+            )
+            .replace(USGS_INDEX_URL, AFRICA_S3_BUCKET_PATH)
         )
         if asset_href:
             asset.href = asset_href
@@ -221,9 +219,9 @@ def add_odc_product_and_odc_region_code_properties(item: Item):
         {
             "odc:product": generate_odc_product_name(item=item),
             "odc:region_code": "{path:03d}{row:03d}".format(
-                    path=int(item.properties["landsat:wrs_path"]),
-                    row=int(item.properties["landsat:wrs_row"]),
-                )
+                path=int(item.properties["landsat:wrs_path"]),
+                row=int(item.properties["landsat:wrs_row"]),
+            ),
         }
     )
 
@@ -243,12 +241,12 @@ def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     asset = assets.get("index")
     if asset and hasattr(asset, "href"):
 
-        logging.debug(f'asset.href {asset.href}')
+        logging.debug(f"asset.href {asset.href}")
 
         file_name = f'{asset.href.split("/")[-1]}'
         asset_s3_path = asset.href.replace(start_url, "")
 
-        return {'path': asset_s3_path, 'file_name': file_name}
+        return {"path": asset_s3_path, "file_name": file_name}
 
 
 def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
@@ -259,11 +257,10 @@ def retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item: Item):
     """
 
     path_and_mame = find_s3_path_and_file_name_from_item(
-        item=sr_item,
-        start_url=USGS_INDEX_URL
+        item=sr_item, start_url=USGS_INDEX_URL
     )
 
-    if path_and_mame and path_and_mame.get('path') and path_and_mame.get('file_name'):
+    if path_and_mame and path_and_mame.get("path") and path_and_mame.get("file_name"):
         full_path = f"{path_and_mame['path']}/{path_and_mame['file_name']}_ST_stac.json"
 
         logging.debug(f"Accessing file {full_path}")
@@ -311,9 +308,7 @@ def retrieve_asset_s3_path_from_item(item: Item):
 
     if assets:
         return [
-            asset.href.replace(
-                USGS_DATA_URL, ''
-            )
+            asset.href.replace(USGS_DATA_URL, "")
             for key, asset in assets.items()
             if hasattr(asset, "href")
             # Ignores the index key
@@ -332,17 +327,18 @@ def filter_just_missing_assets(asset_paths: list):
     # Limit number of threads
     num_of_threads = 20
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-        logging.info('FILTERING MISSING ASSETS')
+        logging.info("FILTERING MISSING ASSETS")
 
         tasks = [
-                executor.submit(
-                    key_not_existent,
-                    SYNC_LANDSAT_CONNECTION_ID,
-                    AFRICA_AWS_REGION,
-                    AFRICA_S3_BUCKET_NAME,
-                    link
-                ) for link in asset_paths
-            ]
+            executor.submit(
+                key_not_existent,
+                SYNC_LANDSAT_CONNECTION_ID,
+                AFRICA_AWS_REGION,
+                AFRICA_S3_BUCKET_NAME,
+                link,
+            )
+            for link in asset_paths
+        ]
 
         return [future.result() for future in as_completed(tasks) if future.result()]
 
@@ -366,7 +362,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
         # Check if the key was already copied
         missing_assets = filter_just_missing_assets(asset_address_paths)
 
-        logging.info(f'Copying missing assets {missing_assets}')
+        logging.info(f"Copying missing assets {missing_assets}")
 
         task = [
             executor.submit(
@@ -376,8 +372,9 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
                 AFRICA_S3_BUCKET_NAME,
                 link,
                 link,
-                "requester"
-            ) for link in missing_assets
+                "requester",
+            )
+            for link in missing_assets
         ]
 
         return [future.result() for future in as_completed(task) if future.result()]
@@ -391,26 +388,24 @@ def make_stac_transformation(item: Item):
     """
 
     with rasterio.Env(
-            aws_unsigned=True,
-            AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com',
-            CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"
+        aws_unsigned=True,
+        AWS_S3_ENDPOINT="s3.af-south-1.amazonaws.com",
+        CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
     ):
         # TODO Remove the Links below once Stactools library is updated
-        self_link = item.get_single_link('self')
+        self_link = item.get_single_link("self")
         self_target = self_link.target
-        source_link = item.get_single_link('derived_from')
+        source_link = item.get_single_link("derived_from")
         source_target = source_link.target
 
         logging.info(f'item.assets.get("SR_B2.TIF") {item.assets["SR_B2.TIF"].href}')
 
         returned = transform_stac_to_stac(
-            item=item,
-            self_link=self_target,
-            source_link=source_target
+            item=item, self_link=self_target, source_link=source_target
         )
 
-        if not returned.properties.get('proj:epsg'):
-            raise Exception('<proj:epsg> property is required')
+        if not returned.properties.get("proj:epsg"):
+            raise Exception("<proj:epsg> property is required")
 
         return returned
 
@@ -422,13 +417,15 @@ def save_stac1_to_s3(item_obj: Item):
     :return:
     """
 
-    destination_key = item_obj.get_single_link('self').target.replace(AFRICA_S3_BUCKET_PATH, '')
+    destination_key = item_obj.get_single_link("self").target.replace(
+        AFRICA_S3_BUCKET_PATH, ""
+    )
 
     logging.info(f"destination {destination_key}")
 
     save_obj_to_s3(
         s3_conn_id=SYNC_LANDSAT_CONNECTION_ID,
-        file=bytes(json.dumps(item_obj.to_dict()).encode('UTF-8')),
+        file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
         destination_key=destination_key,
         destination_bucket=AFRICA_S3_BUCKET_NAME,
     )
@@ -437,21 +434,17 @@ def save_stac1_to_s3(item_obj: Item):
 def check_already_copied(item):
 
     path_and_file_name = find_s3_path_and_file_name_from_item(
-        item=item,
-        start_url=USGS_INDEX_URL
+        item=item, start_url=USGS_INDEX_URL
     )
 
     file_name = f"{path_and_file_name['file_name']}_stac.json"
     key = f"{path_and_file_name['path']}/{file_name}"
 
-    logging.info(f'Checking for {key}')
+    logging.info(f"Checking for {key}")
 
     # If not exist return the path, if exist return None
     exist = key_not_existent(
-        SYNC_LANDSAT_CONNECTION_ID,
-        AFRICA_AWS_REGION,
-        AFRICA_S3_BUCKET_NAME,
-        key
+        SYNC_LANDSAT_CONNECTION_ID, AFRICA_AWS_REGION, AFRICA_S3_BUCKET_NAME, key
     )
 
     return not bool(exist)
@@ -479,7 +472,9 @@ def process():
 
                 logging.info("Checking if Stac was already processed")
                 already_processed = check_already_copied(item=item)
-                logging.info(f"Stac {'processed' if already_processed else 'NOT processed'}!")
+                logging.info(
+                    f"Stac {'processed' if already_processed else 'NOT processed'}!"
+                )
 
                 if not already_processed:
 
@@ -491,7 +486,9 @@ def process():
                     merge_assets(item=item)
                     logging.info("Assets Merged")
 
-                    logging.info("Start process to store all S3 asset href witch will be retrieved from USGS")
+                    logging.info(
+                        "Start process to store all S3 asset href witch will be retrieved from USGS"
+                    )
                     asset_addresses_paths = retrieve_asset_s3_path_from_item(item)
                     logging.info("S3 asset hrefs stored")
 
@@ -504,12 +501,20 @@ def process():
                     logging.info("Custom property odc:product added")
 
                     # Copy files from USGS' S3 and store into Africa's S3
-                    logging.info("Start process to transfer data from USGS S3 to Africa S3")
-                    transferred_items = transfer_data_from_usgs_to_africa(asset_addresses_paths)
-                    logging.info(f"{len(transferred_items)} new files were transferred from USGS to AFRICA")
+                    logging.info(
+                        "Start process to transfer data from USGS S3 to Africa S3"
+                    )
+                    transferred_items = transfer_data_from_usgs_to_africa(
+                        asset_addresses_paths
+                    )
+                    logging.info(
+                        f"{len(transferred_items)} new files were transferred from USGS to AFRICA"
+                    )
 
                     # Transform stac to 1.0.0-beta.2
-                    logging.info(f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2")
+                    logging.info(
+                        f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2"
+                    )
                     stac_1_item = make_stac_transformation(item)
                     logging.info(f"Stac transformed from version 0.7.0 to 1.0.0-beta.2")
                     # Save new stac 1 Items into Africa's S3
@@ -523,19 +528,21 @@ def process():
                     publish_to_sns_topic(
                         aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
                         target_arn=AFRICA_SNS_TOPIC_ARN,
-                        message=json.dumps(stac_1_item.to_dict())
+                        message=json.dumps(stac_1_item.to_dict()),
                     )
-                    logging.info(f'Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}')
+                    logging.info(f"Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}")
 
-                logging.info(f'Deleting messages')
+                logging.info(f"Deleting messages")
                 delete_message(message)
-                logging.info('Messages deleted')
+                logging.info("Messages deleted")
 
             except Exception as error:
-                logging.error(f'ERROR processing message {message}')
-                logging.error(f'ERROR returned {error}')
+                logging.error(f"ERROR returned {error}")
+                logging.error(f"Message {message.body}")
 
-            logging.info("*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*")
+            logging.info(
+                "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+            )
 
         logging.info("Whole Process finished successfully :)")
     except Exception as error:
