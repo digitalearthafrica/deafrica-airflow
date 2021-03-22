@@ -93,6 +93,8 @@ with dag:
             "--stac",
             "deafrica-dev-eks-index-landsat-scene",
             "ls8_c2l2 ls7_c2l2 ls5_c2l2",
+            "--update-if-exists",
+            "--allow-unsafe",
         ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
