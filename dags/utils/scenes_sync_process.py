@@ -362,12 +362,14 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
         # Check if the key was already copied
         missing_assets = filter_just_missing_assets(asset_address_paths)
 
-        logging.info(f"Copying missing assets {missing_assets}")
+        logging.info(f'Copying missing assets {missing_assets}')
+        logging.info('USING conn_sync_landsat_scene2')
 
         task = [
             executor.submit(
                 copy_s3_to_s3,
-                SYNC_LANDSAT_CONNECTION_ID,
+                "conn_sync_landsat_scene2",
+               # SYNC_LANDSAT_CONNECTION_ID,
                 USGS_S3_BUCKET_NAME,
                 AFRICA_S3_BUCKET_NAME,
                 link,
