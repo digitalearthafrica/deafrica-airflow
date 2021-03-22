@@ -1,4 +1,6 @@
 import logging
+from copy import deepcopy
+from urllib.parse import urlparse
 
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
@@ -18,6 +20,26 @@ class S3:
             return returned["ResponseMetadata"].get("RequestId")
         else:
             raise Exception(f"AWS S3 Copy object fail : {returned}")
+
+    def s3_urlparse(self, url):
+        """
+        Split S3 URL into bucket, key, filename
+        """
+        _url = deepcopy(url)
+        if url[0:5] == "https":
+
+            parts = urlparse(url)
+            bucket = parts.netloc.split(".")[0]
+            _url = f"s3://{bucket}{parts.path}"
+
+        if _url[0:5] != "s3://":
+            raise Exception(f"Invalid S3 url {_url}")
+
+        url_obj = _url.replace("s3://", "").split("/")
+
+        # remove empty items
+        url_obj = list(filter(lambda x: x, url_obj))
+        return {"bucket": url_obj[0], "key": "/".join(url_obj[1:])}
 
     def get_s3_contents_and_attributes(
         self,
