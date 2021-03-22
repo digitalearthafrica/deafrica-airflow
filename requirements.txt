@@ -4,3 +4,4 @@ rasterio~=1.1.8
 stactools-cli==0.1.4
 stactools-core==0.1.4
 stactools-landsat==0.1.4
+requests~=2.25.0
