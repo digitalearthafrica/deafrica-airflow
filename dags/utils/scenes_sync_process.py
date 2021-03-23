@@ -5,20 +5,27 @@
 import json
 import logging
 import os
-
+import time
 import rasterio
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from pystac import Item, Link
-
 from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
-
+from landsat_scenes_sync.variables import (
+    USGS_API_MAIN_URL,
+    USGS_INDEX_URL,
+    AFRICA_S3_BUCKET_PATH,
+    USGS_DATA_URL,
+    USGS_S3_BUCKET_NAME,
+    AFRICA_AWS_REGION,
+    AFRICA_S3_BUCKET_NAME,
+    AFRICA_SNS_TOPIC_ARN,
+)
 from utils.url_request_utils import (
     get_s3_contents_and_attributes,
     copy_s3_to_s3,
@@ -26,29 +33,10 @@ from utils.url_request_utils import (
     save_obj_to_s3,
     publish_to_sns_topic,
     get_queue,
+    time_process,
 )
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
-
-# ######### AWS CONFIG ############
-# TODO Configuration used on 3 different DAGS find shared place to place that
-# ######### USGS ############
-USGS_S3_BUCKET_NAME = "usgs-landsat"
-USGS_AWS_REGION = "us-west-2"
-USGS_INDEX_URL = "https://landsatlook.usgs.gov/stac-browser/"
-USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/"
-USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
-
-# ######### AFRICA ############
-AFRICA_SNS_TOPIC_ARN = (
-    "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic"
-)
-AFRICA_AWS_REGION = "af-south-1"
-AFRICA_S3_BUCKET_NAME = "deafrica-landsat-dev"
-AFRICA_S3_BUCKET_PATH = f"s3://{AFRICA_S3_BUCKET_NAME}/"
-AFRICA_S3_BUCKET_URL = (
-    f"https://{AFRICA_S3_BUCKET_NAME}.s3.{AFRICA_AWS_REGION}.amazonaws.com/"
-)
 
 
 def get_messages(
@@ -458,6 +446,8 @@ def process():
     """
 
     try:
+        start = time.time()
+
         logging.info("Starting process")
         # Retrieve messages from the queue
         messages = get_messages(visibility_timeout=600)
@@ -535,6 +525,10 @@ def process():
                 logging.info(f"Deleting messages")
                 delete_message(message)
                 logging.info("Messages deleted")
+
+                logging.info(
+                    f"Message processed and sent in {time_process(start=start)}"
+                )
 
             except Exception as error:
                 logging.error(f"ERROR returned {error}")

@@ -1,11 +1,11 @@
 import json
 import logging
+import time
 
-import botocore
 import requests
 
-from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 
 
@@ -47,18 +47,21 @@ def request_url(url: str, params: dict = {}):
 
 
 def check_s3_copy_return(returned: dict):
-    if returned.get('ResponseMetadata') and returned['ResponseMetadata'].get('HTTPStatusCode') == 200:
-        return returned['ResponseMetadata'].get('RequestId')
+    if (
+        returned.get("ResponseMetadata")
+        and returned["ResponseMetadata"].get("HTTPStatusCode") == 200
+    ):
+        return returned["ResponseMetadata"].get("RequestId")
     else:
-        raise Exception(f'AWS S3 Copy object fail : {returned}')
+        raise Exception(f"AWS S3 Copy object fail : {returned}")
 
 
 def get_s3_contents_and_attributes(
-        s3_conn_id: str,
-        bucket_name: str,
-        key: str,
-        params: dict = {},
-        region_name: str = "us-west-2"
+    s3_conn_id: str,
+    bucket_name: str,
+    key: str,
+    params: dict = {},
+    region_name: str = "us-west-2",
 ):
     """
 
@@ -74,12 +77,8 @@ def get_s3_contents_and_attributes(
         raise Exception("Key must be informed to be able connecting to AWS S3")
 
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-    s3_obj = s3_hook.get_resource_type(
-        "s3",
-        region_name=region_name
-    ).Object(
-        bucket_name,
-        key
+    s3_obj = s3_hook.get_resource_type("s3", region_name=region_name).Object(
+        bucket_name, key
     )
     response = s3_obj.get(**params)
     response_body = response.get("Body")
@@ -87,11 +86,11 @@ def get_s3_contents_and_attributes(
 
 
 def save_obj_to_s3(
-        s3_conn_id: str,
-        file: bytes,
-        destination_key: str,
-        destination_bucket: str,
-        acl: str = "public-read"
+    s3_conn_id: str,
+    file: bytes,
+    destination_key: str,
+    destination_bucket: str,
+    acl: str = "public-read",
 ):
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
@@ -101,7 +100,7 @@ def save_obj_to_s3(
         bucket_name=destination_bucket,
         replace=True,
         encrypt=False,
-        acl_policy=acl
+        acl_policy=acl,
     )
 
 
@@ -112,7 +111,7 @@ def copy_s3_to_s3(
     source_key: str,
     destination_key: str = None,
     request_payer: str = None,
-    acl: str = "public-read"
+    acl: str = "public-read",
 ):
     """
     Function to copy files from one S3 bucket to another.
@@ -132,7 +131,7 @@ def copy_s3_to_s3(
         # If destination_key is not informed, build the same structure as the source_key
         destination_key = source_key
 
-    logging.info(f'copy_s3_to_s3 source: {source_key} destination: {destination_key}')
+    logging.info(f"copy_s3_to_s3 source: {source_key} destination: {destination_key}")
 
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
 
@@ -140,25 +139,21 @@ def copy_s3_to_s3(
     returned = s3_hook.get_conn().copy_object(
         Bucket=destination_bucket,
         Key=destination_key,
-        CopySource={
-            "Bucket": source_bucket,
-            "Key": source_key,
-            "VersionId": None
-        },
+        CopySource={"Bucket": source_bucket, "Key": source_key, "VersionId": None},
         ACL=acl,
         RequestPayer=request_payer,
     )
 
-    logging.info(f'RETURNED - {returned}')
+    logging.info(f"RETURNED - {returned}")
 
     return check_s3_copy_return(returned)
 
 
 def key_not_existent(
-        s3_conn_id: str,
-        region_name: str,
-        bucket_name: str,
-        key: str,
+    s3_conn_id: str,
+    region_name: str,
+    bucket_name: str,
+    key: str,
 ):
     """
     Check on a S3 bucket if a object exist or not, if not returns the path, otherwise returns blank
@@ -173,26 +168,11 @@ def key_not_existent(
     # TODO test code (check_for_key tests head_object while load retrieves a metadata obj)
     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
     exist = s3_hook.check_for_key(key, bucket_name=bucket_name)
-    return key if not exist else ''
-
-    # try:
-    #     s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-    #     s3_resource = s3_hook.get_resource_type("s3", region_name=region_name)
-    #     s3_obj = s3_resource.Object(bucket_name, key)
-    #     s3_obj.load()
-    # except botocore.exceptions.ClientError as error:
-    #     if error.response['Error']['Code'] == "404":
-    #         return key
-    #
-    # logging.info(f"Object {key} already exist at {bucket_name}")
-    # return ''
+    return key if not exist else ""
 
 
 def publish_to_sns_topic(
-        aws_conn_id: str,
-        target_arn: str,
-        message: str,
-        attributes: dict = {}
+    aws_conn_id: str, target_arn: str, message: str, attributes: dict = {}
 ):
     """
     Function to publish a message to a SNS
@@ -214,10 +194,7 @@ def publish_to_sns_topic(
 
 
 def publish_to_sqs_queue(
-        aws_conn_id: str,
-        queue_name: str,
-        messages: list,
-        attributes: dict = {}
+    aws_conn_id: str, queue_name: str, messages: list, attributes: dict = {}
 ):
     """
     Function to publish a message to a SQS
@@ -235,8 +212,8 @@ def publish_to_sqs_queue(
 
 
 def get_queue(
-        aws_conn_id: str,
-        queue_name: str,
+    aws_conn_id: str,
+    queue_name: str,
 ):
     # Todo move to utils
     """
@@ -249,3 +226,16 @@ def get_queue(
     queue = sqs.get_queue_by_name(QueueName=queue_name)
 
     return queue
+
+
+def time_process(start: float):
+    """
+
+    :param start:
+    :return:
+    """
+    t_sec = round(time.time() - start)
+    (t_min, t_sec) = divmod(t_sec, 60)
+    (t_hour, t_min) = divmod(t_min, 60)
+
+    return f"{t_hour} hour: {t_min} min: {t_sec} sec"

@@ -5,13 +5,15 @@ import gzip
 import json
 import logging
 import threading
+import time
+
 import requests
 import pandas as pd
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
-from utils.url_request_utils import request_url, publish_to_sqs_queue
+from utils.url_request_utils import request_url, publish_to_sqs_queue, time_process
 
 ALLOWED_PATHROWS = set(
     pd.read_csv(
@@ -198,7 +200,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
         ]
 
         if not display_ids:
-
+            start_timer = time.time()
             logging.info(f"Starting Daily process")
 
             params = {
@@ -209,6 +211,8 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
             # Request daily JSON API
             request_api_and_send(url=main_url, params=params)
+
+            logging.info(f"Process finished in {time_process(start=start_timer)}")
 
         else:
 
@@ -251,6 +255,8 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                 [join_thread.join() for join_thread in thread_list]
 
                 count_tasks -= num_of_threads
+
+        logging.info(f"Whole process finished successfully ;)")
 
     except Exception as error:
         logging.error(error)
@@ -355,6 +361,8 @@ def retrieve_bulk_data(file_name):
     :return: None. Process send information to the queue
     """
     try:
+        start_timer = time.time()
+
         # Main URL
         main_url = (
             "https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/"
@@ -368,16 +376,23 @@ def retrieve_bulk_data(file_name):
 
         # Read file and retrieve the Display ids
         display_id_list = filter_africa_location(file_path)
-        logging.info(f"{len(display_id_list)} found after being filtered")
+        logging.info(
+            f"{len(display_id_list)} found after being filtered on {file_name}"
+        )
 
         if display_id_list:
 
             # request the API through the display id and send the information to the queue
             retrieve_json_data_and_send(display_ids=display_id_list)
+
         else:
             logging.info(
                 f"After filtered no valid Ids were found in the file {file_name}"
             )
+
+        logging.info(
+            f"File {file_name} processed and sent in {time_process(start=start_timer)}"
+        )
 
     except Exception as error:
         logging.error(error)

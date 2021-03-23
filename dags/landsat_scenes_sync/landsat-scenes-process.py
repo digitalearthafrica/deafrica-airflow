@@ -6,6 +6,7 @@ generate stac 1.0 and send to SNS.
 """
 
 # [START import_module]
+import time
 from datetime import timedelta, datetime
 
 from airflow import DAG
@@ -13,6 +14,7 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from utils.scenes_sync_process import process
+from utils.url_request_utils import time_process
 
 # [END import_module]
 
@@ -29,7 +31,7 @@ DEFAULT_ARGS = {
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
     "limit_of_processes": 20,
-    "version": "0.1.4",
+    "version": "0.2",
 }
 # [END default_args]
 
@@ -46,7 +48,7 @@ dag = DAG(
 # [END instantiate_dag]
 
 
-def terminate(ti, **kwargs):
+def terminate(ti, start_timer, **kwargs):
     successful_msg_counts = 0
     failed_msg_counts = 0
 
@@ -59,13 +61,18 @@ def terminate(ti, **kwargs):
     print(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
     )
+    print(f"Message processed and sent in {time_process(start=start_timer)}")
 
 
 with dag:
+
     START = DummyOperator(task_id="start-tasks")
 
     END = PythonOperator(
-        task_id="end-tasks", python_callable=terminate, provide_context=True
+        task_id="end-tasks",
+        python_callable=terminate,
+        op_kwargs=dict(start_timer=time.time()),
+        provide_context=True,
     )
 
     retrieve_messages = [

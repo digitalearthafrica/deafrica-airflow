@@ -30,7 +30,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime.now() - timedelta(days=12),
     "catchup": False,
-    "version": "0.1",
+    "version": "0.2",
 }
 # [END default_args]
 
