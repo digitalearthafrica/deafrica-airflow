@@ -18,7 +18,6 @@ from utils.scenes_sync_process import process
 
 # [START default_args]
 
-
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -29,7 +28,8 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
-    "version": "0.1.4"
+    "limit_of_processes": 20,
+    "version": "0.1.4",
 }
 # [END default_args]
 
@@ -41,20 +41,41 @@ dag = DAG(
     schedule_interval=None,
     tags=["Scene"],
 )
+
+
 # [END instantiate_dag]
+
+
+def terminate(ti, **kwargs):
+    successful_msg_counts = 0
+    failed_msg_counts = 0
+
+    for idx in range(DEFAULT_ARGS["limit_of_processes"]):
+        successful_msg_counts += ti.xcom_pull(
+            key="successful", task_ids=f"data_transfer_{idx}"
+        )
+        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
+
+    print(
+        f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
+    )
+
 
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
+    END = PythonOperator(
+        task_id="end-tasks", python_callable=terminate, provide_context=True
+    )
+
     retrieve_messages = [
         PythonOperator(
-            task_id=f"Processing_Messages_DEAfrica",
+            task_id=f"Processing-Messages-DEAfrica-{idx}",
             python_callable=process,
             op_kwargs=dict(),
             dag=dag,
         )
+        for idx in range(DEFAULT_ARGS["limit_of_processes"])
     ]
-
-    END = DummyOperator(task_id="end-tasks")
 
     START >> retrieve_messages >> END

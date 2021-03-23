@@ -13,7 +13,8 @@ from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 
 from utils.url_request_utils import request_url, publish_to_sqs_queue
 
-ALLOWED_PATHROWS = set(pd.read_csv(
+ALLOWED_PATHROWS = set(
+    pd.read_csv(
         "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-usgs-pathrows.csv.gz",
         header=None,
     ).values.ravel()
@@ -27,13 +28,15 @@ def publish_messages(datasets):
     """
 
     def post_messages(messages_to_send):
-        logging.info(f'Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}')
+        logging.info(
+            f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
+        )
         publish_to_sqs_queue(
             aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
             queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-            messages=messages_to_send
+            messages=messages_to_send,
         )
-        logging.info(f'messages sent {messages_to_send}')
+        logging.info(f"messages sent {messages_to_send}")
 
     count = 0
     messages = []
@@ -64,7 +67,9 @@ def get_allowed_features_json(retrieved_json):
     :param retrieved_json: (dict) retrieved value
     :return: (list)
     """
-    logging.info("Filtering the scenes and allowing just the Africa ones based on its PathRow")
+    logging.info(
+        "Filtering the scenes and allowing just the Africa ones based on its PathRow"
+    )
 
     if retrieved_json.get("features") and retrieved_json["features"]:
         # Daily
@@ -76,7 +81,8 @@ def get_allowed_features_json(retrieved_json):
                 and feature["properties"].get("landsat:wrs_path")
                 and int(
                     f"{feature['properties']['landsat:wrs_path']}{feature['properties']['landsat:wrs_row']}"
-                ) in ALLOWED_PATHROWS
+                )
+                in ALLOWED_PATHROWS
             )
         ]
 
@@ -127,7 +133,7 @@ def request_api_and_send(url: str, params=None):
     if params:
         logging.debug(f"Found {returned['meta']['found']}")
 
-        logging.info('Checking for additional page data')
+        logging.info("Checking for additional page data")
         found = False
         if (
             returned.get("meta")
@@ -138,7 +144,8 @@ def request_api_and_send(url: str, params=None):
         ):
             if (
                 returned["meta"]["returned"] == returned["meta"]["limit"]
-                and (returned["meta"]["page"] * returned["meta"]["limit"]) < returned["meta"]["found"]
+                and (returned["meta"]["page"] * returned["meta"]["limit"])
+                < returned["meta"]["found"]
             ):
                 found = True
                 page = returned["meta"]["page"] + 1
@@ -152,7 +159,7 @@ def request_api_and_send(url: str, params=None):
                     "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
                 )
         if not found:
-            logging.info('No additional page data was found')
+            logging.info("No additional page data was found")
 
     logging.info("Process Finished !! :)")
 
@@ -160,7 +167,7 @@ def request_api_and_send(url: str, params=None):
 def retrieve_json_data_and_send(date=None, display_ids=None):
     """
     Function to create Python threads which will request the API simultaneously
-    If start_date and end_date are sent, means we are requesting daily JSON API
+    If start_date and today are sent, means we are requesting daily JSON API
     If display_ids is sent, means we are using bulk CSV files to retrieve the information
 
     :param date: (datetime) Date to request the API
@@ -180,7 +187,9 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
             logging.error(msg)
             raise Exception(msg)
 
-        main_url = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
+        main_url = (
+            "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
+        )
         africa_bbox = [
             -26.359944882003788,
             -47.96476498374171,
@@ -227,7 +236,7 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
                         args=(f"{main_url}/{display_id}",),
                     )
                     for display_id in display_ids[
-                        (count_tasks - num_of_threads): count_tasks
+                        (count_tasks - num_of_threads) : count_tasks
                     ]
                 ]
 
@@ -298,10 +307,7 @@ def filter_africa_location(file_path):
         row["Display ID"]
         for row in read_csv(file_path)
         # Filter to skip all LANDSAT_4
-        if (
-                   row.get("Satellite")
-                   and row["Satellite"] != "LANDSAT_4"
-           )
+        if (row.get("Satellite") and row["Satellite"] != "LANDSAT_4")
         # Filter to get just from Africa
         and (
             row.get("WRS Path")
@@ -310,9 +316,9 @@ def filter_africa_location(file_path):
         )
         # Filter to get just day
         and (
-                   row.get('Day/Night Indicator')
-                   and row['Day/Night Indicator'].upper() == 'DAY'
-           )
+            row.get("Day/Night Indicator")
+            and row["Day/Night Indicator"].upper() == "DAY"
+        )
     ]
 
 
@@ -369,7 +375,9 @@ def retrieve_bulk_data(file_name):
             # request the API through the display id and send the information to the queue
             retrieve_json_data_and_send(display_ids=display_id_list)
         else:
-            logging.info(f"After filtered no valid Ids were found in the file {file_name}")
+            logging.info(
+                f"After filtered no valid Ids were found in the file {file_name}"
+            )
 
     except Exception as error:
         logging.error(error)

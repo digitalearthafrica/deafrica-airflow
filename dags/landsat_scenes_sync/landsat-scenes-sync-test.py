@@ -36,7 +36,7 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-sync-tests",
+    "landsat_scenes_sync-tests",
     default_args=DEFAULT_ARGS,
     description="Sync Tests",
     schedule_interval=None,

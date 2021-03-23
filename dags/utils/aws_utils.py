@@ -11,6 +11,9 @@ class S3:
     def __init__(self, conn_id):
         self.s3_hook = S3Hook(aws_conn_id=conn_id)
 
+    def get_bucket(self, bucket_name: str):
+        return self.s3_hook.get_bucket(bucket_name=bucket_name)
+
     def check_s3_copy_return(self, returned: dict):
 
         if (
@@ -49,12 +52,13 @@ class S3:
         region_name: str = "us-west-2",
     ):
         """
+        Retrieve S3 object and its attributes
 
-        :param region_name:
-        :param params:
         :param s3_conn_id: (str) s3_conn_id: Airflow AWS credentials
         :param bucket_name: (str) bucket_name: AWS S3 bucket which the function will connect to
         :param key: (str) Path to the content which the function will access
+        :param params:
+        :param region_name: Defaulted to us-west-2
         :return: (dict) content
         """
 
@@ -64,6 +68,7 @@ class S3:
         s3_obj = self.s3_hook.get_resource_type("s3", region_name=region_name).Object(
             bucket_name, key
         )
+
         response = s3_obj.get(**params)
         response_body = response.get("Body")
         return response_body.read()
@@ -124,7 +129,7 @@ class S3:
             RequestPayer=request_payer,
         )
 
-        logging.info(f"RETURNED - {returned}")
+        logging.debug(f"RETURNED - {returned}")
 
         return self.check_s3_copy_return(returned)
 
@@ -146,6 +151,16 @@ class S3:
 
         exist = self.s3_hook.check_for_key(key, bucket_name=bucket_name)
         return key if not exist else ""
+
+    # def list_keys(self):
+    #     manifest = self.latest_manifest()
+    #     for obj in manifest["files"]:
+    #         print(obj["key"])
+    #         gzip_obj = self.s3.get_object(Bucket=self.bucket, Key=obj["key"])
+    #         buffer = gzip.open(gzip_obj["Body"], mode="rt")
+    #         reader = csv.reader(buffer)
+    #         for row in reader:
+    #             yield row
 
 
 class SQS:

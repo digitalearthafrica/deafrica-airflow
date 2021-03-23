@@ -53,7 +53,7 @@ AFRICA_S3_BUCKET_URL = (
 
 def get_messages(
     limit: int = None,
-    visibility_timeout: int = 60,
+    visibility_timeout: int = 600,  # 10 minutes, time that the message won't be available in the queue
     message_attributes: Iterable[str] = ["All"],
 ):
     """
@@ -362,8 +362,8 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
         # Check if the key was already copied
         missing_assets = filter_just_missing_assets(asset_address_paths)
 
-        logging.info(f'Copying missing assets {missing_assets}')
-        logging.info(f'USING {SYNC_LANDSAT_CONNECTION_ID}')
+        logging.info(f"Copying missing assets {missing_assets}")
+        logging.info(f"USING {SYNC_LANDSAT_CONNECTION_ID}")
 
         task = [
             executor.submit(
@@ -460,10 +460,9 @@ def process():
     try:
         logging.info("Starting process")
         # Retrieve messages from the queue
-        messages = get_messages()
+        messages = get_messages(visibility_timeout=600)
 
         for message in messages:
-
             try:
                 logging.info(f"Message received {message.body}")
 

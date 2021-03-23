@@ -26,9 +26,7 @@ AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
 US_CONN_ID = "deafrica_migration_us"
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
-SENTINEL2_TOPIC_ARN = (
-    "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
-)
+SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
 SQS_QUEUE = "deafrica-dev-eks-sentinel-2-sync"
 CONCURRENCY = 1
 
@@ -187,9 +185,7 @@ def start_transfer(stac_item):
     bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
-        raise ValueError(
-            f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
-        )
+        raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
 
     try:
         s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
@@ -203,11 +199,7 @@ def start_transfer(stac_item):
     urls = []
     # Add URL of .tif files
     urls.extend(
-        [
-            v["href"]
-            for k, v in stac_item["assets"].items()
-            if "geotiff" in v["type"]
-        ]
+        [v["href"] for k, v in stac_item["assets"].items() if "geotiff" in v["type"]]
     )
 
     # Check that all bands and STAC exist
@@ -222,15 +214,11 @@ def start_transfer(stac_item):
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(
-            key, bucket_name=SRC_BUCKET_NAME
-        )
+        key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
         src_keys.append(src_key)
 
         if not key_exists:
-            raise ValueError(
-                f"{key} does not exist in the {SRC_BUCKET_NAME} bucket"
-            )
+            raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
 
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
@@ -255,9 +243,7 @@ def is_valid_tile_id(stac_item, valid_tile_ids):
     tile_id = stac_item["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
-        print(
-            f"{tile_id} is not in the list of Africa tiles for {stac_item.get('id')}"
-        )
+        print(f"{tile_id} is not in the list of Africa tiles for {stac_item.get('id')}")
         return False
     return True
 
@@ -298,7 +284,6 @@ def copy_s3_objects(ti, **kwargs):
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
-    
 
 
 def trigger_sensor(ti, **kwargs):
@@ -335,9 +320,7 @@ def terminate(ti, **kwargs):
         successful_msg_counts += ti.xcom_pull(
             key="successful", task_ids=f"data_transfer_{idx}"
         )
-        failed_msg_counts += ti.xcom_pull(
-            key="failed", task_ids=f"data_transfer_{idx}"
-        )
+        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
 
     print(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
@@ -360,9 +343,7 @@ with DAG(
         provide_context=True,
     )
 
-    END_DAG = PythonOperator(
-        task_id="no_messages__end", python_callable=end_dag
-    )
+    END_DAG = PythonOperator(task_id="no_messages__end", python_callable=end_dag)
 
     TERMINATE_DAG = PythonOperator(
         task_id="terminate", python_callable=terminate, provide_context=True

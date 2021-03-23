@@ -1,8 +1,8 @@
 """
 # Landsat Bulk Sync automation
-DAG to retrieve periodically Landsat 5, 7 and 8 JSON data from USGS API, filter and send the right ones to our SQS.
-"""
+DAG to retrieve Landsat 5, 7 and 8 GZIP bulk data from USGS, unzip, filter and send the right ones to our SQS.
 
+"""
 # [START import_module]
 from datetime import timedelta, datetime
 
@@ -14,11 +14,13 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import retrieve_json_data_and_send
+from utils.scenes_sync import retrieve_bulk_data
+
 # [END import_module]
 
-
 # [START default_args]
+
+
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -29,44 +31,39 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
-    "version": "0.1"
+    "version": "0.1",
 }
 # [END default_args]
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-sync-daily",
+    "landsat_scenes_sync-bulk",
     default_args=DEFAULT_ARGS,
-    description="Sync Daily",
+    description="Sync bulk files",
     schedule_interval=None,
-    tags=["Scene", "Daily", "API"],
+    tags=["Scene", "bulk"],
 )
 # [END instantiate_dag]
 
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
-    # Test Start and End dates
-    start_date = datetime.now().replace(day=1, month=1, year=2021)
-    end_date = datetime.now().replace(day=1, month=1, year=2021)
-
-    # start_date = DEFAULT_ARGS['start_date']
-    # end_date = datetime.now()
-    requested_date = start_date
     processes = []
+    files = {
+        "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
+        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+    }
 
-    count_tasks = (end_date - start_date).days + 1
-    while count_tasks > 0:
+    for sat, file in files.items():
         processes.append(
             PythonOperator(
-                task_id=f"Task-Day-{requested_date.date().isoformat()}",
-                python_callable=retrieve_json_data_and_send,
-                op_kwargs=dict(date=requested_date),
+                task_id=sat,
+                python_callable=retrieve_bulk_data,
+                op_kwargs=dict(file_name=file),
                 dag=dag,
             )
         )
-        requested_date += timedelta(days=1)
-        count_tasks -= 1
 
     END = DummyOperator(task_id="end-tasks")
 
