@@ -101,12 +101,12 @@ def copy_s3_to_s3_boto3(
         Bucket=source_bucket, Key=source_key, RequestPayer=request_payer
     )
 
-    if hasattr(s3_obj, "body"):
-        logging.info(f"hasattr(s3_obj, body) {hasattr(s3_obj, 'body')}")
+    if hasattr(s3_obj, "Body"):
+        logging.info(f"hasattr(s3_obj, body) {hasattr(s3_obj, 'Body')}")
     else:
         logging.info(f"ELSE {s3_obj}")
 
-    streaming_body = s3_obj["body"]
+    streaming_body = s3_obj["Body"]
     destination_bucket_client = boto3.client(
         "s3",
         aws_access_key_id=cred.access_key,
