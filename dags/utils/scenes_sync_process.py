@@ -1,16 +1,15 @@
 """
     Script to read from SQS landsat Africa queue, process messages, save a stac 1.0 and
-    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS to be processed by Datacube
+    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS to be indexed by Datacube
 """
 import json
 import logging
 import os
 import time
-import rasterio
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable
 
+import rasterio
 from pystac import Item, Link
 from stactools.landsat.utils import transform_stac_to_stac
 
@@ -25,15 +24,16 @@ from landsat_scenes_sync.variables import (
     AFRICA_AWS_REGION,
     AFRICA_S3_BUCKET_NAME,
     AFRICA_SNS_TOPIC_ARN,
+    USGS_AWS_REGION,
 )
 from utils.url_request_utils import (
     get_s3_contents_and_attributes,
-    copy_s3_to_s3,
     key_not_existent,
     save_obj_to_s3,
     publish_to_sns_topic,
     get_queue,
     time_process,
+    copy_s3_to_s3_cross_region,
 )
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
@@ -340,7 +340,7 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
     """
 
     # Limit number of threads
-    num_of_threads = 20
+    num_of_threads = 25
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
         logging.info(
             f"Transferring {num_of_threads} assets simultaneously (Python threads) "
@@ -355,10 +355,12 @@ def transfer_data_from_usgs_to_africa(asset_address_paths: list):
 
         task = [
             executor.submit(
-                copy_s3_to_s3,
+                copy_s3_to_s3_cross_region,
                 SYNC_LANDSAT_CONNECTION_ID,
                 USGS_S3_BUCKET_NAME,
                 AFRICA_S3_BUCKET_NAME,
+                USGS_AWS_REGION,
+                AFRICA_AWS_REGION,
                 link,
                 link,
                 "requester",

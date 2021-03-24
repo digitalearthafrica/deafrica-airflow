@@ -2,6 +2,8 @@ import logging
 from copy import deepcopy
 from urllib.parse import urlparse
 
+import boto3
+from airflow.contrib.hooks.aws_hook import AwsHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
@@ -10,6 +12,7 @@ from airflow.hooks.S3_hook import S3Hook
 class S3:
     def __init__(self, conn_id):
         self.s3_hook = S3Hook(aws_conn_id=conn_id)
+        self.aws_hook = AwsHook(aws_conn_id=conn_id)
 
     def get_bucket(self, bucket_name: str):
         return self.s3_hook.get_bucket(bucket_name=bucket_name)
@@ -89,8 +92,9 @@ class S3:
             acl_policy=acl,
         )
 
-    def copy_s3_to_s3(
+    def copy_s3_to_s3_same_region(
         self,
+        s3_conn_id: str,
         source_bucket: str,
         destination_bucket: str,
         source_key: str,
@@ -99,7 +103,7 @@ class S3:
         acl: str = "public-read",
     ):
         """
-        Function to copy files from one S3 bucket to another.
+        Function to copy files from one S3 bucket to another. This function is limited to buckets in the same region.
 
         :param source_key:(str) Source file path
         :param destination_key:(str) Destination file path
@@ -120,8 +124,10 @@ class S3:
             f"copy_s3_to_s3 source: {source_key} destination: {destination_key}"
         )
 
+        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
+
         # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
-        returned = self.s3_hook.get_conn().copy_object(
+        returned = s3_hook.get_conn().copy_object(
             Bucket=destination_bucket,
             Key=destination_key,
             CopySource={"Bucket": source_bucket, "Key": source_key, "VersionId": None},
@@ -129,9 +135,71 @@ class S3:
             RequestPayer=request_payer,
         )
 
-        logging.debug(f"RETURNED - {returned}")
+        logging.info(f"RETURNED - {returned}")
 
         return self.check_s3_copy_return(returned)
+
+    def copy_s3_to_s3_cross_region(
+        self,
+        conn_id: str,
+        source_bucket: str,
+        destination_bucket: str,
+        source_bucket_region: str,
+        destination_bucket_region: str,
+        source_key: str,
+        destination_key: str = None,
+        request_payer: str = "requester",
+        acl: str = "public-read",
+    ):
+        """
+        Function to copy files from a S3 to another. Slower process however allows cross-region copies.
+        In case of the copy is in the same region use copy_s3_to_s3_same_region
+
+        :param conn_id:(str) Airflow connection id
+        :param source_key:(str) Source file path
+        :param destination_key:(str) Destination file path
+        :param destination_bucket_region: Region which the file goes to
+        :param source_bucket_region: Region which the file comes from
+        :param source_bucket:(str) Source S3 source_bucket_client name
+        :param destination_bucket:(str) Destination S3 source_bucket_client name
+        :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
+        :param acl:
+
+        :return: None
+        """
+
+        if source_key and not destination_key:
+            # If destination_key is not informed, build the same structure as the source_key
+            destination_key = source_key
+
+        logging.info(
+            f"copy_s3_to_s3_cross_region source: {source_key} destination: {destination_key}"
+        )
+
+        cred = self.aws_hook.get_session().get_credentials()
+
+        source_bucket_client = boto3.client(
+            "s3",
+            aws_access_key_id=cred.access_key,
+            aws_secret_access_key=cred.secret_key,
+            region_name=source_bucket_region,
+        )
+
+        s3_obj = source_bucket_client.get_object(
+            Bucket=source_bucket, Key=source_key, RequestPayer=request_payer
+        )
+
+        streaming_body = s3_obj["Body"]
+        destination_bucket_client = boto3.client(
+            "s3",
+            aws_access_key_id=cred.access_key,
+            aws_secret_access_key=cred.secret_key,
+            region_name=destination_bucket_region,
+        )
+
+        destination_bucket_client.upload_fileobj(
+            streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
+        )
 
     def key_not_existent(
         self,
