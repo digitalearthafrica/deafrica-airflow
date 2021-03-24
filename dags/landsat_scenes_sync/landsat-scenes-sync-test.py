@@ -102,17 +102,21 @@ def copy_s3_to_s3_boto3(
     )
 
     if hasattr(s3_obj, "body"):
-        streaming_body = s3_obj["body"]
-        destination_bucket_client = boto3.client(
-            "s3",
-            aws_access_key_id=cred.access_key,
-            aws_secret_access_key=cred.secret_key,
-            region_name=destination_bucket_region,
-        )
-        returned = destination_bucket_client.upload_fileobj(
-            streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
-        )
-        logging.info(f"RETURNED {returned}")
+        logging.info(f"hasattr(s3_obj, body) {hasattr(s3_obj, 'body')}")
+    else:
+        logging.info(f"ELSE {s3_obj}")
+
+    streaming_body = s3_obj["body"]
+    destination_bucket_client = boto3.client(
+        "s3",
+        aws_access_key_id=cred.access_key,
+        aws_secret_access_key=cred.secret_key,
+        region_name=destination_bucket_region,
+    )
+    returned = destination_bucket_client.upload_fileobj(
+        streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
+    )
+    logging.info(f"RETURNED {returned}")
 
 
 with dag:
