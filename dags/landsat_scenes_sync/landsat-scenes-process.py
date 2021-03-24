@@ -30,8 +30,8 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 2),
     "catchup": False,
-    "limit_of_processes": 20,
-    "version": "0.2",
+    "limit_of_processes": 30,
+    "version": "0.3",
 }
 # [END default_args]
 
