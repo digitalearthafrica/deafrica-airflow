@@ -48,9 +48,7 @@ DEFAULT_ARGS = {
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_DBA_ADMIN_NAME, "postgres-username"),
         Secret("env", "PGPASSWORD", SECRET_DBA_ADMIN_NAME, "postgres-password"),
-        Secret(
-            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
-        ),
+        Secret("env", "AWS_DEFAULT_REGION", SECRET_AWS_NAME, "AWS_DEFAULT_REGION"),
     ],
 }
 
