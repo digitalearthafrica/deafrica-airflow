@@ -7,19 +7,21 @@ import logging
 from datetime import timedelta, datetime
 
 # The DAG object; we'll need this to instantiate a DAG
+import boto3
 from airflow import DAG
-from airflow.hooks.S3_hook import S3Hook
+from airflow.contrib.hooks.aws_hook import AwsHook
 
 # Operators; we need this to operate!
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-
 # [END import_module]
 
 
 # [START default_args]
+from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from landsat_scenes_sync.variables import USGS_S3_BUCKET_NAME, AFRICA_S3_BUCKET_NAME
+
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -47,22 +49,61 @@ dag = DAG(
 # [END instantiate_dag]
 
 
-def copy_file_to_s3(path: str):
-    try:
+def copy_s3_to_s3_boto3(
+    conn_id: str,
+    source_bucket: str,
+    destination_bucket: str,
+    source_key: str,
+    destination_key: str = None,
+    request_payer: str = "requester",
+    acl: str = "public-read",
+):
+    """
+    Function to copy files from one S3 source_bucket_client to another.
 
-        s3_hook = S3Hook(aws_conn_id=SYNC_LANDSAT_CONNECTION_ID)
-        returned = s3_hook.get_conn().copy_object(
-            Bucket="deafrica-landsat-dev",
-            Key=path,
-            CopySource={"Bucket": "usgs-landsat", "Key": path, "VersionId": None},
-            ACL="public-read",
-            RequestPayer="requester",
+    :param source_key:(str) Source file path
+    :param destination_key:(str) Destination file path
+    :param conn_id:(str) Airflow connection id
+    :param source_bucket:(str) Source S3 source_bucket_client name
+    :param destination_bucket:(str) Destination S3 source_bucket_client name
+    :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
+    :param acl:
+
+    :return: None
+    """
+
+    if source_key and not destination_key:
+        # If destination_key is not informed, build the same structure as the source_key
+        destination_key = source_key
+
+    logging.info(f"copy_s3_to_s3 source: {source_key} destination: {destination_key}")
+
+    aws_hook = AwsHook(aws_conn_id=conn_id)
+    cred = aws_hook.get_session().get_credentials()
+
+    source_bucket_client = boto3.client(
+        "s3",
+        aws_access_key_id=cred.access_key,
+        aws_secret_access_key=cred.secret_key,
+        region_name="",
+    )
+
+    s3_obj = source_bucket_client.get_object(
+        Bucket=source_bucket, Key=source_key, RequestPayer=request_payer
+    )
+
+    if hasattr(s3_obj, "body"):
+        streaming_body = s3_obj["body"]
+        destination_bucket_client = boto3.client(
+            "s3",
+            aws_access_key_id=cred.access_key,
+            aws_secret_access_key=cred.secret_key,
+            region_name="",
         )
-
-        logging.info(f"RETURNED - {returned}")
-    except Exception as error:
-        logging.error(f"Error found: {error}")
-        raise error
+        returned = destination_bucket_client.upload_fileobj(
+            streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
+        )
+        logging.info(f"RETURNED {returned}")
 
 
 with dag:
@@ -102,8 +143,16 @@ with dag:
         processes.append(
             PythonOperator(
                 task_id=f"TEST-{count}",
-                python_callable=copy_file_to_s3,
-                op_kwargs=dict(path=path),
+                python_callable=copy_s3_to_s3_boto3,
+                op_kwargs=dict(
+                    conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                    source_bucket=USGS_S3_BUCKET_NAME,
+                    destination_bucket=AFRICA_S3_BUCKET_NAME,
+                    source_key=path,
+                    destination_key=path,
+                    request_payer="requester",
+                    acl="public-read",
+                ),
                 dag=dag,
             )
         )
