@@ -20,7 +20,12 @@ from airflow.operators.python_operator import PythonOperator
 
 # [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from landsat_scenes_sync.variables import USGS_S3_BUCKET_NAME, AFRICA_S3_BUCKET_NAME
+from landsat_scenes_sync.variables import (
+    USGS_S3_BUCKET_NAME,
+    AFRICA_S3_BUCKET_NAME,
+    AFRICA_AWS_REGION,
+    USGS_AWS_REGION,
+)
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -53,6 +58,8 @@ def copy_s3_to_s3_boto3(
     conn_id: str,
     source_bucket: str,
     destination_bucket: str,
+    source_bucket_region: str,
+    destination_bucket_region: str,
     source_key: str,
     destination_key: str = None,
     request_payer: str = "requester",
@@ -61,6 +68,8 @@ def copy_s3_to_s3_boto3(
     """
     Function to copy files from one S3 source_bucket_client to another.
 
+    :param destination_bucket_region:
+    :param source_bucket_region:
     :param source_key:(str) Source file path
     :param destination_key:(str) Destination file path
     :param conn_id:(str) Airflow connection id
@@ -85,7 +94,7 @@ def copy_s3_to_s3_boto3(
         "s3",
         aws_access_key_id=cred.access_key,
         aws_secret_access_key=cred.secret_key,
-        region_name="",
+        region_name=source_bucket_region,
     )
 
     s3_obj = source_bucket_client.get_object(
@@ -98,7 +107,7 @@ def copy_s3_to_s3_boto3(
             "s3",
             aws_access_key_id=cred.access_key,
             aws_secret_access_key=cred.secret_key,
-            region_name="",
+            region_name=destination_bucket_region,
         )
         returned = destination_bucket_client.upload_fileobj(
             streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
@@ -148,6 +157,8 @@ with dag:
                     conn_id=SYNC_LANDSAT_CONNECTION_ID,
                     source_bucket=USGS_S3_BUCKET_NAME,
                     destination_bucket=AFRICA_S3_BUCKET_NAME,
+                    source_bucket_region=USGS_AWS_REGION,
+                    destination_bucket_region=AFRICA_AWS_REGION,
                     source_key=path,
                     destination_key=path,
                     request_payer="requester",
