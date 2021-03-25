@@ -14,6 +14,7 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from airflow.operators.dummy_operator import DummyOperator
 from datetime import datetime, timedelta
+from infra.images import EXPLORER_UNSTABLE_IMAGE
 
 local_tz = pendulum.timezone("Africa/Johannesburg")
 
@@ -38,13 +39,11 @@ DEFAULT_ARGS = {
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
     "secrets": [
-        Secret("env", "DB_DATABASE", "explorer-admin", "database-name"),
-        Secret("env", "DB_USERNAME", "explorer-admin", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "explorer-admin", "postgres-password"),
+        Secret("env", "DB_DATABASE", "odc-admin", "database-name"),
+        Secret("env", "DB_USERNAME", "odc-admin", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-admin", "postgres-password"),
     ],
 }
-
-from infra.images import EXPLORER_UNSTABLE_IMAGE
 
 dag = DAG(
     "k8s_odc_db_migrate_schema",
