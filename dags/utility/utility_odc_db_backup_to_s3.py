@@ -58,8 +58,9 @@ DUMP_TO_S3_COMMAND = [
     "-c",
     dedent(
         """
-            pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
-            ls -la | grep {0}
+            # pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
+            # ls -la | grep {0}
+            aws s3 ls
             # aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-dev/{0}
         """
     ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
@@ -86,5 +87,5 @@ with dag:
         task_id="dump-odc-db",
         get_logs=True,
         affinity=NODE_AFFINITY,
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
