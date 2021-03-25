@@ -87,5 +87,5 @@ with dag:
         task_id="dump-odc-db",
         get_logs=True,
         affinity=NODE_AFFINITY,
-        is_delete_operator_pod=False,
+        is_delete_operator_pod=True,
     )
