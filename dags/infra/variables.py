@@ -8,18 +8,14 @@ INDEX_LANDSAT_CONNECTION_SQS_QUEUE = Variable.get(
     "index_landsat_scenes_sqs_queue", "deafrica-dev-eks-index-landsat-scene"
 )
 
-AFRICA_AWS_REGION = Variable.get("cape-town-region", "af-south-1")
-
-AFRICA_SNS_TOPIC_ARN = Variable.get(
+LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
     "landsat_sns_topic",
     "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
 )
 
-AFRICA_S3_BUCKET_NAME = Variable.get("landsat_bucket_name", "deafrica-landsat-dev")
-
-USGS_S3_BUCKET_NAME = Variable.get("usgs-bucket-name", "usgs-landsat")
-
-USGS_AWS_REGION = Variable.get("usgs-bucket-region", "us-west-2")
+LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
+    "landsat_bucket_name", "deafrica-landsat-dev"
+)
 
 # DB config
 DB_DATABASE = Variable.get("db_database", "odc")

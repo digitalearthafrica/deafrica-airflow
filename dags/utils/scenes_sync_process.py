@@ -16,18 +16,18 @@ from stactools.landsat.utils import transform_stac_to_stac
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import (
     SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    USGS_S3_BUCKET_NAME,
-    USGS_AWS_REGION,
-    AFRICA_SNS_TOPIC_ARN,
+    LANDSAT_SYNC_SNS_TOPIC_ARN,
 )
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
     AFRICA_S3_BUCKET_PATH,
     USGS_DATA_URL,
-    AFRICA_AWS_REGION,
-    AFRICA_S3_BUCKET_NAME,
+    AWS_DEFAULT_REGION,
+    LANDSAT_SYNC_S3_BUCKET_NAME,
     AFRICA_S3_ENDPOINT,
+    USGS_S3_BUCKET_NAME,
+    USGS_AWS_REGION,
 )
 from utils.url_request_utils import time_process
 from utils.aws_utils import S3, SQS, SNS
@@ -250,7 +250,7 @@ class ScenesSyncProcess:
             tasks = [
                 executor.submit(
                     self.s3.key_not_existent,
-                    AFRICA_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_S3_BUCKET_NAME,
                     link,
                 )
                 for link in asset_paths
@@ -273,7 +273,7 @@ class ScenesSyncProcess:
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
                 f"Transferring {num_of_threads} assets simultaneously (Python threads) "
-                f"from {USGS_S3_BUCKET_NAME} to {AFRICA_S3_BUCKET_NAME}"
+                f"from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
@@ -286,9 +286,9 @@ class ScenesSyncProcess:
                 executor.submit(
                     self.s3.copy_s3_to_s3_cross_region,
                     USGS_S3_BUCKET_NAME,
-                    AFRICA_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_S3_BUCKET_NAME,
                     USGS_AWS_REGION,
-                    AFRICA_AWS_REGION,
+                    AWS_DEFAULT_REGION,
                     link,
                     link,
                     "requester",
@@ -350,7 +350,7 @@ class ScenesSyncProcess:
         self.s3.save_obj_to_s3(
             file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
             destination_key=destination_key,
-            destination_bucket=AFRICA_S3_BUCKET_NAME,
+            destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
         )
 
     def check_already_copied(self, item):
@@ -365,7 +365,7 @@ class ScenesSyncProcess:
         logging.info(f"Checking for {key}")
 
         # If not exist return the path, if exist return None
-        exist = self.s3.key_not_existent(AFRICA_S3_BUCKET_NAME, key)
+        exist = self.s3.key_not_existent(LANDSAT_SYNC_S3_BUCKET_NAME, key)
 
         return not bool(exist)
 
@@ -498,10 +498,12 @@ def process():
                     # Send to the SNS
                     logging.info(f"Pushing Item to the SNS {stac_1_item.to_dict()}")
                     sns_topic.publish_to_sns_topic(
-                        target_arn=AFRICA_SNS_TOPIC_ARN,
+                        target_arn=LANDSAT_SYNC_SNS_TOPIC_ARN,
                         message=json.dumps(stac_1_item.to_dict()),
                     )
-                    logging.info(f"Items pushed to the SNS {AFRICA_SNS_TOPIC_ARN}")
+                    logging.info(
+                        f"Items pushed to the SNS {LANDSAT_SYNC_SNS_TOPIC_ARN}"
+                    )
 
                 logging.info(f"Deleting messages")
                 message.delete()

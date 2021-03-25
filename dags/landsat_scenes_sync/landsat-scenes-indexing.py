@@ -10,6 +10,7 @@ from airflow.kubernetes.secret import Secret
 from datetime import datetime, timedelta
 
 from infra.images import INDEXER_IMAGE
+from infra.variables import DB_HOSTNAME
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -23,15 +24,13 @@ DEFAULT_ARGS = {
     "catchup": False,
     "version": "0.3",
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
+        "DB_HOSTNAME": DB_HOSTNAME,
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
         Secret(
             "env",
