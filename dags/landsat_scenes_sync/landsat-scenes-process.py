@@ -18,6 +18,16 @@ from utils.url_request_utils import time_process
 
 # [END import_module]
 
+
+# maximum number of active runs for this DAG. The scheduler will not create new active DAG runs once this limit is hit.
+# Defaults to core.max_active_runs_per_dag if not set
+MAX_ACTIVE_RUNS = 15
+
+# the number of task instances allowed to run concurrently across all active runs of the DAG this is set on.
+# Defaults to core.dag_concurrency if not set
+CONCURRENCY = 50 * MAX_ACTIVE_RUNS
+
+
 # [START default_args]
 
 DEFAULT_ARGS = {
@@ -28,24 +38,12 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 2),
+    "start_date": datetime.now() - timedelta(days=1),  # start_date is always yesterday
     "catchup": False,
     "limit_of_processes": 30,
     "version": "0.3",
 }
 # [END default_args]
-
-# [START instantiate_dag]
-dag = DAG(
-    "landsat-scenes-process",
-    default_args=DEFAULT_ARGS,
-    description="Process Queue Messages",
-    schedule_interval=None,
-    tags=["Scene"],
-)
-
-
-# [END instantiate_dag]
 
 
 def terminate(ti, start_timer, **kwargs):
@@ -63,6 +61,20 @@ def terminate(ti, start_timer, **kwargs):
     )
     print(f"Message processed and sent in {time_process(start=start_timer)}")
 
+
+# [START instantiate_dag]
+dag = DAG(
+    "landsat-scenes-process",
+    default_args=DEFAULT_ARGS,
+    description="Process Queue Messages",
+    concurrency=CONCURRENCY,
+    max_active_runs=MAX_ACTIVE_RUNS,
+    schedule_interval="0 */12 * * *",
+    tags=["Scene"],
+)
+
+
+# [END instantiate_dag]
 
 with dag:
 

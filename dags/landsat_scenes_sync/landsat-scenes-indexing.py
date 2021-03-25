@@ -20,7 +20,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=40),
     "start_date": datetime.now() - timedelta(days=1),
     "depends_on_past": False,
-    "catchup": True,
+    "catchup": False,
     "version": "0.3",
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
@@ -78,7 +78,7 @@ dag = DAG(
     "landsat-scenes-indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval="@daily",
+    schedule_interval="0 */8 * * *",
     tags=["k8s", "landsat-scenes", "indexing"],
 )
 
