@@ -28,6 +28,7 @@ class s3:
     def find(self, url, sub_key):
         """
         Generate objects in an S3 bucket.
+        :param sub_key:
         :param: sub_key: string to be present in the object name
         :param url: The URL of the bucket
         """

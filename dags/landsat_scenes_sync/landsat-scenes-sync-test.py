@@ -20,12 +20,8 @@ from airflow.operators.python_operator import PythonOperator
 
 # [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from landsat_scenes_sync.variables import (
-    USGS_S3_BUCKET_NAME,
-    AFRICA_S3_BUCKET_NAME,
-    AFRICA_AWS_REGION,
-    USGS_AWS_REGION,
-)
+from infra.variables import USGS_S3_BUCKET_NAME, USGS_AWS_REGION
+from landsat_scenes_sync.variables import AFRICA_S3_BUCKET_NAME, AFRICA_AWS_REGION
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",

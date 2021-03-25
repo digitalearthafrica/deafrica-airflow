@@ -16,12 +16,12 @@ DEFAULT_ARGS = {
     "email": ["rodrigo.carvalho@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 0,
-    "retry_delay": timedelta(minutes=15),
+    "retries": 1,
+    "retry_delay": timedelta(minutes=40),
+    "start_date": datetime.now() - timedelta(days=1),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 2),
-    "catchup": False,
-    "version": "0.2",
+    "catchup": True,
+    "version": "0.3",
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": "db-writer",
@@ -78,8 +78,7 @@ dag = DAG(
     "landsat-scenes-indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    # schedule_interval="0 */1 * * *",
-    # catchup=False,
+    schedule_interval="@daily",
     tags=["k8s", "landsat-scenes", "indexing"],
 )
 
