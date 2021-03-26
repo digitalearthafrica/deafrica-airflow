@@ -14,7 +14,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow import DAG, AirflowException
 
 from utils.inventory import s3
-from infra.variables import AFRICA_CONN_ID, US_CONN_ID
+from infra.variables import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 
 MANIFEST_SUFFIX = "manifest.json"
 AFRICA_TILES = "data/africa-mgrs-tiles.csv"
@@ -51,7 +51,7 @@ def generate_buckets_diff():
     )
 
     s3_inventory = s3(
-        SRC_BUCKET_NAME, US_CONN_ID, "us-west-2", MANIFEST_SUFFIX
+        SRC_BUCKET_NAME, S2_US_CONN_ID, "us-west-2", MANIFEST_SUFFIX
     )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
@@ -66,7 +66,7 @@ def generate_buckets_diff():
             source_keys.add(key)
 
     s3_inventory = s3(
-        DEST_BUCKET_NAME, AFRICA_CONN_ID, "af-south-1", MANIFEST_SUFFIX
+        DEST_BUCKET_NAME, S2_AFRICA_CONN_ID, "af-south-1", MANIFEST_SUFFIX
     )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
@@ -83,7 +83,7 @@ def generate_buckets_diff():
     output_filename = datetime.today().isoformat() + ".txt"
     key = REPORTING_PREFIX + output_filename
 
-    s3_report = s3(REPORTING_BUCKET, AFRICA_CONN_ID, "af-south-1")
+    s3_report = s3(REPORTING_BUCKET, S2_AFRICA_CONN_ID, "af-south-1")
     s3_report.s3.put_object(
         Bucket=s3_report.bucket, Key=key, Body="\n".join(missing_scenes)
     )
