@@ -23,8 +23,12 @@ SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
-US_CONN_ID = "prod-eks-s2-data-transfer"
-AFRICA_CONN_ID = "deafrica-prod-migration"
+# The following connection is based on svc-deafrica-prod-eks-s2-data-transfer
+# which is in deafrica account
+US_CONN_ID = "deafrica-prod-eks-s2-data-transfer"
+# The following connection is based on svc-deafrica-sentinel-2-bucket-write
+# user in the PDS account
+AFRICA_CONN_ID = "deafrica-sentinel-2-bucket-write"
 
 default_args = {
     "owner": "Airflow",
@@ -154,7 +158,9 @@ def prepare_and_send_messages(dag_run, **kwargs):
         f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
     )
     files = get_missing_stac_files(
-        dag_run.conf["s3_report_path"], dag_run.conf["offset"], dag_run.conf["limit"]
+        dag_run.conf["s3_report_path"],
+        dag_run.conf["offset"],
+        dag_run.conf["limit"],
     )
 
     max_workers = 10
@@ -164,7 +170,10 @@ def prepare_and_send_messages(dag_run, **kwargs):
     batch = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(prepare_message, hook, s3_path) for s3_path in files]
+        futures = [
+            executor.submit(prepare_message, hook, s3_path)
+            for s3_path in files
+        ]
 
         for future in as_completed(futures):
             try:

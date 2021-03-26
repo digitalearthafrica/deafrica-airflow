@@ -17,8 +17,12 @@ from utils.inventory import s3
 
 MANIFEST_SUFFIX = "manifest.json"
 AFRICA_TILES = "data/africa-mgrs-tiles.csv"
-AFRICA_CONN_ID = "deafrica-prod-migration"
-US_CONN_ID = "deafrica_migration_oregon"
+# The following connection is based on svc-deafrica-prod-eks-s2-data-transfer
+# which is in deafrica account
+US_CONN_ID = "deafrica-prod-eks-s2-data-transfer"
+# The following connection is based on svc-deafrica-sentinel-2-bucket-write
+# user in the PDS account
+AFRICA_CONN_ID = "deafrica-sentinel-2-bucket-write"
 DEST_BUCKET_NAME = "s3://deafrica-sentinel-2-inventory"
 SRC_BUCKET_NAME = "s3://sentinel-cogs-inventory"
 REPORTING_BUCKET = "s3://deafrica-sentinel-2"
