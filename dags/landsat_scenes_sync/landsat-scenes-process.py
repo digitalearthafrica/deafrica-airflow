@@ -46,19 +46,7 @@ DEFAULT_ARGS = {
 # [END default_args]
 
 
-def terminate(ti, start_timer, **kwargs):
-    successful_msg_counts = 0
-    failed_msg_counts = 0
-
-    for idx in range(DEFAULT_ARGS["limit_of_processes"]):
-        successful_msg_counts += ti.xcom_pull(
-            key="successful", task_ids=f"data_transfer_{idx}"
-        )
-        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
-
-    print(
-        f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
-    )
+def terminate(start_timer, **kwargs):
     print(f"Message processed and sent in {time_process(start=start_timer)}")
 
 
