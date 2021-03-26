@@ -19,7 +19,7 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
-from infra.variables import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"

@@ -23,7 +23,7 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-from infra.variables import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 
 
 DEST_BUCKET_NAME = "deafrica-sentinel-2"

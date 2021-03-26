@@ -14,7 +14,7 @@ from airflow.operators.python_operator import PythonOperator
 from airflow import DAG, AirflowException
 
 from utils.inventory import s3
-from infra.variables import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 
 MANIFEST_SUFFIX = "manifest.json"
 AFRICA_TILES = "data/africa-mgrs-tiles.csv"
