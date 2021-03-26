@@ -37,6 +37,9 @@ DEFAULT_ARGS = {
     # Use K8S secrets to send DB Creds
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
+    # NOTE: explorer_admin user permission boundaries are not defined correctly
+    #   when schema upgrade require to create agdc additional index.
+    #   Those steps handled outside manually using odc_admin user.
     "secrets": [
         Secret("env", "DB_DATABASE", "explorer-admin", "database-name"),
         Secret("env", "DB_USERNAME", "explorer-admin", "postgres-username"),
