@@ -23,8 +23,9 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-AFRICA_CONN_ID = "deafrica-prod-migration"
-US_CONN_ID = "deafrica-migration_us"
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+
+
 DEST_BUCKET_NAME = "deafrica-sentinel-2"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
@@ -152,7 +153,7 @@ def publish_to_sns(updated_stac, attributes):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
+    sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
     sns_hook.publish_to_target(
@@ -167,7 +168,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
@@ -182,7 +183,7 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=S2_US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
@@ -245,7 +246,7 @@ def start_transfer(stac_item):
     else:
         raise ValueError(f"{scene_path} failed to copy")
     try:
-        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+        s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
         s3_hook.load_string(
             string_data=json.dumps(stac_item),
             key=stac_key,
@@ -276,7 +277,7 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
@@ -314,7 +315,7 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))

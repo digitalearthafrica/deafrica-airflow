@@ -14,11 +14,10 @@ from airflow.operators.python_operator import PythonOperator
 from airflow import DAG, AirflowException
 
 from utils.inventory import s3
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 
 MANIFEST_SUFFIX = "manifest.json"
 AFRICA_TILES = "data/africa-mgrs-tiles.csv"
-AFRICA_CONN_ID = "deafrica-prod-migration"
-US_CONN_ID = "deafrica_migration_oregon"
 DEST_BUCKET_NAME = "s3://deafrica-sentinel-2-inventory"
 SRC_BUCKET_NAME = "s3://sentinel-cogs-inventory"
 REPORTING_BUCKET = "s3://deafrica-sentinel-2"
@@ -52,7 +51,7 @@ def generate_buckets_diff():
     )
 
     s3_inventory = s3(
-        SRC_BUCKET_NAME, US_CONN_ID, "us-west-2", MANIFEST_SUFFIX
+        SRC_BUCKET_NAME, S2_US_CONN_ID, "us-west-2", MANIFEST_SUFFIX
     )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
@@ -67,7 +66,7 @@ def generate_buckets_diff():
             source_keys.add(key)
 
     s3_inventory = s3(
-        DEST_BUCKET_NAME, AFRICA_CONN_ID, "af-south-1", MANIFEST_SUFFIX
+        DEST_BUCKET_NAME, S2_AFRICA_CONN_ID, "af-south-1", MANIFEST_SUFFIX
     )
     print(f"Processing keys from the inventory file: {s3_inventory.url}")
 
@@ -84,7 +83,7 @@ def generate_buckets_diff():
     output_filename = datetime.today().isoformat() + ".txt"
     key = REPORTING_PREFIX + output_filename
 
-    s3_report = s3(REPORTING_BUCKET, AFRICA_CONN_ID, "af-south-1")
+    s3_report = s3(REPORTING_BUCKET, S2_AFRICA_CONN_ID, "af-south-1")
     s3_report.s3.put_object(
         Bucket=s3_report.bucket, Key=key, Body="\n".join(missing_scenes)
     )

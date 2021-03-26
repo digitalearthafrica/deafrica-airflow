@@ -19,12 +19,12 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
-US_CONN_ID = "prod-eks-s2-data-transfer"
-AFRICA_CONN_ID = "deafrica-prod-migration"
 
 default_args = {
     "owner": "Airflow",
@@ -97,7 +97,7 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     read the gap report
     """
 
-    hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+    hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
     bucket_name, key = hook.parse_s3_url(s3_report_path)
     print(f"Reading the gap report {s3_report_path}")
 
@@ -115,7 +115,7 @@ def publish_messages(messages):
 
     for num, message in enumerate(messages):
         message["Id"] = str(num)
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=QUEUE_NAME)
     queue.send_messages(Entries=messages)
@@ -148,13 +148,15 @@ def prepare_message(hook, s3_path):
 
 
 def prepare_and_send_messages(dag_run, **kwargs):
-    hook = S3Hook(aws_conn_id=US_CONN_ID)
+    hook = S3Hook(aws_conn_id=S2_US_CONN_ID)
     # Read the missing stac files from the gap report file
     print(
         f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
     )
     files = get_missing_stac_files(
-        dag_run.conf["s3_report_path"], dag_run.conf["offset"], dag_run.conf["limit"]
+        dag_run.conf["s3_report_path"],
+        dag_run.conf["offset"],
+        dag_run.conf["limit"],
     )
 
     max_workers = 10
@@ -164,7 +166,10 @@ def prepare_and_send_messages(dag_run, **kwargs):
     batch = []
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(prepare_message, hook, s3_path) for s3_path in files]
+        futures = [
+            executor.submit(prepare_message, hook, s3_path)
+            for s3_path in files
+        ]
 
         for future in as_completed(futures):
             try:
