@@ -8,6 +8,15 @@ INDEX_LANDSAT_CONNECTION_SQS_QUEUE = Variable.get(
     "index_landsat_scenes_sqs_queue", "deafrica-dev-eks-index-landsat-scene"
 )
 
+LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
+    "landsat_sns_topic",
+    "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
+)
+
+LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
+    "landsat_bucket_name", "deafrica-landsat-dev"
+)
+
 # DB config
 DB_DATABASE = Variable.get("db_database", "odc")
 DB_HOSTNAME = Variable.get("db_hostname", "db-writer")

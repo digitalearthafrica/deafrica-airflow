@@ -21,9 +21,9 @@ from airflow.operators.python_operator import PythonOperator
 # [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from landsat_scenes_sync.variables import (
+    LANDSAT_SYNC_S3_BUCKET_NAME,
+    AWS_DEFAULT_REGION,
     USGS_S3_BUCKET_NAME,
-    AFRICA_S3_BUCKET_NAME,
-    AFRICA_AWS_REGION,
     USGS_AWS_REGION,
 )
 
@@ -140,9 +140,9 @@ with dag:
                 op_kwargs=dict(
                     conn_id=SYNC_LANDSAT_CONNECTION_ID,
                     source_bucket=USGS_S3_BUCKET_NAME,
-                    destination_bucket=AFRICA_S3_BUCKET_NAME,
+                    destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
                     source_bucket_region=USGS_AWS_REGION,
-                    destination_bucket_region=AFRICA_AWS_REGION,
+                    destination_bucket_region=AWS_DEFAULT_REGION,
                     source_key=path,
                     destination_key=path,
                     request_payer="requester",

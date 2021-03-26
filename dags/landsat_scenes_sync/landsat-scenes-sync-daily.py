@@ -28,7 +28,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime.now() - timedelta(days=12),
+    "start_date": datetime.now() - timedelta(days=1),
     "catchup": False,
     "version": "0.2",
 }
@@ -47,7 +47,7 @@ dag = DAG(
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
-    start_date = DEFAULT_ARGS["start_date"]
+    start_date = datetime.now() - timedelta(days=12)
     today = datetime.now()
     requested_date = start_date
     processes = []

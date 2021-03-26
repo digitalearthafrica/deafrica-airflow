@@ -10,28 +10,27 @@ from airflow.kubernetes.secret import Secret
 from datetime import datetime, timedelta
 
 from infra.images import INDEXER_IMAGE
+from infra.variables import DB_HOSTNAME
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 0,
-    "retry_delay": timedelta(minutes=15),
+    "retries": 1,
+    "retry_delay": timedelta(minutes=40),
+    "start_date": datetime.now() - timedelta(days=1),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 2),
     "catchup": False,
-    "version": "0.2",
+    "version": "0.3",
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
+        "DB_HOSTNAME": DB_HOSTNAME,
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
         Secret(
             "env",
@@ -78,8 +77,7 @@ dag = DAG(
     "landsat-scenes-indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    # schedule_interval="0 */1 * * *",
-    # catchup=False,
+    schedule_interval="0 */8 * * *",
     tags=["k8s", "landsat-scenes", "indexing"],
 )
 

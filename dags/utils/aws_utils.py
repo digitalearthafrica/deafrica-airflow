@@ -13,9 +13,12 @@ class S3:
     def __init__(self, conn_id):
         self.s3_hook = S3Hook(aws_conn_id=conn_id)
         self.aws_hook = AwsHook(aws_conn_id=conn_id)
+        self.s3_bucket = None
 
     def get_bucket(self, bucket_name: str):
-        return self.s3_hook.get_bucket(bucket_name=bucket_name)
+        if not self.s3_bucket:
+            self.s3_bucket = self.s3_hook.get_bucket(bucket_name=bucket_name)
+        return self.s3_bucket
 
     def check_s3_copy_return(self, returned: dict):
 
@@ -124,10 +127,8 @@ class S3:
             f"copy_s3_to_s3 source: {source_key} destination: {destination_key}"
         )
 
-        s3_hook = S3Hook(aws_conn_id=s3_conn_id)
-
         # This uses a boto3 S3 Client directly, so that we can pass the RequestPayer option.
-        returned = s3_hook.get_conn().copy_object(
+        returned = self.s3_hook.get_conn().copy_object(
             Bucket=destination_bucket,
             Key=destination_key,
             CopySource={"Bucket": source_bucket, "Key": source_key, "VersionId": None},
@@ -141,7 +142,6 @@ class S3:
 
     def copy_s3_to_s3_cross_region(
         self,
-        conn_id: str,
         source_bucket: str,
         destination_bucket: str,
         source_bucket_region: str,
@@ -178,7 +178,9 @@ class S3:
 
         cred = self.aws_hook.get_session().get_credentials()
 
-        source_bucket_client = boto3.client(
+        session = boto3.session.Session()
+
+        source_bucket_client = session.client(
             "s3",
             aws_access_key_id=cred.access_key,
             aws_secret_access_key=cred.secret_key,
@@ -190,7 +192,7 @@ class S3:
         )
 
         streaming_body = s3_obj["Body"]
-        destination_bucket_client = boto3.client(
+        destination_bucket_client = session.client(
             "s3",
             aws_access_key_id=cred.access_key,
             aws_secret_access_key=cred.secret_key,
@@ -203,15 +205,12 @@ class S3:
 
     def key_not_existent(
         self,
-        region_name: str,
         bucket_name: str,
         key: str,
     ):
         """
         Check on a S3 bucket if a object exist or not, if not returns the path, otherwise returns blank
 
-        :param s3_conn_id:(str) Airflow connection id
-        :param region_name:
         :param bucket_name:(str) S3 bucket name
         :param key:(str) File path
         :return:(bool) True if exist, False if not
@@ -220,35 +219,22 @@ class S3:
         exist = self.s3_hook.check_for_key(key, bucket_name=bucket_name)
         return key if not exist else ""
 
-    # def list_keys(self):
-    #     manifest = self.latest_manifest()
-    #     for obj in manifest["files"]:
-    #         print(obj["key"])
-    #         gzip_obj = self.s3.get_object(Bucket=self.bucket, Key=obj["key"])
-    #         buffer = gzip.open(gzip_obj["Body"], mode="rt")
-    #         reader = csv.reader(buffer)
-    #         for row in reader:
-    #             yield row
-
 
 class SQS:
     def __init__(self, conn_id):
         sqs_hook_conn = SQSHook(aws_conn_id=conn_id)
         self.sqs_hook = sqs_hook_conn.get_resource_type("sqs")
 
-    def publish_to_sqs_queue(
-        self, queue_name: str, messages: list, attributes: dict = {}
-    ):
+    def publish_to_sqs_queue(self, queue_name: str, messages: list):
         """
         Function to publish a message to a SQS
         :param queue_name:(str) AWS SQS queue name
         :param aws_conn_id:(str) Airflow Connection ID
         :param messages:(list) Messages list to be sent
-        :param attributes:(dict) not in use yet
         :return:None
         """
         queue = self.sqs_hook.get_queue_by_name(QueueName=queue_name)
-        returned = queue.send_messages(Entries=messages)
+        return queue.send_messages(Entries=messages)
 
     def get_queue(self, queue_name: str):
         """

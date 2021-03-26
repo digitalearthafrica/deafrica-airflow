@@ -12,8 +12,9 @@ import pandas as pd
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from utils.aws_utils import SQS
 
-from utils.url_request_utils import request_url, publish_to_sqs_queue, time_process
+from utils.url_request_utils import request_url, time_process
 
 ALLOWED_PATHROWS = set(
     pd.read_csv(
@@ -33,8 +34,10 @@ def publish_messages(datasets):
         logging.info(
             f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
         )
-        publish_to_sqs_queue(
-            aws_conn_id=SYNC_LANDSAT_CONNECTION_ID,
+
+        sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+
+        sqs_queue.publish_to_sqs_queue(
             queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
             messages=messages_to_send,
         )
