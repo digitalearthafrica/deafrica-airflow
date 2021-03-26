@@ -31,6 +31,7 @@ DEFAULT_ARGS = {
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
         Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
         Secret(
             "env",
