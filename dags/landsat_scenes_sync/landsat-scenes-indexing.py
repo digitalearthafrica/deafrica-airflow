@@ -4,13 +4,14 @@ DAG to periodically index Landsat 5, 7 and 8 data.
 This DAG uses k8s executors and in cluster with relevant tooling
 and configuration installed.
 """
+from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
-from datetime import datetime, timedelta
 
 from infra.images import INDEXER_IMAGE
-from infra.variables import DB_HOSTNAME
+from infra.variables import DB_HOSTNAME, DB_DATABASE, SECRET_ODC_WRITER_NAME
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -25,13 +26,14 @@ DEFAULT_ARGS = {
     "version": "0.3",
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_DATABASE": DB_DATABASE,
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
         Secret(
             "env",
             "AWS_DEFAULT_REGION",

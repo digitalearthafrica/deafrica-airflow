@@ -1,3 +1,6 @@
+"""
+# Variables provided from infra to dags
+"""
 from airflow.models import Variable
 
 SYNC_LANDSAT_CONNECTION_SQS_QUEUE = Variable.get(
@@ -30,3 +33,4 @@ DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-d
 
 SECRET_EXPLORER_WRITER_NAME = Variable.get("explorer_secret", "explorer-writer")
 SECRET_OWS_WRITER_NAME = Variable.get("ows_secret", "ows-writer")
+SECRET_ODC_WRITER_NAME = Variable.get("ows_secret", "odc-writer")
