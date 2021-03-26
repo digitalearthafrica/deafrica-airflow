@@ -28,5 +28,8 @@ DB_DUMP_S3_ROLE = Variable.get("db_dump_s3_role", "deafrica-dev-eks-db-dump-to-s
 SECRET_DBA_ADMIN_NAME = Variable.get("db_dba_admin_secret", "dba-admin")
 DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-dump")
 
-SECRET_EXPLORER_WRITER_NAME = Variable.get("explorer_secret", "explorer-writer")
-SECRET_OWS_WRITER_NAME = Variable.get("ows_secret", "ows-writer")
+SECRET_EXPLORER_WRITER_NAME = Variable.get(
+    "db_explorer_writer_secret", "explorer-writer"
+)
+SECRET_OWS_WRITER_NAME = Variable.get("db_ows_writer_secret", "ows-writer")
+SECRET_ODC_WRITER_NAME = Variable.get("db_odc_writer_secret", "odc-writer")
