@@ -17,6 +17,9 @@ from infra.podconfig import (
     OWS_CFG_MOUNT_PATH,
     OWS_CFG_IMAGEPATH,
     NODE_AFFINITY,
+    OWS_DATACUBE_CFG,
+    OWS_PYTHON_PATH,
+    OWS_CFG_FOLDER_PATH,
 )
 from infra.variables import SECRET_OWS_WRITER_NAME
 
@@ -50,7 +53,7 @@ cfg_image_mount = k8s.V1VolumeMount(
 config_container = k8s.V1Container(
     image=OWS_CONFIG_IMAGE,
     command=["cp"],
-    args=[OWS_CFG_IMAGEPATH, OWS_CFG_PATH],
+    args=["-r", OWS_CFG_IMAGEPATH, OWS_CFG_FOLDER_PATH],
     volume_mounts=[cfg_image_mount],
     name="mount-ows-config",
     working_dir="/opt",
@@ -83,7 +86,8 @@ def ows_update_extent_subdag(
     # append ows specific env_vars to args
     ows_env_cfg = {
         "WMS_CONFIG_PATH": OWS_CFG_PATH,
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
+        "DATACUBE_OWS_CFG": OWS_DATACUBE_CFG,
+        "PYTHONPATH": OWS_PYTHON_PATH,
     }
     args.setdefault("env_vars", ows_env_cfg).update(ows_env_cfg)
 
@@ -92,12 +96,12 @@ def ows_update_extent_subdag(
         "-c",
         dedent(
             """
-            datacube-ows-update --views;
+            datacube-ows-update --views
             for product in %s; do
                 if [ $product == "--all" ]; then
                     datacube-ows-update
                 else
-                    datacube-ows-update $product;
+                    datacube-ows-update $product
                 fi
             done;
         """
