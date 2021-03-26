@@ -19,16 +19,12 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
+from infra.variables import AFRICA_CONN_ID, US_CONN_ID
+
 SRC_BUCKET_NAME = "sentinel-cogs"
 QUEUE_NAME = "deafrica-prod-eks-sentinel-2-data-transfer"
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
-# The following connection is based on svc-deafrica-prod-eks-s2-data-transfer
-# which is in deafrica account
-US_CONN_ID = "deafrica-prod-eks-s2-data-transfer"
-# The following connection is based on svc-deafrica-sentinel-2-bucket-write
-# user in the PDS account
-AFRICA_CONN_ID = "deafrica-sentinel-2-bucket-write"
 
 default_args = {
     "owner": "Airflow",

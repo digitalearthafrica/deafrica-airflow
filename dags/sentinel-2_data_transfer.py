@@ -23,12 +23,8 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-# The following connection is based on svc-deafrica-prod-eks-s2-data-transfer
-# which is in deafrica account
-US_CONN_ID = "deafrica-prod-eks-s2-data-transfer"
-# The following connection is based on svc-deafrica-sentinel-2-bucket-write
-# user in the PDS account
-AFRICA_CONN_ID = "deafrica-sentinel-2-bucket-write"
+from infra.variables import AFRICA_CONN_ID, US_CONN_ID
+
 DEST_BUCKET_NAME = "deafrica-sentinel-2"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = (
