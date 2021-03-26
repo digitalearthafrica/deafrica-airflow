@@ -432,6 +432,8 @@ def process():
 
         for message in messages:
             try:
+                start_per_msg = time.time()
+
                 logging.info(f"Message received {message.body}")
 
                 logging.info("Start conversion from message to pystac item process")
@@ -510,8 +512,10 @@ def process():
                 logging.info("Messages deleted")
 
                 logging.info(
-                    f"Message processed and sent in {time_process(start=start)}"
+                    f"Message processed and sent in {time_process(start=start_per_msg)}"
                 )
+
+                logging.info(f"Total execution {time_process(start=start)}")
 
             except Exception as error:
                 logging.error(f"ERROR returned {error}")
