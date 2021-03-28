@@ -119,13 +119,13 @@ def generate_buckets_diff():
 
 
 with DAG(
-    "sentinel-2_gap_detection",
+    "landsat_scenes_gap_report",
     default_args=default_args,
     schedule_interval=SCHEDULE_INTERVAL,
-    tags=["Sentinel-2", "status"],
+    tags=["Landsat_scenes", "status", "gap_report"],
     catchup=False,
 ) as dag:
 
     READ_INVENTORIES = PythonOperator(
-        task_id="compare_s2_inventories", python_callable=generate_buckets_diff
+        task_id="compare_s3_inventories", python_callable=generate_buckets_diff
     )

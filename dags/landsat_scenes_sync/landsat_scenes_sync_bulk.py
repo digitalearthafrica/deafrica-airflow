@@ -37,7 +37,7 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync-bulk",
+    "landsat_scenes_sync_bulk",
     default_args=DEFAULT_ARGS,
     description="Sync bulk files",
     schedule_interval=None,

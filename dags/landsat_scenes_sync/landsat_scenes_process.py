@@ -52,7 +52,7 @@ def terminate(start_timer, **kwargs):
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-process",
+    "landsat_scenes_process",
     default_args=DEFAULT_ARGS,
     description="Process Queue Messages",
     concurrency=CONCURRENCY,

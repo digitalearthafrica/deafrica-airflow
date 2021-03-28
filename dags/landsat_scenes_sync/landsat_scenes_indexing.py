@@ -76,7 +76,7 @@ affinity = {
 }
 
 dag = DAG(
-    "landsat-scenes-indexing",
+    "landsat_scenes_indexing",
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */8 * * *",

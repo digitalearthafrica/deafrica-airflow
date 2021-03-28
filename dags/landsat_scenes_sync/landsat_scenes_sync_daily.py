@@ -36,7 +36,7 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync-daily",
+    "landsat_scenes_sync_daily",
     default_args=DEFAULT_ARGS,
     description="Sync Daily",
     schedule_interval="@daily",  # Run once a day at midnight
