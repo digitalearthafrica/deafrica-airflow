@@ -29,7 +29,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 2),
+    "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "version": "0.2",
 }
@@ -61,7 +61,6 @@ with dag:
                 task_id=sat,
                 python_callable=retrieve_bulk_data,
                 op_kwargs=dict(file_name=file),
-                dag=dag,
             )
         )
 

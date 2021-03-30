@@ -192,6 +192,7 @@ class ScenesSyncProcess:
                 bucket_name=USGS_S3_BUCKET_NAME,
                 key=full_path,
                 params=params,
+                region=USGS_AWS_REGION,
             )
 
             return Item.from_dict(json.loads(response))
@@ -243,7 +244,7 @@ class ScenesSyncProcess:
         :return:
         """
         # Limit number of threads
-        num_of_threads = 20
+        num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info("FILTERING MISSING ASSETS")
 
@@ -387,7 +388,7 @@ def get_messages(
     logging.info(f"Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
-    sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+    sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AFRICA_S3_BUCKET_PATH)
     queue = sqs_queue.get_queue(
         queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     )

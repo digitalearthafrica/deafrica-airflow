@@ -7,8 +7,8 @@ from infra.variables import (
 
 # ######### USGS ############
 
-USGS_INDEX_URL = "https://landsatlook.usgs.gov/stac-browser/"
 USGS_API_MAIN_URL = "https://landsatlook.usgs.gov/sat-api/"
+USGS_INDEX_URL = "https://landsatlook.usgs.gov/stac-browser/"
 USGS_DATA_URL = "https://landsatlook.usgs.gov/data/"
 USGS_S3_BUCKET_NAME = "usgs-landsat"
 USGS_AWS_REGION = "us-west-2"

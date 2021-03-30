@@ -14,7 +14,7 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import retrieve_json_data_and_send
+from utils.scenes_sync import retrieve_json_data_and_send_daily
 
 # [END import_module]
 
@@ -28,7 +28,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime.now() - timedelta(days=1),
+    "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "version": "0.2",
 }
@@ -57,9 +57,8 @@ with dag:
         processes.append(
             PythonOperator(
                 task_id=f"Task-Day-{requested_date.date().isoformat()}",
-                python_callable=retrieve_json_data_and_send,
+                python_callable=retrieve_json_data_and_send_daily,
                 op_kwargs=dict(date=requested_date),
-                dag=dag,
             )
         )
         requested_date += timedelta(days=1)

@@ -20,7 +20,7 @@ DEFAULT_ARGS = {
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=40),
-    "start_date": datetime.now() - timedelta(days=1),
+    "start_date": datetime(2021, 3, 29),
     "depends_on_past": False,
     "catchup": False,
     "version": "0.3",
