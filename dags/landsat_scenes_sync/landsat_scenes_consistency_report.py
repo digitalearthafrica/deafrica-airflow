@@ -25,6 +25,7 @@ from infra.variables import (
     SENTINEL_2_INVENTORY_UTILS_BUCKET,
     SENTINEL_COGS_INVENTORY_BUCKET,
     AWS_DEFAULT_REGION,
+    SENTINEL_COGS_BUCKET,
 )
 from landsat_scenes_sync.variables import USGS_S3_BUCKET_NAME, USGS_AWS_REGION
 from utils.aws_utils import S3
@@ -77,7 +78,7 @@ def generate_buckets_diff():
                 ".json" in key
                 and key.startswith(cogs_folder_name)
                 and key.split("/")[-2].split("_")[1] in africa_tile_ids
-                # We need to ensure we're ignoring the old format data
+                # We need to ensure we're ignoring the old format data (<bucket_name>/<year>)
                 and re.match(r"sentinel-s2-l2a-cogs/\d{4}/", key) is None
             ):
                 to_return.append(key)
@@ -148,7 +149,7 @@ def generate_buckets_diff():
     logging.info(f"orphaned_keys {orphaned_keys}")
     logging.info(f"missing_keys {missing_keys}")
 
-    missing_scenes = [f"s3://sentinel-cogs/{key}" for key in missing_keys]
+    missing_scenes = [f"s3://{SENTINEL_COGS_BUCKET}/{key}" for key in missing_keys]
 
     output_filename = datetime.today().isoformat() + ".txt"
     key = REPORTING_PREFIX + output_filename

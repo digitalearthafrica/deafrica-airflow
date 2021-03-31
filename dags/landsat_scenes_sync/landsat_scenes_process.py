@@ -38,10 +38,11 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 3, 29),
+    "start_date": datetime.now(),
+    # "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "limit_of_processes": 30,
-    "version": "0.3",
+    "version": "0.4",
 }
 # [END default_args]
 

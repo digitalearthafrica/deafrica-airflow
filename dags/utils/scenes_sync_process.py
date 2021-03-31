@@ -322,16 +322,14 @@ class ScenesSyncProcess:
             source_link = item.get_single_link("derived_from")
             source_target = source_link.target
 
-            logging.info(
-                f'item.assets.get("SR_B2.TIF") {item.assets["SR_B2.TIF"].href}'
-            )
-
             returned = transform_stac_to_stac(
                 item=item, self_link=self_target, source_link=source_target
             )
 
             if not returned.properties.get("proj:epsg"):
-                raise Exception("<proj:epsg> property is required")
+                raise Exception(
+                    "There was an issue converting stac 0.7 to 1.0. <proj:epsg> property is required"
+                )
 
             return returned
 
