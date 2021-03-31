@@ -84,7 +84,7 @@ with DAG(
                 "--stac",
                 "--no-sign-request",
                 f"s3://deafrica-services/gm_s2_annual/1-0-0/x{index}/**/*.json",
-                "s2_l2a",
+                "gm_s2_annual",
             ],
             labels={"backlog": "s3-to-dc"},
             name="datacube-index",
