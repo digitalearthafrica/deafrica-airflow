@@ -388,7 +388,7 @@ def get_messages(
     logging.info(f"Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
-    sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AFRICA_S3_BUCKET_PATH)
+    sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
     queue = sqs_queue.get_queue(
         queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     )

@@ -26,7 +26,7 @@ from infra.variables import (
     SENTINEL_COGS_INVENTORY_BUCKET,
     AWS_DEFAULT_REGION,
 )
-from landsat_scenes_sync.variables import USGS_S3_BUCKET_NAME
+from landsat_scenes_sync.variables import USGS_S3_BUCKET_NAME, USGS_AWS_REGION
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 
@@ -129,7 +129,7 @@ def generate_buckets_diff():
     s3_inventory = InventoryUtils(
         conn=SYNC_LANDSAT_INVENTORY_ID,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        region="us-west-2",
+        region=USGS_AWS_REGION,
     )
     source_keys = retrieve_keys_from_inventory_file(s3_bucket_client=s3_inventory)
 

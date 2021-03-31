@@ -11,7 +11,7 @@ import requests
 import pandas as pd
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE, AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import AFRICA_S3_BUCKET_PATH
 from utils.aws_utils import SQS
 
@@ -44,9 +44,7 @@ def publish_messages(datasets):
             f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
         )
 
-        sqs_queue = SQS(
-            conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AFRICA_S3_BUCKET_PATH
-        )
+        sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
 
         sqs_queue.publish_to_sqs_queue(
             queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
