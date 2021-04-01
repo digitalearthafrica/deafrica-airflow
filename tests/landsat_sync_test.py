@@ -6,11 +6,12 @@ import mock
 from dags.utils.scenes_sync_process import process
 
 # from moto import mock_s3, mock_sns
+from infra.variables import AWS_DEFAULT_REGION
 
 TEST_BUCKET = "s1-magic-bucket"
 TEST_TOPIC = "s1-magic-topic"
 SAMPLE_FILE = "data/landsat_usgs_example.json"
-REGION_NAME = "af-south-1"
+REGION_NAME = AWS_DEFAULT_REGION
 
 
 class LandsatUSGSTest(unittest.TestCase):
@@ -44,11 +45,10 @@ class LandsatUSGSTest(unittest.TestCase):
 
 
 class LandsatUSGSProcessTest(unittest.TestCase):
-
     def setUp(self):
         pass
 
-    @mock.patch('dags.utils.scenes_sync_process.get_messages')
+    @mock.patch("dags.utils.scenes_sync_process.get_messages")
     def test_1(self, mocked):
         with open("data/landsat_usgs_example.json") as features:
             mocked.return_value = iter([json.load(features)])

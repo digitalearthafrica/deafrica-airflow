@@ -35,7 +35,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 2, 2),
+    "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "version": "0.2",
 }
@@ -43,7 +43,7 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync-tests",
+    "landsat_scenes_sync_tests",
     default_args=DEFAULT_ARGS,
     description="Sync Tests",
     schedule_interval=None,
@@ -63,7 +63,7 @@ def copy_s3_to_s3_boto3(
     source_key: str,
     destination_key: str = None,
     request_payer: str = "requester",
-    acl: str = "public-read",
+    acl: str = "bucket-owner-full-control",
 ):
     """
     Function to copy files from one S3 source_bucket_client to another.
@@ -146,7 +146,7 @@ with dag:
                     source_key=path,
                     destination_key=path,
                     request_payer="requester",
-                    acl="public-read",
+                    acl="bucket-owner-full-control",
                 ),
                 dag=dag,
             )

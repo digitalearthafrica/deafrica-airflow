@@ -11,7 +11,8 @@ import requests
 import pandas as pd
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE, AWS_DEFAULT_REGION
+from landsat_scenes_sync.variables import AFRICA_S3_BUCKET_PATH
 from utils.aws_utils import SQS
 
 from utils.url_request_utils import request_url, time_process
@@ -22,6 +23,14 @@ ALLOWED_PATHROWS = set(
         header=None,
     ).values.ravel()
 )
+
+MAIN_URL = "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
+AFRICA_BBOX = [
+    -26.359944882003788,
+    -47.96476498374171,
+    64.4936701740102,
+    38.34459242512347,
+]
 
 
 def publish_messages(datasets):
@@ -35,7 +44,7 @@ def publish_messages(datasets):
             f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
         )
 
-        sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+        sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
 
         sqs_queue.publish_to_sqs_queue(
             queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
@@ -169,14 +178,11 @@ def request_api_and_send(url: str, params=None):
     logging.info("Process Finished !! :)")
 
 
-def retrieve_json_data_and_send(date=None, display_ids=None):
+def retrieve_json_data_and_send_daily(date):
     """
-    Function to create Python threads which will request the API simultaneously
-    If start_date and today are sent, means we are requesting daily JSON API
-    If display_ids is sent, means we are using bulk CSV files to retrieve the information
+    Function to request the API and send values to the QUEUE
 
     :param date: (datetime) Date to request the API
-    :param display_ids: (list) id list from the bulk CSV file
     :return:
     """
     # Example of API URLs
@@ -187,77 +193,86 @@ def retrieve_json_data_and_send(date=None, display_ids=None):
 
     try:
 
-        if not date and not display_ids:
-            msg = "Date is required for daily JSON request. For a bulk CSV request, Display_ids is required"
+        if not date:
+            msg = "Date is required for daily JSON request."
             logging.error(msg)
             raise Exception(msg)
 
-        main_url = (
-            "https://landsatlook.usgs.gov/sat-api/collections/landsat-c2l2-sr/items"
-        )
-        africa_bbox = [
-            -26.359944882003788,
-            -47.96476498374171,
-            64.4936701740102,
-            38.34459242512347,
-        ]
+        start_timer = time.time()
+        logging.info(f"Starting Daily process")
+
+        params = {
+            "limit": 100,
+            "bbox": json.dumps(AFRICA_BBOX),
+            "time": date.date().isoformat(),
+        }
+
+        # Request daily JSON API
+        request_api_and_send(url=MAIN_URL, params=params)
+
+        logging.info(f"Process finished in {time_process(start=start_timer)}")
+
+        logging.info(f"Whole process finished successfully ;)")
+
+    except Exception as error:
+        logging.error(error)
+        raise error
+
+
+def retrieve_json_data_and_send_bulk(display_ids):
+    """
+    Function to create Python threads which will request the API simultaneously
+
+    :param display_ids: (list) id list from the bulk CSV file
+    :return:
+    """
+
+    try:
 
         if not display_ids:
-            start_timer = time.time()
-            logging.info(f"Starting Daily process")
+            msg = "For a bulk CSV request, Display_ids is required"
+            logging.error(msg)
+            raise Exception(msg)
 
-            params = {
-                "limit": 100,
-                "bbox": json.dumps(africa_bbox),
-                "time": date.date().isoformat(),
-            }
+        logging.info(f"Starting Bulk process")
 
-            # Request daily JSON API
-            request_api_and_send(url=main_url, params=params)
+        # Limit number of threads
+        num_of_threads = 16
+        count_tasks = len(display_ids)
+        logging.info(
+            f"Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages"
+        )
+        logging.info(
+            f"Requesting URL {MAIN_URL} adding the display id by the end of the url"
+        )
 
-            logging.info(f"Process finished in {time_process(start=start_timer)}")
+        while count_tasks > 0:
 
-        else:
+            if count_tasks < num_of_threads:
+                num_of_threads = count_tasks
 
-            logging.info(f"Starting Bulk process")
-
-            # Limit number of threads
-            num_of_threads = 16
-            count_tasks = len(display_ids)
-            logging.info(
-                f"Simultaneously {num_of_threads} process/requests (Python threads) to send {count_tasks} messages"
-            )
-            logging.info(
-                f"Requesting URL {main_url} adding the display id by the end of the url"
-            )
-
-            while count_tasks > 0:
-
-                if count_tasks < num_of_threads:
-                    num_of_threads = count_tasks
-
-                # Create threads for the ids from the bulk CSV file
-                thread_list = [
-                    threading.Thread(
-                        target=request_api_and_send,
-                        args=(f"{main_url}/{display_id}",),
-                    )
-                    for display_id in display_ids[
-                        (count_tasks - num_of_threads) : count_tasks
-                    ]
-                ]
-
-                # Start Threads
-                [start_thread.start() for start_thread in thread_list]
-
-                logging.info(
-                    f"Running threads to retrieve and send "
-                    f"ids {display_ids[(count_tasks - num_of_threads):count_tasks]}"
+            # Create threads for the ids from the bulk CSV file
+            thread_list = [
+                threading.Thread(
+                    target=request_api_and_send,
+                    args=(f"{MAIN_URL}/{display_id}",),
                 )
-                # Wait all {num_of_threads} threads finish to start {num_of_threads} more
-                [join_thread.join() for join_thread in thread_list]
+                for display_id in display_ids[
+                    (count_tasks - num_of_threads) : count_tasks
+                ]
+            ]
 
-                count_tasks -= num_of_threads
+            # Start Threads
+            [start_thread.start() for start_thread in thread_list]
+
+            logging.info(
+                f"Running threads to retrieve and send "
+                f"ids {display_ids[(count_tasks - num_of_threads):count_tasks]}"
+            )
+            # Wait all {num_of_threads} threads finish to start {num_of_threads} more
+            [join_thread.join() for join_thread in thread_list]
+
+            count_tasks -= num_of_threads
 
         logging.info(f"Whole process finished successfully ;)")
 
@@ -386,7 +401,7 @@ def retrieve_bulk_data(file_name):
         if display_id_list:
 
             # request the API through the display id and send the information to the queue
-            retrieve_json_data_and_send(display_ids=display_id_list)
+            retrieve_json_data_and_send_bulk(display_ids=display_id_list)
 
         else:
             logging.info(

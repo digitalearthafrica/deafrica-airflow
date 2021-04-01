@@ -38,10 +38,11 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime.now() - timedelta(days=1),  # start_date is always yesterday
+    "start_date": datetime.now(),
+    # "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "limit_of_processes": 30,
-    "version": "0.3",
+    "version": "0.4",
 }
 # [END default_args]
 
@@ -52,7 +53,7 @@ def terminate(start_timer, **kwargs):
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-process",
+    "landsat_scenes_process",
     default_args=DEFAULT_ARGS,
     description="Process Queue Messages",
     concurrency=CONCURRENCY,
@@ -80,7 +81,6 @@ with dag:
             task_id=f"Processing-Messages-DEAfrica-{idx}",
             python_callable=process,
             op_kwargs=dict(),
-            dag=dag,
         )
         for idx in range(DEFAULT_ARGS["limit_of_processes"])
     ]

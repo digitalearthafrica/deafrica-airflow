@@ -1,9 +1,6 @@
 import logging
-from copy import deepcopy
-from urllib.parse import urlparse
 
 import boto3
-from airflow.contrib.hooks.aws_hook import AwsHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
@@ -12,13 +9,22 @@ from airflow.hooks.S3_hook import S3Hook
 class S3:
     def __init__(self, conn_id):
         self.s3_hook = S3Hook(aws_conn_id=conn_id)
-        self.aws_hook = AwsHook(aws_conn_id=conn_id)
-        self.s3_bucket = None
 
-    def get_bucket(self, bucket_name: str):
-        if not self.s3_bucket:
-            self.s3_bucket = self.s3_hook.get_bucket(bucket_name=bucket_name)
-        return self.s3_bucket
+    def get_bucket_client(
+        self,
+        region: str = "af-south-1",
+    ):
+
+        cred = self.s3_hook.get_session().get_credentials()
+
+        session = boto3.session.Session()
+
+        return session.client(
+            "s3",
+            aws_access_key_id=cred.access_key,
+            aws_secret_access_key=cred.secret_key,
+            region_name=region,
+        )
 
     def check_s3_copy_return(self, returned: dict):
 
@@ -30,32 +36,12 @@ class S3:
         else:
             raise Exception(f"AWS S3 Copy object fail : {returned}")
 
-    def s3_urlparse(self, url):
-        """
-        Split S3 URL into bucket, key, filename
-        """
-        _url = deepcopy(url)
-        if url[0:5] == "https":
-
-            parts = urlparse(url)
-            bucket = parts.netloc.split(".")[0]
-            _url = f"s3://{bucket}{parts.path}"
-
-        if _url[0:5] != "s3://":
-            raise Exception(f"Invalid S3 url {_url}")
-
-        url_obj = _url.replace("s3://", "").split("/")
-
-        # remove empty items
-        url_obj = list(filter(lambda x: x, url_obj))
-        return {"bucket": url_obj[0], "key": "/".join(url_obj[1:])}
-
     def get_s3_contents_and_attributes(
         self,
         bucket_name: str,
         key: str,
         params: dict = {},
-        region_name: str = "us-west-2",
+        region: str = "af-south-1",
     ):
         """
         Retrieve S3 object and its attributes
@@ -64,14 +50,14 @@ class S3:
         :param bucket_name: (str) bucket_name: AWS S3 bucket which the function will connect to
         :param key: (str) Path to the content which the function will access
         :param params:
-        :param region_name: Defaulted to us-west-2
+        :param region: Defaulted to af-south-1
         :return: (dict) content
         """
 
         if not key:
             raise Exception("Key must be informed to be able connecting to AWS S3")
 
-        s3_obj = self.s3_hook.get_resource_type("s3", region_name=region_name).Object(
+        s3_obj = self.s3_hook.get_resource_type("s3", region_name=region).Object(
             bucket_name, key
         )
 
@@ -84,7 +70,7 @@ class S3:
         file: bytes,
         destination_key: str,
         destination_bucket: str,
-        acl: str = "public-read",
+        acl: str = "bucket-owner-full-control",
     ):
         self.s3_hook.load_bytes(
             bytes_data=file,
@@ -97,20 +83,18 @@ class S3:
 
     def copy_s3_to_s3_same_region(
         self,
-        s3_conn_id: str,
         source_bucket: str,
         destination_bucket: str,
         source_key: str,
         destination_key: str = None,
         request_payer: str = None,
-        acl: str = "public-read",
+        acl: str = "bucket-owner-full-control",
     ):
         """
         Function to copy files from one S3 bucket to another. This function is limited to buckets in the same region.
 
         :param source_key:(str) Source file path
         :param destination_key:(str) Destination file path
-        :param s3_conn_id:(str) Airflow connection id
         :param source_bucket:(str) Source S3 bucket name
         :param destination_bucket:(str) Destination S3 bucket name
         :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
@@ -149,7 +133,7 @@ class S3:
         source_key: str,
         destination_key: str = None,
         request_payer: str = "requester",
-        acl: str = "public-read",
+        acl: str = "bucket-owner-full-control",
     ):
         """
         Function to copy files from a S3 to another. Slower process however allows cross-region copies.
@@ -176,27 +160,17 @@ class S3:
             f"copy_s3_to_s3_cross_region source: {source_key} destination: {destination_key}"
         )
 
-        cred = self.aws_hook.get_session().get_credentials()
-
-        session = boto3.session.Session()
-
-        source_bucket_client = session.client(
-            "s3",
-            aws_access_key_id=cred.access_key,
-            aws_secret_access_key=cred.secret_key,
-            region_name=source_bucket_region,
-        )
-
-        s3_obj = source_bucket_client.get_object(
-            Bucket=source_bucket, Key=source_key, RequestPayer=request_payer
+        s3_obj = self.get_object(
+            bucket_name=source_bucket,
+            key=source_key,
+            region=source_bucket_region,
+            request_payer=request_payer,
         )
 
         streaming_body = s3_obj["Body"]
-        destination_bucket_client = session.client(
-            "s3",
-            aws_access_key_id=cred.access_key,
-            aws_secret_access_key=cred.secret_key,
-            region_name=destination_bucket_region,
+
+        destination_bucket_client = self.get_bucket_client(
+            region=destination_bucket_region
         )
 
         destination_bucket_client.upload_fileobj(
@@ -219,11 +193,48 @@ class S3:
         exist = self.s3_hook.check_for_key(key, bucket_name=bucket_name)
         return key if not exist else ""
 
+    def get_object(self, bucket_name, key, region, request_payer: str = ""):
+
+        # logging.info(f'get_object {bucket_name} {key} {region} {request_payer}')
+
+        bucket_client = self.get_bucket_client(region=region)
+        return bucket_client.get_object(
+            Bucket=bucket_name, Key=key, RequestPayer=request_payer
+        )
+
+    def put_object(self, bucket_name, key, region, body: str = ""):
+
+        bucket_client = self.get_bucket_client(region=region)
+
+        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body)
+
+    def list_objects(
+        self,
+        bucket_name,
+        region,
+        request_payer: str = None,
+        continuation_token: str = None,
+    ):
+
+        bucket_client = self.get_bucket_client(region=region)
+
+        kwargs = {"Bucket": bucket_name}
+
+        if request_payer:
+            kwargs.update({"RequestPayer": request_payer})
+
+        if continuation_token:
+            kwargs.update({"ContinuationToken": continuation_token})
+
+        return bucket_client.list_objects_v2(**kwargs)
+
 
 class SQS:
-    def __init__(self, conn_id):
+    def __init__(self, conn_id, region):
         sqs_hook_conn = SQSHook(aws_conn_id=conn_id)
-        self.sqs_hook = sqs_hook_conn.get_resource_type("sqs")
+        self.sqs_hook = sqs_hook_conn.get_resource_type(
+            resource_type="sqs", region_name=region
+        )
 
     def publish_to_sqs_queue(self, queue_name: str, messages: list):
         """
@@ -269,7 +280,6 @@ class SNS:
         """
         Function to publish a message to a SNS
         :param target_arn:(str)
-        :param aws_conn_id:(str)
         :param message:(str)
         :param attributes:(dict)
         :return:None
