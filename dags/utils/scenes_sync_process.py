@@ -9,7 +9,6 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Iterable
 
-import rasterio
 from pystac import Item, Link
 from stactools.landsat.utils import transform_stac_to_stac
 
@@ -65,17 +64,17 @@ class ScenesSyncProcess:
         item.add_link(derived_from)
 
         # Add Self Link point to stac 1.0
-        path_and_mame = self.find_s3_path_and_file_name_from_item(
+        path_and_name = self.find_s3_path_and_file_name_from_item(
             item=item, start_url=USGS_INDEX_URL
         )
 
         if (
-            path_and_mame
-            and path_and_mame.get("path")
-            and path_and_mame.get("file_name")
+            path_and_name
+            and path_and_name.get("path")
+            and path_and_name.get("file_name")
         ):
-            file_name = f"{path_and_mame['file_name']}_stac.json"
-            self_path = f"{path_and_mame['path']}/{file_name}"
+            file_name = f"{path_and_name['file_name']}_stac.json"
+            self_path = f"{path_and_name['path']}/{file_name}"
 
             self_link = Link(rel="self", target=f"{AFRICA_S3_BUCKET_PATH}{self_path}")
             item.add_link(self_link)
@@ -86,7 +85,7 @@ class ScenesSyncProcess:
         # Add product_overview
         product_overview_link = Link(
             rel="product_overview",
-            target=f'{AFRICA_S3_BUCKET_PATH}{path_and_mame["path"]}',
+            target=f'{AFRICA_S3_BUCKET_PATH}{path_and_name["path"]}',
         )
         logging.info(f"Product Overview link created {product_overview_link}")
         item.add_link(product_overview_link)
@@ -160,7 +159,7 @@ class ScenesSyncProcess:
 
             logging.debug(f"asset.href {asset.href}")
 
-            file_name = f'{asset.href.split("/")[-1]}'
+            file_name = asset.href.split("/")[-1]
             asset_s3_path = asset.href.replace(start_url, "")
 
             return {"path": asset_s3_path, "file_name": file_name}
@@ -172,17 +171,17 @@ class ScenesSyncProcess:
         :return: ST Pystac Item
         """
 
-        path_and_mame = self.find_s3_path_and_file_name_from_item(
+        path_and_name = self.find_s3_path_and_file_name_from_item(
             item=sr_item, start_url=USGS_INDEX_URL
         )
 
         if (
-            path_and_mame
-            and path_and_mame.get("path")
-            and path_and_mame.get("file_name")
+            path_and_name
+            and path_and_name.get("path")
+            and path_and_name.get("file_name")
         ):
             full_path = (
-                f"{path_and_mame['path']}/{path_and_mame['file_name']}_ST_stac.json"
+                f"{path_and_name['path']}/{path_and_name['file_name']}_ST_stac.json"
             )
 
             logging.debug(f"Accessing file {full_path}")
@@ -200,6 +199,10 @@ class ScenesSyncProcess:
     def merge_assets(self, item: Item):
         """
         Function to merge missing assets (from the ST) into the main Pystac file (SR)
+
+        Sometimes there are differences between what USGS returns from their API, and
+        what was written to S3.
+
         :param item: Pystac Item
         :return: None
         """
@@ -311,12 +314,15 @@ class ScenesSyncProcess:
         :return:
         """
 
+        import rasterio
+
         with rasterio.Env(
             aws_unsigned=True,
             AWS_S3_ENDPOINT=AFRICA_S3_ENDPOINT,
             CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
         ):
             # TODO Remove the Links below once Stactools library is updated
+            #
             self_link = item.get_single_link("self")
             self_target = self_link.target
             source_link = item.get_single_link("derived_from")

@@ -1,6 +1,8 @@
 """
-# Landsat Bulk Sync automation
-DAG to retrieve Landsat 5, 7 and 8 GZIP bulk data from USGS, unzip, filter and send the right ones to our SQS.
+# Landsat Scene Identification and Sync
+
+Retrieves Landsat 5, 7 and 8 GZIP bulk CSVs from USGS, filters out the scenes we are interested in
+by region and processing date, and submits them to our processing SQS.
 
 """
 # [START import_module]
@@ -37,11 +39,13 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync_bulk",
+    "landsat_scenes_sync",
     default_args=DEFAULT_ARGS,
-    description="Sync bulk files",
+    description="Identify scenes and Sync",
     schedule_interval=None,
-    tags=["Scene", "bulk"],
+    tags=[
+        "Scene",
+    ],
 )
 # [END instantiate_dag]
 
@@ -60,7 +64,7 @@ with dag:
             PythonOperator(
                 task_id=sat,
                 python_callable=retrieve_bulk_data,
-                op_kwargs=dict(file_name=file),
+                op_kwargs=dict(file_name=file, date_to_process="{{ execution_date }}"),
             )
         )
 

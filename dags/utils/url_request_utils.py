@@ -1,5 +1,6 @@
 import json
 import time
+from typing import Optional
 
 import requests
 
@@ -28,15 +29,13 @@ def test_http_return(returned):
         )
 
 
-def request_url(url: str, params: dict = {}):
-    try:
-        resp = requests.get(url=url, params=params)
-        # Check return 200
-        test_http_return(resp)
-        return json.loads(resp.content)
-
-    except Exception as error:
-        raise error
+def request_url(url: str, params: Optional[dict] = None):
+    if params is None:
+        params = {}
+    resp = requests.get(url=url, params=params)
+    # Check return 200
+    test_http_return(resp)
+    return json.loads(resp.content)
 
 
 def time_process(start: float):
