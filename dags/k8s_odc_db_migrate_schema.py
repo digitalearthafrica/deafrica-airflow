@@ -56,21 +56,25 @@ dag = DAG(
     concurrency=1,
     max_active_runs=1,
     tags=["k8s"],
-    schedule_interval=None,    # Fully manual migrations
+    schedule_interval=None,  # Fully manual migrations
 )
 
 affinity = {
     "nodeAffinity": {
         "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [{
-                "matchExpressions": [{
-                    "key": "nodetype",
-                    "operator": "In",
-                    "values": [
-                        "ondemand",
+            "nodeSelectorTerms": [
+                {
+                    "matchExpressions": [
+                        {
+                            "key": "nodetype",
+                            "operator": "In",
+                            "values": [
+                                "ondemand",
+                            ],
+                        }
                     ]
-                }]
-            }]
+                }
+            ]
         }
     }
 }
@@ -95,7 +99,6 @@ with dag:
 
     # Task complete
     COMPLETE = DummyOperator(task_id="done")
-
 
     START >> UPDATE_SCHEMA
     UPDATE_SCHEMA >> COMPLETE
