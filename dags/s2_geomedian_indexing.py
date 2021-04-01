@@ -24,33 +24,13 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
-        "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
+        "DB_HOSTNAME": "db-writer"
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            "sentinel-2-indexing-user",
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret(
-            "env",
-            "AWS_ACCESS_KEY_ID",
-            "sentinel-2-indexing-user",
-            "AWS_ACCESS_KEY_ID",
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "sentinel-2-indexing-user",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
-        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
+        Secret("env", "DB_DATABASE", "odc-writer", "database-name")
     ],
 }
 
@@ -73,7 +53,7 @@ with DAG(
 ) as dag:
 
     # This needs to be updated in the future in case more zones have been added
-    x = range(153, 246)
+    x = range(153, 247)
     for index in x:
         INDEXING = KubernetesPodOperator(
             namespace="processing",
