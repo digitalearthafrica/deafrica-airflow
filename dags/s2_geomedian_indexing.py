@@ -12,6 +12,8 @@ from airflow.contrib.operators.kubernetes_pod_operator import (
     KubernetesPodOperator,
 )
 
+from infra.images import INDEXER_IMAGE
+
 DEFAULT_ARGS = {
     "owner": "Toktam Ebadi",
     "depends_on_past": False,
@@ -33,8 +35,6 @@ DEFAULT_ARGS = {
         Secret("env", "DB_DATABASE", "odc-writer", "database-name")
     ],
 }
-
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 
 dag = DAG(
     "Sentinel-2-geomedian-indexing",
