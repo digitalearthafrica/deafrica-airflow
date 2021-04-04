@@ -14,7 +14,7 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from utils.scenes_sync_process import process
-from utils.url_request_utils import time_process
+from utils.sync_utils import time_process
 
 # [END import_module]
 

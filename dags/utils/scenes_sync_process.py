@@ -28,7 +28,7 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
 )
-from utils.url_request_utils import time_process
+from utils.sync_utils import time_process
 from utils.aws_utils import S3, SQS, SNS
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"

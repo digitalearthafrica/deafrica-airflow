@@ -16,7 +16,7 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import retrieve_bulk_data
+from utils.scenes_sync import sync_data
 
 # [END import_module]
 
@@ -31,9 +31,9 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 3, 29),
-    "catchup": False,
-    "version": "0.2",
+    "start_date": datetime(2020, 3, 1),
+    "catchup": True,
+    "version": "0.5.2",
 }
 # [END default_args]
 
@@ -63,8 +63,8 @@ with dag:
         processes.append(
             PythonOperator(
                 task_id=sat,
-                python_callable=retrieve_bulk_data,
-                op_kwargs=dict(file_name=file, date_to_process="{{ execution_date }}"),
+                python_callable=sync_data,
+                op_kwargs=dict(file_name=file),
             )
         )
 

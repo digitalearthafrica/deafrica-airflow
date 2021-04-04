@@ -1,5 +1,6 @@
 import json
 import time
+from datetime import datetime
 from typing import Optional
 
 import requests
@@ -36,6 +37,16 @@ def request_url(url: str, params: Optional[dict] = None):
     # Check return 200
     test_http_return(resp)
     return json.loads(resp.content)
+
+
+def convert_str_to_date(date: str):
+    try:
+        return datetime.strptime(date, "%Y/%M/%d").date()
+    except ValueError:
+        try:
+            return datetime.strptime(date, "%Y-%M-%d").date()
+        except ValueError as error:
+            raise error
 
 
 def time_process(start: float):

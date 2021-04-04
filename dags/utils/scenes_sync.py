@@ -6,17 +6,20 @@ import gzip
 import json
 import logging
 import time
+import requests
+
 from concurrent.futures._base import as_completed
 from concurrent.futures.thread import ThreadPoolExecutor
+from pathlib import Path
+from urllib.parse import urlparse
 
 import pandas as pd
-import requests
-from pendulum import pendulum
+from airflow.models import Variable
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE, AWS_DEFAULT_REGION
 from utils.aws_utils import SQS
-from utils.url_request_utils import request_url, time_process
+from utils.sync_utils import request_url, time_process, convert_str_to_date
 
 ALLOWED_PATHROWS = set(
     pd.read_csv(
@@ -37,17 +40,17 @@ def publish_messages(datasets):
     """
 
     def post_messages(messages_to_send):
-        logging.info(
-            f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
-        )
+        try:
+            sqs_queue = SQS(
+                conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION
+            )
 
-        sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
-
-        sqs_queue.publish_to_sqs_queue(
-            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-            messages=messages_to_send,
-        )
-        logging.info(f"messages sent {messages_to_send}")
+            sqs_queue.publish_to_sqs_queue(
+                queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+                messages=messages_to_send,
+            )
+        except Exception as error:
+            logging.error(f"Error sending message to the queue {error}")
 
     count = 0
     messages = []
@@ -72,52 +75,7 @@ def publish_messages(datasets):
     return count
 
 
-def get_allowed_features_json(retrieved_json):
-    """
-    Function to filter the scenes and allow just the Africa ones
-    :param retrieved_json: (dict) retrieved value
-    :return: (list)
-    """
-    logging.info(
-        "Filtering the scenes and allowing just the Africa ones based on its PathRow"
-    )
-
-    if retrieved_json.get("features") and retrieved_json["features"]:
-        # Daily
-        return [
-            feature
-            for feature in retrieved_json["features"]
-            if (
-                feature.get("properties")
-                and feature["properties"].get("landsat:wrs_path")
-                and int(
-                    f"{feature['properties']['landsat:wrs_path']}{feature['properties']['landsat:wrs_row']}"
-                )
-                in ALLOWED_PATHROWS
-            )
-        ]
-
-    elif not retrieved_json.get("features") and retrieved_json.get("properties"):
-        # Bulk
-        return [retrieved_json]
-
-    return []
-
-
-def validate_and_send(api_return):
-    """
-    Validates pathrow and, when valid, send returned value to the queue
-    :param api_return: (list) list of values returned from the API
-    :return:
-    """
-    datasets = get_allowed_features_json(retrieved_json=api_return)
-    if datasets:
-        publish_messages(datasets=datasets)
-    else:
-        logging.info("No valid scenes were found!")
-
-
-def request_api_and_send(url: str):
+def request_api(url: str):
     """
     Function to request the API and send the returned value to the queue.
     If parameters are sent, means we are requesting daily JSON API, or part of its recursion
@@ -126,19 +84,19 @@ def request_api_and_send(url: str):
     :param url: (String) API URL
     :return: None
     """
+    try:
 
-    logging.info(f"Requesting URL {url}")
+        # return 'Requested API'
+        # Request API
+        returned = request_url(url=url)
 
-    # Request API
-    returned = request_url(url=url)
+        return returned
 
-    logging.info(f"API returned: {returned}")
-
-    # Validate and send to Africa's SQS queue
-    validate_and_send(api_return=returned)
+    except Exception as error:
+        logging.error(f"Error Requesting {url} ERROR: {error}")
 
 
-def retrieve_json_data_and_send_bulk(display_ids):
+def retrieve_stac_from_api(display_ids):
     """
     Function to create Python threads which will request the API simultaneously
 
@@ -149,43 +107,58 @@ def retrieve_json_data_and_send_bulk(display_ids):
     logging.info(f"Starting process")
 
     # Limit number of threads
-    num_of_threads = 16
+    num_of_threads = 50
     logging.info(
         f"Requesting URL {MAIN_URL} adding the display id by the end of the url"
     )
 
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
         tasks = [
-            executor.submit(request_api_and_send, f"{MAIN_URL}/{display_id}")
+            executor.submit(request_api, f"{MAIN_URL}/{display_id}")
             for display_id in display_ids
         ]
+
         for future in as_completed(tasks):
-            future.result()
+            if future.result():
+                yield future.result()
 
-    logging.info(f"Whole process finished successfully ;)")
 
-
-def filter_africa_location(file_path, production_date: pendulum.Pendulum):
+def filter_africa_location(file_path: Path):
     """
     Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
     informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
     The function also applies filters to skip LANDSAT_4 and Night shots.
     Warning: This function requires high performance from the CPU.
 
-    :param production_date: Filter for L2 Product Generation Date
-    :param file_path: (String) Downloaded GZIP file path
+    :param file_path: (Path) Downloaded GZIP file path
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
 
-    logging.info(f"Unzipping and filtering file according to Africa Pathrows")
+    # Get value of last date from Airflow
+    saved_last_date = (
+        convert_str_to_date(Variable.get("last_date"))
+        if Variable.get("last_date", default_var=False)
+        else ""
+    )
 
-    # Hack to use when the file is local in /tmp/<file_name>
-    # file_path = f"/tmp/{file_name}"
-    with gzip.open(file_path, "rt") as csvfile:
+    logging.info(
+        f"Unzipping and filtering file according to Africa Pathrows, "
+        f"day scenes and date {saved_last_date if saved_last_date else ''}"
+    )
 
-        reader = csv.DictReader(csvfile)
-        for row in reader:
-            # Filter to skip all LANDSAT_4
+    with gzip.open(file_path, "rt") as csv_file:
+        # This variable will update airflow variable,
+        # in case of by the end of this process the system finds a higher date
+        last_date = None
+
+        for row in csv.DictReader(csv_file):
+
+            generated_date = convert_str_to_date(row["Date Product Generated L2"])
+
+            if not last_date or generated_date > last_date:
+                last_date = generated_date
+                logging.info(f"Add value to last_date {last_date}")
+
             if (
                 row.get("Satellite")
                 and row["Satellite"] != "LANDSAT_4"
@@ -200,11 +173,14 @@ def filter_africa_location(file_path, production_date: pendulum.Pendulum):
                     row.get("Day/Night Indicator")
                     and row["Day/Night Indicator"].upper() == "DAY"
                 )
-                and (
-                    row["Product Generated L2"] == production_date.format("YYYY/MM/DD")
-                )
+                # Filter by the generated date comparing to the last Airflow interaction
+                and (not saved_last_date or saved_last_date < generated_date)
             ):
                 yield row["Display ID"]
+
+        if not saved_last_date or saved_last_date < last_date:
+            logging.info(f"Updating Airflow variable to {last_date}")
+            Variable.set("last_date", last_date)
 
 
 def download_csv_files(url, file_name):
@@ -219,58 +195,81 @@ def download_csv_files(url, file_name):
     :return: (String) File path where it was downloaded. Hardcoded for /tmp/
     """
 
-    # TODO use urllib
-    url = f"{url}{file_name}"
+    url = urlparse(f"{url}{file_name}")
+    file_path = Path(f"/tmp/{file_name}")
 
-    # TODO Use pathlib.Path
-    file_path = f"/tmp/{file_name}"
-    # Todo check if file exists
-    # Do a HEAD request and check filesize, only download if different
-    with open(file_path, "wb") as f:
-        logging.info(f"Downloading file {file_name} to {file_path}")
-        downloaded = requests.get(url, stream=True)
-        f.write(downloaded.content)
+    # check if file exists and comparing size against cloud file
+    if file_path.exists():
+        file_size = file_path.stat().st_size
+        head = requests.head(url.geturl())
+
+        if hasattr(head, "headers") and head.headers.get("Content-Length"):
+            server_file_size = head.headers["Content-Length"]
+            logging.info(
+                f"Comparing sizes between local saved file and server hosted file,"
+                f" local file size : {type(file_size)} server file size: {type(server_file_size)}"
+            )
+
+            if int(file_size) == int(server_file_size):
+                logging.info("Already updated!!")
+                return ""
+
+    logging.info(f"Downloading file {file_name} to {file_path}")
+    downloaded = requests.get(url.geturl(), stream=True)
+    file_path.write_bytes(downloaded.content)
 
     logging.info(f"{file_name} Downloaded!")
     return file_path
 
 
-def retrieve_bulk_data(file_name, date_to_process: pendulum.Pendulum):
+def sync_data(file_name):
     """
     Function to initiate the bulk CSV process
     Warning: Main URL hardcoded, please check for changes in case of the download fails
 
     :param file_name: (String) File name which will be downloaded
-    :param pendulum.Pendulum date_to_process: Only process datasets which were generated on this date
     :return: None. Process send information to the queue
     """
     try:
         start_timer = time.time()
 
+        logging.info("Starting Syncing scenes")
+
         # Download GZIP file
+        logging.info("Start downloading files")
         file_path = download_csv_files(BASE_CSV_URL, file_name)
 
-        # Read file and retrieve the Display ids
-        display_id_list = filter_africa_location(
-            file_path, production_date=date_to_process
-        )
-        logging.info(
-            f"{len(display_id_list)} found after being filtered on {file_name}"
-        )
+        if file_path:
 
-        if display_id_list:
-
-            # request the API through the display id and send the information to the queue
-            retrieve_json_data_and_send_bulk(display_ids=display_id_list)
-
-        else:
+            # Read file and retrieve the Display ids
             logging.info(
-                f"After filtered no valid Ids were found in the file {file_name}"
+                "Start Filtering Scenes by Africa location, Just day scenes and date Test"
+            )
+            display_id_list = filter_africa_location(file_path=file_path)
+
+            if display_id_list:
+                # request the API through the display id and send the information to the queue
+                logging.info(
+                    "Start process of consulting API and sending stac to the queue"
+                )
+                stac_list = retrieve_stac_from_api(display_ids=display_id_list)
+
+                # Publish stac to the queue
+                logging.info(
+                    f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
+                )
+                messages_sent = publish_messages(datasets=stac_list)
+                logging.info(f"Messages sent {messages_sent}")
+            else:
+                logging.info(
+                    f"After filtered no valid or new Ids were found in the file {file_name}"
+                )
+
+            logging.info(
+                f"File {file_name} processed and sent in {time_process(start=start_timer)}"
             )
 
-        logging.info(
-            f"File {file_name} processed and sent in {time_process(start=start_timer)}"
-        )
+        logging.info(f"Whole process finished successfully ;)")
 
     except Exception as error:
         logging.error(error)
