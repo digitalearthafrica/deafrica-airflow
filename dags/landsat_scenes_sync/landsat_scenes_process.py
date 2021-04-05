@@ -38,33 +38,22 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime.now() - timedelta(days=1),  # start_date is always yesterday
+    "start_date": datetime.now(),
+    # "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "limit_of_processes": 30,
-    "version": "0.3",
+    "version": "0.4",
 }
 # [END default_args]
 
 
-def terminate(ti, start_timer, **kwargs):
-    successful_msg_counts = 0
-    failed_msg_counts = 0
-
-    for idx in range(DEFAULT_ARGS["limit_of_processes"]):
-        successful_msg_counts += ti.xcom_pull(
-            key="successful", task_ids=f"data_transfer_{idx}"
-        )
-        failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
-
-    print(
-        f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
-    )
+def terminate(start_timer, **kwargs):
     print(f"Message processed and sent in {time_process(start=start_timer)}")
 
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat-scenes-process",
+    "landsat_scenes_process",
     default_args=DEFAULT_ARGS,
     description="Process Queue Messages",
     concurrency=CONCURRENCY,
@@ -92,7 +81,6 @@ with dag:
             task_id=f"Processing-Messages-DEAfrica-{idx}",
             python_callable=process,
             op_kwargs=dict(),
-            dag=dag,
         )
         for idx in range(DEFAULT_ARGS["limit_of_processes"])
     ]
