@@ -7,8 +7,8 @@ DAG to manually migrate schema for ODC DB when new version of explorer is
 deployed.
 
 NOTE: explorer_admin user permission boundary is bound to `cubedash` schema only.
-    So, when schema upgrade require to create `agdc` additional index, etc.,
-    those steps handled outside manually using odc_admin user.
+  So, when schema upgrade require to create agdc additional index,
+  those steps handled outside manually using odc_admin user.
 """
 
 import pendulum
@@ -17,7 +17,6 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from airflow.operators.dummy_operator import DummyOperator
 from datetime import datetime, timedelta
-from infra.images import EXPLORER_UNSTABLE_IMAGE
 
 local_tz = pendulum.timezone("Africa/Johannesburg")
 
@@ -27,7 +26,7 @@ DB_HOSTNAME = "db-writer"
 DEFAULT_ARGS = {
     "owner": "Tisham Dhar",
     "depends_on_past": False,
-    "start_date": datetime(2021, 3, 11, tzinfo=local_tz),
+    "start_date": datetime(2021, 2, 10, tzinfo=local_tz),
     "email": ["tisham.dhar@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
@@ -47,6 +46,8 @@ DEFAULT_ARGS = {
         Secret("env", "DB_PASSWORD", "explorer-admin", "postgres-password"),
     ],
 }
+
+from infra.images import EXPLORER_UNSTABLE_IMAGE
 
 dag = DAG(
     "k8s_odc_db_migrate_schema",

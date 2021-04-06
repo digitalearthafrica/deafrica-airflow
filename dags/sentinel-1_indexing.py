@@ -17,7 +17,7 @@ from textwrap import dedent
 
 import kubernetes.client.models as k8s
 
-QUEUE_NAME = "deafrica-dev-eks-sentinel-1-indexing-dev"
+QUEUE_NAME = "deafrica-prod-af-eks-sentinel-1-indexing"
 PRODUCT_NAME = "s1_rtc"
 AWS_USER_K8S = "sentinel-1-indexing-user"
 
@@ -116,7 +116,6 @@ dag = DAG(
 )
 
 with dag:
-    # TODO: Add --update-if-exists flag to sqs-to-dc
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
