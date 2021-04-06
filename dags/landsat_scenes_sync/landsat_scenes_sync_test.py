@@ -138,7 +138,7 @@ with dag:
                 task_id=f"TEST-{count}",
                 python_callable=copy_s3_to_s3_boto3,
                 op_kwargs=dict(
-                    conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                    conn_id="sync_landsat_scene",
                     source_bucket=USGS_S3_BUCKET_NAME,
                     destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
                     source_bucket_region=USGS_AWS_REGION,
