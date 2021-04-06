@@ -20,8 +20,14 @@ LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
     "landsat_bucket_name", "deafrica-landsat-dev"
 )
 
+LANDSAT_SYNC_S3_C2_FOLDER_NAME = Variable.get("landsat_c2_folder_name", "collection02")
+
 LANDSAT_SYNC_INVENTORY_BUCKET = Variable.get(
     "deafrica_landsat_inventory", "deafrica-landsat-inventory"
+)
+
+SENTINEL_2_S3_COGS_FOLDER_NAME = Variable.get(
+    "deafrica_sentinel_2_cogs_folder", "sentinel-s2-l2a-cogs"
 )
 
 SENTINEL_2_INVENTORY_BUCKET = Variable.get(

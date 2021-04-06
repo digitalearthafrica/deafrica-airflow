@@ -1,15 +1,22 @@
-import logging
-import json
-import gzip
+"""
+Class to support gap report process
+"""
 import csv
+import gzip
+import json
+import logging
 import os.path as op
-from copy import deepcopy
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
+
 from utils.aws_utils import S3
-from urllib.parse import urlparse
 
 
 class InventoryUtils:
+    """
+    InventoryUtils
+    """
+
     def __init__(self, conn, bucket_name, region):
         self.s3_utils = S3(conn_id=conn)
         self.region = region
@@ -26,8 +33,7 @@ class InventoryUtils:
         :param suffix:
         :param sub_key: string to be present in the object name
         """
-        logging.info(" Starting Find ")
-
+        # TODO Talk to Alex to see if we can speed it up, this part is taking about 10 min.
         continuation_token = None
         while True:
             # The S3 API response is a large blob of metadata.
@@ -38,8 +44,6 @@ class InventoryUtils:
                 continuation_token=continuation_token,
             )
 
-            # logging.info(f"Find resp {resp}")
-            # logging.info(f"Find Contents {resp.get('Contents')}")
             if not resp.get("Contents"):
                 return
 
@@ -59,28 +63,21 @@ class InventoryUtils:
         """
         Return a dictionary of a manifest file"
         """
-        logging.info("Starting latest_manifest")
-        # parts = self.urlparse(self.url)
-        # get latest manifest file
-        today = datetime.now()
-        # manifest_url = None
+        logging.info("Start Looking for latest manifest file")
 
+        today = datetime.now()
+        # get latest manifest file
         for dt in [today, today - timedelta(1)]:
 
             _key = op.join(key, dt.strftime("%Y-%m-%d"))
 
-            logging.info(f"latest_manifest _key {_key}")
-
-            # _url = f"s3://{self.bucket_name}"
-            # logging.info(f"latest_manifest _url {_url}")
-
-            manifest_paths = [k for k in self.find(suffix, _key)]
-
-            logging.info(f"latest_manifest manifests {manifest_paths}")
+            manifest_paths = [k for k in self.find(suffix=suffix, sub_key=_key)]
 
             if len(manifest_paths) == 1:
+
+                logging.info(f"Latest Manifest {manifest_paths}")
+
                 manifest_key = manifest_paths[0]
-                logging.info(f"latest_manifest Manifest file:{manifest_key}")
 
                 s3_clientobj = self.s3_utils.get_object(
                     bucket_name=self.bucket_name, key=manifest_key, region=self.region
@@ -93,56 +90,36 @@ class InventoryUtils:
 
         return None
 
-    def https_to_s3(self, url):
-        """ Convert https s3 URL to an s3 URL """
-        parts = urlparse(url)
-        bucket = parts.netloc.split(".")[0]
-        s3url = f"s3://{bucket}{parts.path}"
-        return s3url
-
-    def urlparse(self, url):
-        """ Split S3 URL into bucket, key, filename """
-        _url = deepcopy(url)
-        if url[0:5] == "https":
-            _url = self.https_to_s3(url)
-        if _url[0:5] != "s3://":
-            raise Exception("Invalid S3 url %s" % _url)
-
-        url_obj = _url.replace("s3://", "").split("/")
-
-        # remove empty items
-        url_obj = list(filter(lambda x: x, url_obj))
-        return {"bucket": url_obj[0], "key": "/".join(url_obj[1:])}
-
     def retrieve_manifest_files(self, key: str = "", suffix: str = ""):
-        logging.info(f"list_keys_2 starting")
+        """
+        retrieve files from a manifest
+        :param key:
+        :param suffix:
+        :return:
+        """
+        logging.info(f"Retrieve Manifest Files starting")
         manifest = self.latest_manifest(key=key, suffix=suffix)
-        logging.info(f"retrieve_manifest_files manifest {manifest}")
+
+        logging.info(
+            f"Retrieved Manifest {manifest} with {len(manifest['files'])} Files"
+        )
 
         if not manifest.get("files"):
             raise Exception("Files not found in manifest")
 
         return manifest["files"]
 
-    def list_keys_2(self, key: str = "", suffix: str = ""):
-        for obj in self.retrieve_manifest_files(key=key, suffix=suffix):
-
-            logging.info(f"list_keys_2 key {obj['key']}")
-
-            gzip_obj = self.s3_utils.get_object(
-                bucket_name=self.bucket_name, key=obj["key"], region=self.region
-            )
-
-            buffer = gzip.open(gzip_obj["Body"], mode="rt")
-            reader = csv.reader(buffer)
-
-            for row in reader:
-                yield row
-
     def list_keys_in_file(self, key: str):
+        """
+        Open a GZIP file and read the keys in it
+        :param key: (str) path to the GZIP file
+        :return:
+        """
         try:
             if not key:
-                raise Exception("Key not provided for list_keys_in_file")
+                raise Exception(
+                    "Argument key is required for List Keys in File function"
+                )
 
             # logging.info(f"Downloading {key}")
             gzip_obj = self.s3_utils.get_object(
@@ -152,9 +129,34 @@ class InventoryUtils:
             buffer = gzip.open(gzip_obj["Body"], mode="rt")
             reader = csv.reader(buffer)
 
-            # logging.info(f"Downloaded and read {key}")
+            logging.info(f"Downloaded and read {key}")
 
-            for row in reader:
-                yield row
+            for bucket, key, *rest in reader:
+                yield key
+
         except Exception as error:
             logging.error(f"ERROR list_keys_in_file key: {key} error: {error}")
+
+    def retrieve_keys_from_inventory(self, manifest_sufix):
+        """
+        Function to download 50 inventory GZIP files at the same time an retrieve the keys inside of them.
+
+        :return:
+        """
+        # Limit number of threads
+        num_of_threads = 50
+        with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+            logging.info("RETRIEVING KEYS FROM INVENTORY FILE")
+
+            tasks = [
+                executor.submit(
+                    self.list_keys_in_file,
+                    file["key"],
+                )
+                for file in self.retrieve_manifest_files(suffix=manifest_sufix)
+                if file.get("key")
+            ]
+
+            for future in as_completed(tasks):
+                for key in future.result():
+                    yield key

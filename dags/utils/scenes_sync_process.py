@@ -35,6 +35,10 @@ os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 
 
 class ScenesSyncProcess:
+    """
+    Sync scenes from USGS to Africa
+    """
+
     def __init__(self, conn_id):
         self.s3 = S3(conn_id=conn_id)
         self.sns = SNS(conn_id=conn_id)
@@ -359,6 +363,11 @@ class ScenesSyncProcess:
         )
 
     def check_already_copied(self, item):
+        """
+        Check if the item was already copied based on the <scene>_stac.json
+        :param item:
+        :return:
+        """
 
         path_and_file_name = self.find_s3_path_and_file_name_from_item(
             item=item, start_url=USGS_INDEX_URL
@@ -534,91 +543,3 @@ def process():
     except Exception as error:
         logging.error(error)
         raise error
-
-
-# ################## Create ShapeFile process #############################################
-
-# def check_parameters(message):
-#     try:
-#         return bool(
-#             message.get("geometry")
-#             and message.get("properties")
-#             and message["geometry"].get("coordinates")
-#         )
-#
-#     except Exception as error:
-#         raise error
-
-# def build_properties_schema(properties: dict):
-#     try:
-#
-#         schema = {}
-#         for key, value in properties.items():
-#             if type(value) is int:
-#                 type_property = 'int'
-#             elif type(value) is float:
-#                 type_property = 'float'
-#             elif type(value) is str:
-#                 type_property = 'str'
-#             elif type(value) is fiona.rfc3339.FionaDateType:
-#                 type_property = 'date'
-#             elif type(value) is fiona.rfc3339.FionaTimeType:
-#                 type_property = 'time'
-#             elif type(value) is fiona.rfc3339.FionaDateTimeType:
-#                 type_property = 'datetime'
-#             else:
-#                 continue
-#             schema.update({key: type_property})
-#
-#         return schema
-#
-#     except Exception as error:
-#         raise error
-#
-#
-# def create_shp_file(datasets: list):
-#     try:
-#         shapely.speedups.enable()
-#
-#         # schema = {
-#         #     "geometry": "Polygon",
-#         #     "properties": {
-#         #         'datetime': 'str',
-#         #         "landsat:wrs_path": "str",
-#         #         "landsat:wrs_row": "str",
-#         #         "landsat:scene_id": "str",
-#         #     },
-#         # }
-#
-#         schema = {
-#             "geometry": "Polygon",
-#             "properties": build_properties_schema(properties=datasets[0]['properties'])
-#         }
-#
-#         count = 0
-#         logging.info(f"Started")
-#         # Write a new Shapefile
-#         with fiona.open("/tmp/Shapefile/test.shp", "w", "ESRI Shapefile", schema) as c:
-#             # for message in JSON_TEST:
-#             for dataset in datasets:
-#                 if check_parameters(message=dataset):
-#                     poly = shape(dataset["geometry"])
-#
-#                     c.write(
-#                         {
-#                             "geometry": mapping(poly),
-#                             "properties": {
-#                                 key: value
-#                                 for key, value in dataset["properties"].items()
-#                                 if key in schema["properties"].keys()
-#                             },
-#                         }
-#                     )
-#
-#                 if count > 20:
-#                     break
-#                 count += 1
-#             return True
-#
-#     except Exception as error:
-#         raise error
