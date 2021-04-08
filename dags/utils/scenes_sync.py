@@ -109,8 +109,8 @@ def filter_africa_location_from_gzip_file(file_path: Path):
 
     # Get value of last date from Airflow
     saved_last_date = (
-        convert_str_to_date(Variable.get("last_date"))
-        if Variable.get("last_date", default_var=False)
+        convert_str_to_date(Variable.get("landsat_sync_last_date"))
+        if Variable.get("landsat_sync_last_date", default_var=False)
         else ""
     )
 
@@ -130,7 +130,9 @@ def filter_africa_location_from_gzip_file(file_path: Path):
         # Update last_date to the latest date in the file
         if not last_date or generated_date > last_date:
             last_date = generated_date
-            logging.info(f"Add value to last_date {last_date}")
+            logging.info(
+                f"Airflow variable landsat_sync_last_date will be updated to {last_date}"
+            )
 
         if (
             row.get("Satellite")
@@ -156,7 +158,7 @@ def filter_africa_location_from_gzip_file(file_path: Path):
 
     if not saved_last_date or saved_last_date < last_date:
         logging.info(f"Updating Airflow variable to {last_date}")
-        Variable.set("last_date", last_date)
+        Variable.set("landsat_sync_last_date", last_date)
 
 
 def sync_data(file_name):
