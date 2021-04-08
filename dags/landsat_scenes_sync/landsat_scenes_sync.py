@@ -31,7 +31,7 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2020, 3, 1),
+    "start_date": datetime(2020, 4, 8),
     "catchup": True,
     "version": "0.5.2",
 }
@@ -42,7 +42,7 @@ dag = DAG(
     "landsat_scenes_sync",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval=None,
+    schedule_interval="0 */12 * * *",
     tags=[
         "Scene",
     ],
