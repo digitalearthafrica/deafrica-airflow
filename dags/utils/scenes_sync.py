@@ -122,7 +122,7 @@ def filter_africa_location_from_gzip_file(file_path: Path):
     # This variable will update airflow variable,
     # in case of by the end of this process the system finds a higher date
     last_date = None
-
+    count = 0
     for row in read_big_csv_files_from_gzip(file_path):
 
         generated_date = convert_str_to_date(row["Date Product Generated L2"])
@@ -154,6 +154,10 @@ def filter_africa_location_from_gzip_file(file_path: Path):
             # Filter by the generated date comparing to the last Airflow interaction
             and (not saved_last_date or saved_last_date < generated_date)
         ):
+            if count > 10:
+                break
+
+            count += 1
             yield row["Display ID"]
 
     if not saved_last_date or saved_last_date < last_date:
@@ -177,7 +181,7 @@ def sync_data(file_name):
         # Download GZIP file
         logging.info("Start downloading files")
         file_path = download_file_to_tmp(
-            url=BASE_BULK_CSV_URL, file_name=file_name, always_return_path=False
+            url=BASE_BULK_CSV_URL, file_name=file_name, always_return_path=True
         )
 
         if file_path:
