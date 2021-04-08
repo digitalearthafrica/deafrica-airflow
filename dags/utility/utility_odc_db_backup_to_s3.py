@@ -15,19 +15,12 @@ from textwrap import dedent
 
 from airflow.models import Variable
 
-from infra.variables import (
-    DB_DUMP_S3_BUCKET,
-    DB_DUMP_S3_ROLE,
-    SECRET_DBA_ADMIN_NAME,
-    DB_DATABASE,
-    DB_HOSTNAME,
-    SECRET_AWS_NAME,
-)
-
 from infra.podconfig import NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
+from infra.variables import DB_DUMP_S3_ROLE, DB_DUMP_S3_BUCKET, SECRET_DBA_ADMIN_NAME
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
+
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
@@ -41,14 +34,14 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
-        "DB_DATABASE": DB_DATABASE,
+        "DB_HOSTNAME": "db-writer",
+        "DB_DATABASE": "odc",
+        "AWS_DEFAULT_REGION": "af-south-1",
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_DBA_ADMIN_NAME, "postgres-username"),
         Secret("env", "PGPASSWORD", SECRET_DBA_ADMIN_NAME, "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", SECRET_AWS_NAME, "AWS_DEFAULT_REGION"),
     ],
 }
 
@@ -60,7 +53,7 @@ DUMP_TO_S3_COMMAND = [
         """
             pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
             ls -la | grep {0}
-            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-dev/{0}
+            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod-af/{0}
         """
     ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]

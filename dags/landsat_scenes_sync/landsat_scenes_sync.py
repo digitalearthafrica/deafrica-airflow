@@ -1,6 +1,8 @@
 """
-# Landsat Bulk Sync automation
-DAG to retrieve Landsat 5, 7 and 8 GZIP bulk data from USGS, unzip, filter and send the right ones to our SQS.
+# Landsat Scene Identification and Sync
+
+Retrieves Landsat 5, 7 and 8 GZIP bulk CSVs from USGS, filters out the scenes we are interested in
+by region and processing date, and submits them to our processing SQS.
 
 """
 # [START import_module]
@@ -14,7 +16,7 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import retrieve_bulk_data
+from utils.scenes_sync import sync_data
 
 # [END import_module]
 
@@ -29,19 +31,21 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 3, 29),
-    "catchup": False,
-    "version": "0.2",
+    "start_date": datetime(2020, 3, 1),
+    "catchup": True,
+    "version": "0.5.2",
 }
 # [END default_args]
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync_bulk",
+    "landsat_scenes_sync",
     default_args=DEFAULT_ARGS,
-    description="Sync bulk files",
+    description="Identify scenes and Sync",
     schedule_interval=None,
-    tags=["Scene", "bulk"],
+    tags=[
+        "Scene",
+    ],
 )
 # [END instantiate_dag]
 
@@ -59,7 +63,7 @@ with dag:
         processes.append(
             PythonOperator(
                 task_id=sat,
-                python_callable=retrieve_bulk_data,
+                python_callable=sync_data,
                 op_kwargs=dict(file_name=file),
             )
         )

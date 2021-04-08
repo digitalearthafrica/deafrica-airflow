@@ -1,5 +1,5 @@
 ## images
-images used in kubenetepodoperator
+images used for `KubernetesPodOperator`
 
 ## connections
 connections stored in SSM with prefix `/airflow/connections`
@@ -8,4 +8,4 @@ connections stored in SSM with prefix `/airflow/connections`
 Variables stored in SSM with prefix `/airflow/variables`
 
 ## podconfig
-kubeneteoperatorpod configurations
+`KubernetesPodOperator` configurations
