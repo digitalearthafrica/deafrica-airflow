@@ -51,6 +51,7 @@ def request_url(url: str, params=None):
     resp = requests.get(url=url, params=params)
     # Check return 200
     test_http_return(resp)
+    logging.info(f"Requested {url}")
     return json.loads(resp.content)
 
 
