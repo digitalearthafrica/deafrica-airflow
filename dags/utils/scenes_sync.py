@@ -114,6 +114,9 @@ def filter_africa_location_from_gzip_file(file_path: Path):
         else ""
     )
 
+    # Download updated Pathrows
+    africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
+
     logging.info(
         f"Unzipping and filtering file according to Africa Pathrows, "
         f"day scenes and date {saved_last_date if saved_last_date else ''}"
@@ -122,7 +125,6 @@ def filter_africa_location_from_gzip_file(file_path: Path):
     # This variable will update airflow variable,
     # in case of by the end of this process the system finds a higher date
     last_date = None
-    count = 0
     for row in read_big_csv_files_from_gzip(file_path):
 
         generated_date = convert_str_to_date(row["Date Product Generated L2"])
@@ -137,15 +139,6 @@ def filter_africa_location_from_gzip_file(file_path: Path):
         if (
             row.get("Satellite")
             and row["Satellite"] != "LANDSAT_4"
-            # Filter to get just from Africa
-            and (
-                row.get("WRS Path")
-                and row.get("WRS Row")
-                and (
-                    int(f"{row['WRS Path']}{row['WRS Row']}")
-                    in read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-                )
-            )
             # Filter to get just day
             and (
                 row.get("Day/Night Indicator")
@@ -153,11 +146,13 @@ def filter_africa_location_from_gzip_file(file_path: Path):
             )
             # Filter by the generated date comparing to the last Airflow interaction
             and (not saved_last_date or saved_last_date < generated_date)
+            # Filter to get just from Africa
+            and (
+                row.get("WRS Path")
+                and row.get("WRS Row")
+                and (int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows)
+            )
         ):
-            if count > 10:
-                break
-
-            count += 1
             yield row["Display ID"]
 
     if not saved_last_date or saved_last_date < last_date:
@@ -181,7 +176,7 @@ def sync_data(file_name):
         # Download GZIP file
         logging.info("Start downloading files")
         file_path = download_file_to_tmp(
-            url=BASE_BULK_CSV_URL, file_name=file_name, always_return_path=True
+            url=BASE_BULK_CSV_URL, file_name=file_name, always_return_path=False
         )
 
         if file_path:
@@ -203,8 +198,10 @@ def sync_data(file_name):
                 logging.info(
                     f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
                 )
+
                 messages_sent = publish_messages(datasets=stac_list)
                 logging.info(f"Messages sent {messages_sent}")
+
             else:
                 logging.info(
                     f"After filtered no valid or new Ids were found in the file {file_name}"
