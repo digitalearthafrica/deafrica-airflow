@@ -33,7 +33,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2020, 4, 8),
     "catchup": True,
-    "version": "0.5.2",
+    "version": "0.6.2",
 }
 # [END default_args]
 
