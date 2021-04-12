@@ -59,16 +59,16 @@ DEFAULT_ARGS = {
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
-            "sentinel-2-indexing-user",
+            "indexing-aws-creds-prod",
             "AWS_DEFAULT_REGION",
         ),
         Secret(
-            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
+            "env", "AWS_ACCESS_KEY_ID", "indexing-aws-creds-prod", "AWS_ACCESS_KEY_ID"
         ),
         Secret(
             "env",
             "AWS_SECRET_ACCESS_KEY",
-            "sentinel-2-indexing-user",
+            "indexing-aws-creds-prod",
             "AWS_SECRET_ACCESS_KEY",
         ),
     ],
