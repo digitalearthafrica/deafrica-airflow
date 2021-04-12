@@ -219,9 +219,7 @@ def sync_data(file_name, date_to_process):
 
         # Download GZIP file
         logging.info("Start downloading files")
-        file_path = download_file_to_tmp(
-            url=BASE_BULK_CSV_URL, file_name=file_name, always_return_path=False
-        )
+        file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
         if file_path:
 
