@@ -46,7 +46,7 @@ def explorer_refresh_stats_subdag(
     EXPLORER_BASH_COMMAND = [
         "bash",
         "-c",
-        f"cubedash-gen --no-init-database --refresh-stats --force-refresh {products}",
+        f"cubedash-gen --no-init-database --refresh-stats {products}",
     ]
 
     dag_subdag = DAG(
