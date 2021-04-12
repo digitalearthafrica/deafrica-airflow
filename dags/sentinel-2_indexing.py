@@ -13,10 +13,13 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.kubernetes.secret import Secret
-from airflow.kubernetes.volume import Volume
-from airflow.kubernetes.volume_mount import VolumeMount
+from airflow.operators.subdag_operator import SubDagOperator
+from airflow.operators.python_operator import PythonOperator
+
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from airflow.operators.dummy_operator import DummyOperator
+
+from subdags.subdag_ows_views import ows_update_extent_subdag
+from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
@@ -82,6 +85,7 @@ dag = DAG(
     tags=["k8s", "sentinel-2"],
 )
 
+
 def parse_dagrun_conf(product, **kwargs):
     return product
 
@@ -115,7 +119,6 @@ with dag:
         op_args=["s2_l2a"],
         # provide_context=True,
     )
-
 
     EXPLORER_SUMMARY = SubDagOperator(
         task_id="run-cubedash-gen-refresh-stat",
