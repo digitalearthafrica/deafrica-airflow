@@ -22,6 +22,7 @@ from textwrap import dedent
 
 import kubernetes.client.models as k8s
 
+# TODO Move that to variables
 QUEUE_NAME = "deafrica-dev-eks-sentinel-2-indexing"
 
 DEFAULT_ARGS = {

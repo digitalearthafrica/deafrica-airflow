@@ -3,7 +3,6 @@
 """
 from airflow.models import Variable
 
-
 LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
     "landsat_sns_topic",
     "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
@@ -11,11 +10,9 @@ LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
 
 LANDSAT_SYNC_S3_C2_FOLDER_NAME = Variable.get("landsat_c2_folder_name", "collection02")
 
-
 SENTINEL_2_S3_COGS_FOLDER_NAME = Variable.get(
     "deafrica_sentinel_2_cogs_folder", "sentinel-s2-l2a-cogs"
 )
-
 
 # DB config
 DB_DATABASE = Variable.get("db_database", "odc")

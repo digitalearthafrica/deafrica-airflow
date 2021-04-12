@@ -20,8 +20,8 @@ from airflow.operators.python_operator import PythonOperator
 
 # [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
 from landsat_scenes_sync.variables import (
-    LANDSAT_SYNC_S3_BUCKET_NAME,
     AWS_DEFAULT_REGION,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
@@ -138,7 +138,7 @@ with dag:
                 task_id=f"TEST-{count}",
                 python_callable=copy_s3_to_s3_boto3,
                 op_kwargs=dict(
-                    conn_id="sync_landsat_scene",
+                    conn_id=SYNC_LANDSAT_CONNECTION_ID,
                     source_bucket=USGS_S3_BUCKET_NAME,
                     destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
                     source_bucket_region=USGS_AWS_REGION,

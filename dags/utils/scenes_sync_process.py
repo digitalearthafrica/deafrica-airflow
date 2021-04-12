@@ -13,6 +13,7 @@ from pystac import Item, Link
 from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.variables import (
     LANDSAT_SYNC_SNS_TOPIC_ARN,
 )
@@ -23,7 +24,6 @@ from landsat_scenes_sync.variables import (
     AFRICA_S3_BUCKET_PATH,
     USGS_DATA_URL,
     AWS_DEFAULT_REGION,
-    LANDSAT_SYNC_S3_BUCKET_NAME,
     AFRICA_S3_ENDPOINT,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
