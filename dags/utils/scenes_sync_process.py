@@ -13,9 +13,9 @@ from pystac import Item, Link
 from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from infra.variables import (
-    SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
     LANDSAT_SYNC_SNS_TOPIC_ARN,
 )
 from landsat_scenes_sync.variables import (
