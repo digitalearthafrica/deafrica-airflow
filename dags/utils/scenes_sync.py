@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
@@ -94,27 +95,24 @@ def retrieve_stac_from_api(display_ids):
                 yield future.result()
 
 
-def filter_africa_location_from_gzip_file(file_path, production_date):
+def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
     """
     Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
     informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
     The function also applies filters to skip LANDSAT_4 and Night shots.
     Warning: This function requires high performance from the CPU.
 
-    :param production_date: Filter for L2 Product Generation Date
     :param file_path: (String) Downloaded GZIP file path
+    :param production_date: (String) Filter for L2 Product Generation Date ("YYYY/MM/DD" or "YYYY-MM-DD")
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
 
     logging.info(f"Unzipping and filtering file according to Africa Pathrows")
 
+    production_date = production_date.replace("-", "/")
+
     # Download updated Pathrows
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-
-    try:
-        logging.info(f"converted date {convert_str_to_date(production_date)}")
-    except:
-        pass
 
     for row in read_big_csv_files_from_gzip(file_path):
         # Filter to skip all LANDSAT_4
@@ -126,7 +124,8 @@ def filter_africa_location_from_gzip_file(file_path, production_date):
                 row.get("Day/Night Indicator")
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
-            and (row["Product Generated L2"] == production_date.format("YYYY/MM/DD"))
+            # Compare string of dates to ensure that Airflow will process the right date
+            and (row["Product Generated L2"] == production_date)
             # Filter to get just from Africa
             and (
                 row.get("WRS Path")
@@ -201,7 +200,7 @@ def filter_africa_location_from_gzip_file(file_path, production_date):
 #         Variable.set("landsat_sync_last_date", last_date)
 
 
-def sync_data(file_name, date_to_process):
+def sync_data(file_name: str, date_to_process: str):
     """
     Function to initiate the bulk CSV process
     Warning: Main URL hardcoded, please check for changes in case of the download fails
