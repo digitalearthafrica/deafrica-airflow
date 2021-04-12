@@ -113,6 +113,8 @@ def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = Tr
     :return: (String) File path where it was downloaded. Hardcoded for /tmp/
     """
 
+    logging.info("Start downloading files")
+
     url = urlparse(f"{url}{file_name}")
     file_path = Path(f"/tmp/{file_name}")
 

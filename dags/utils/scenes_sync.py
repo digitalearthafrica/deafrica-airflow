@@ -31,6 +31,7 @@ def publish_messages(datasets):
     Publish messages
     param message: list of messages
     """
+    logging.info(f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
 
     def post_messages(messages_to_send):
         try:
@@ -106,6 +107,7 @@ def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
     :param production_date: (String) Filter for L2 Product Generation Date ("YYYY/MM/DD" or "YYYY-MM-DD")
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
+    logging.info("Start Filtering Scenes by Africa location, Just day scenes and date")
 
     logging.info(f"Unzipping and filtering file according to Africa Pathrows")
 
@@ -113,8 +115,10 @@ def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
 
     # Download updated Pathrows
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-
+    flag = False
     for row in read_big_csv_files_from_gzip(file_path):
+        if not flag:
+            logging.info(f"this is row {row}")
         # Filter to skip all LANDSAT_4
         if (
             row.get("Satellite")
@@ -212,20 +216,14 @@ def sync_data(file_name: str, date_to_process: str):
     try:
         start_timer = time.time()
 
-        logging.info(
-            f"Starting Syncing scenes for {date_to_process} {type(date_to_process)}"
-        )
+        logging.info(f"Starting Syncing scenes for {date_to_process}")
 
         # Download GZIP file
-        logging.info("Start downloading files")
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
         if file_path:
 
             # Read file and retrieve the Display ids
-            logging.info(
-                "Start Filtering Scenes by Africa location, Just day scenes and date Test"
-            )
             display_id_list = filter_africa_location_from_gzip_file(
                 file_path=file_path, production_date=date_to_process
             )
@@ -234,16 +232,9 @@ def sync_data(file_name: str, date_to_process: str):
 
             if display_id_list:
                 # request the API through the display id and send the information to the queue
-                logging.info(
-                    "Start process of consulting API and sending stac to the queue"
-                )
                 stac_list = retrieve_stac_from_api(display_ids=display_id_list)
 
                 # Publish stac to the queue
-                logging.info(
-                    f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}"
-                )
-
                 messages_sent = publish_messages(datasets=stac_list)
                 logging.info(f"Messages sent {messages_sent}")
 
