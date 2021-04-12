@@ -5,7 +5,6 @@ import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
@@ -22,7 +21,6 @@ from utils.sync_utils import (
     read_csv_from_gzip,
     download_file_to_tmp,
     read_big_csv_files_from_gzip,
-    convert_str_to_date,
 )
 
 
@@ -115,12 +113,10 @@ def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
 
     # Download updated Pathrows
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-    flag = False
+
     for row in read_big_csv_files_from_gzip(file_path):
-        if not flag:
-            logging.info(f"this is row {row}")
-        # Filter to skip all LANDSAT_4
         if (
+            # Filter to skip all LANDSAT_4
             row.get("Satellite")
             and row["Satellite"] != "LANDSAT_4"
             # Filter to get just day
@@ -129,7 +125,7 @@ def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Compare string of dates to ensure that Airflow will process the right date
-            and (row["Product Generated L2"] == production_date)
+            and (row["Date Product Generated L2"] == production_date)
             # Filter to get just from Africa
             and (
                 row.get("WRS Path")
