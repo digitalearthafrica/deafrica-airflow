@@ -1,6 +1,9 @@
-IMAGE_ECR = "538673716275.dkr.ecr.ap-southeast-2.amazonaws.com"
+"""
+# KubernetesPodOperator shared configurations
+"""
+IMAGE_ECR = "543785577597.dkr.ecr.af-south-1.amazonaws.com"
 
-NODE_AFFINITY = {
+ONDEMAND_NODE_AFFINITY = {
     "nodeAffinity": {
         "requiredDuringSchedulingIgnoredDuringExecution": {
             "nodeSelectorTerms": [
@@ -23,7 +26,7 @@ NODE_AFFINITY = {
 # OWS pod specific configuration
 OWS_CFG_FOLDER_PATH = "/env/config/ows_refactored"
 OWS_CFG_MOUNT_PATH = "/env/config"
-OWS_CFG_PATH = OWS_CFG_MOUNT_PATH + "/ows_refactored/dev_af_ows_root_cfg.py"
+OWS_CFG_PATH = OWS_CFG_MOUNT_PATH + "/ows_refactored/prod_af_ows_root_cfg.py"
 OWS_CFG_IMAGEPATH = "/opt/dea-config/services/ows_refactored"
 OWS_PYTHON_PATH = "/env/config"
-OWS_DATACUBE_CFG = "ows_refactored.dev_af_ows_root_cfg.ows_cfg"
+OWS_DATACUBE_CFG = "ows_refactored.prod_af_ows_root_cfg.ows_cfg"

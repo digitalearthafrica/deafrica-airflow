@@ -6,10 +6,9 @@ on:
       - 'dags/**'
       - 'scripts/**'
       - '.github/workflows/**'
-      - 'constraints.txt'
   pull_request:
     branches:
-      - master
+      - main
       - develop
       - develop-af
     paths:
@@ -38,7 +37,7 @@ jobs:
         run: which python
       - name: Install airflow and run pylint
         run: |
-          pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.14 -c constraints.txt
+          pip install apache-airflow[aws,kubernetes,postgres,redis,ssh,celery]==1.10.14
           pip install pylint pylint-airflow
           pip install -r requirements.txt
           pylint --load-plugins=pylint_airflow --disable=C,W --disable=similarities dags
