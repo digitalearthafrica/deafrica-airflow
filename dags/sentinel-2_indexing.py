@@ -13,14 +13,29 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.kubernetes.secret import Secret
-from airflow.kubernetes.volume import Volume
-from airflow.kubernetes.volume_mount import VolumeMount
+from airflow.operators.subdag_operator import SubDagOperator
+from airflow.operators.python_operator import PythonOperator
+
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from airflow.operators.dummy_operator import DummyOperator
+
+from subdags.subdag_ows_views import ows_update_extent_subdag
+from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
+from infra.podconfig import (
+    ONDEMAND_NODE_AFFINITY,
+)
+from infra.variables import (
+    DB_DATABASE,
+    DB_HOSTNAME,
+    SECRET_ODC_WRITER_NAME,
+    SECRET_AWS_NAME,
+)
+from infra.images import INDEXER_IMAGE, OWS_IMAGE, EXPLORER_IMAGE
 
 from textwrap import dedent
 
 import kubernetes.client.models as k8s
+
+DAG_NAME = "sentinel-2_indexing"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -33,9 +48,9 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
-        "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
+        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_DATABASE": DB_DATABASE,
+        "DB_PORT": "5432",
     },
     # Lift secrets into environment variables
     "secrets": [
@@ -56,68 +71,27 @@ DEFAULT_ARGS = {
             "sentinel-2-indexing-user",
             "AWS_SECRET_ACCESS_KEY",
         ),
-        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
 
-OWS_SECRETS = [
-    Secret("env", "DB_USERNAME", "ows-writer", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "ows-writer", "postgres-password"),
-    Secret("env", "DB_DATABASE", "ows-writer", "database-name"),
-]
-
-EXPLORER_SECRETS = [
-    Secret("env", "DB_USERNAME", "explorer-writer", "postgres-username"),
-    Secret("env", "DB_PASSWORD", "explorer-writer", "postgres-password"),
-    Secret("env", "DB_DATABASE", "explorer-writer", "database-name"),
-]
-
-
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
-OWS_IMAGE = "opendatacube/ows:1.8.2"
-EXPLORER_IMAGE = "opendatacube/explorer:2.2.3"
-
-affinity = {
-    "nodeAffinity": {
-        "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [
-                {
-                    "matchExpressions": [
-                        {
-                            "key": "nodetype",
-                            "operator": "In",
-                            "values": [
-                                "ondemand",
-                            ],
-                        }
-                    ]
-                }
-            ]
-        }
-    }
-}
-
-OWS_BASH_COMMAND = [
-    "bash",
-    "-c",
-    dedent(
-        """
-        mkdir -p /env/config;
-        curl -s https://raw.githubusercontent.com/digitalearthafrica/config/0.1.5/services/deafrica_prod_af.ows_cfg.py --output /env/config/ows_cfg.py;
-        datacube-ows-update --views;
-        datacube-ows-update s2_l2a;
-    """
-    ),
-]
+affinity = ONDEMAND_NODE_AFFINITY
 
 dag = DAG(
-    "sentinel-2_indexing",
+    dag_id=DAG_NAME,
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
     tags=["k8s", "sentinel-2"],
 )
+
+
+def parse_dagrun_conf(product, **kwargs):
+    return product
+
+
+SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
+
 
 with dag:
     INDEXING = KubernetesPodOperator(
@@ -139,37 +113,33 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    OWS_UPDATE_EXTENTS = KubernetesPodOperator(
-        namespace="processing",
-        image=OWS_IMAGE,
-        arguments=OWS_BASH_COMMAND,
-        secrets=OWS_SECRETS,
-        labels={"step": "ows-mv"},
-        name="ows-update-extents",
-        task_id="ows-update-extents",
-        get_logs=True,
-        affinity=affinity,
-        is_delete_operator_pod=True,
+    SET_PRODUCTS = PythonOperator(
+        task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+        python_callable=parse_dagrun_conf,
+        op_args=["s2_l2a"],
+        # provide_context=True,
     )
 
-    EXPLORER_SUMMARY = KubernetesPodOperator(
-        namespace="processing",
-        image=EXPLORER_IMAGE,
-        arguments=[
-            "cubedash-gen",
-            "--no-init-database",
-            "--refresh-stats",
-            "--force-refresh",
-            "s2_l2a",
-        ],
-        secrets=EXPLORER_SECRETS,
-        labels={"step": "explorer"},
-        name="explorer-summary",
-        task_id="explorer-summary-task",
-        get_logs=True,
-        affinity=affinity,
-        is_delete_operator_pod=True,
+    EXPLORER_SUMMARY = SubDagOperator(
+        task_id="run-cubedash-gen-refresh-stat",
+        subdag=explorer_refresh_stats_subdag(
+            DAG_NAME,
+            "run-cubedash-gen-refresh-stat",
+            DEFAULT_ARGS,
+            SET_REFRESH_PRODUCT_TASK_NAME,
+        ),
     )
 
-    INDEXING >> OWS_UPDATE_EXTENTS
-    INDEXING >> EXPLORER_SUMMARY
+    OWS_UPDATE_EXTENTS = SubDagOperator(
+        task_id="run-ows-update-ranges",
+        subdag=ows_update_extent_subdag(
+            DAG_NAME,
+            "run-ows-update-ranges",
+            DEFAULT_ARGS,
+            SET_REFRESH_PRODUCT_TASK_NAME,
+        ),
+    )
+
+    INDEXING >> SET_PRODUCTS
+    SET_PRODUCTS >> EXPLORER_SUMMARY
+    SET_PRODUCTS >> OWS_UPDATE_EXTENTS
