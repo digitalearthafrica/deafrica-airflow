@@ -77,6 +77,7 @@ def request_usgs_api(url: str):
     except Exception as error:
         # If the request return an error, just log and keep going
         logging.error(f"Error requesting API: {error}")
+        return None
 
 
 def retrieve_stac_from_api(display_ids):
