@@ -1,6 +1,6 @@
 IMAGE_ECR = "538673716275.dkr.ecr.ap-southeast-2.amazonaws.com"
 
-NODE_AFFINITY = {
+ONDEMAND_NODE_AFFINITY = {
     "nodeAffinity": {
         "requiredDuringSchedulingIgnoredDuringExecution": {
             "nodeSelectorTerms": [

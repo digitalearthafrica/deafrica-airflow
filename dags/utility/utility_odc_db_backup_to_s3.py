@@ -16,15 +16,15 @@ from textwrap import dedent
 from airflow.models import Variable
 
 from infra.variables import (
-    DB_DUMP_S3_BUCKET,
-    DB_DUMP_S3_ROLE,
     SECRET_DBA_ADMIN_NAME,
     DB_DATABASE,
     DB_HOSTNAME,
     SECRET_AWS_NAME,
 )
+from infra.s3_buckets import DB_DUMP_S3_BUCKET
+from infra.iam_roles import DB_DUMP_S3_ROLE
 
-from infra.podconfig import NODE_AFFINITY
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
@@ -87,6 +87,6 @@ with dag:
         name="dump-odc-db",
         task_id="dump-odc-db",
         get_logs=True,
-        affinity=NODE_AFFINITY,
+        affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
     )
