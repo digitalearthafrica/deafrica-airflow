@@ -26,3 +26,5 @@ LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
 LANDSAT_SYNC_INVENTORY_BUCKET = Variable.get(
     "deafrica_landsat_inventory", "deafrica-landsat-inventory"
 )
+
+DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-dump")
