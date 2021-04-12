@@ -29,7 +29,6 @@ def publish_messages(datasets):
     Publish messages
     param message: list of messages
     """
-    logging.info(f"Sending messages to SQS queue {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
 
     def post_messages(messages_to_send):
         try:
@@ -67,6 +66,19 @@ def publish_messages(datasets):
     return count
 
 
+def request_usgs_api(url: str):
+    """
+    Function to handle exceptions from request_url
+    :param url: (str) url to be requested
+    :return: API return from request_url function
+    """ ""
+    try:
+        return request_url(url=url)
+    except Exception as error:
+        # If the request return an error, just log and keep going
+        logging.error(f"Error requesting API: {error}")
+
+
 def retrieve_stac_from_api(display_ids):
     """
     Function to create Python threads which will request the API simultaneously
@@ -75,21 +87,24 @@ def retrieve_stac_from_api(display_ids):
     :return:
     """
 
-    logging.info(f"Requesting USGS API")
-
     # Limit number of threads
     num_of_threads = 50
-    logging.info(
-        f"Requesting URL {USGS_API_INDIVIDUAL_ITEM_URL} adding the display id by the end of the url"
-    )
-
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
         tasks = [
-            executor.submit(request_url, f"{USGS_API_INDIVIDUAL_ITEM_URL}/{display_id}")
+            executor.submit(
+                request_usgs_api, f"{USGS_API_INDIVIDUAL_ITEM_URL}/{display_id}"
+            )
             for display_id in display_ids
         ]
 
+        log = False
         for future in as_completed(tasks):
+            if not log:
+                logging.info(f"Requesting USGS API")
+                logging.info(
+                    f"Requesting URL {USGS_API_INDIVIDUAL_ITEM_URL} adding the display id by the end of the url"
+                )
+                log = True
             if future.result():
                 yield future.result()
 
@@ -105,16 +120,19 @@ def filter_africa_location_from_gzip_file(file_path: str, production_date: str):
     :param production_date: (String) Filter for L2 Product Generation Date ("YYYY/MM/DD" or "YYYY-MM-DD")
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
-    logging.info("Start Filtering Scenes by Africa location, Just day scenes and date")
-
-    logging.info(f"Unzipping and filtering file according to Africa Pathrows")
-
     production_date = production_date.replace("-", "/")
 
     # Download updated Pathrows
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-
+    log = False
     for row in read_big_csv_files_from_gzip(file_path):
+        if not log:
+            logging.info(
+                "Start Filtering Scenes by Africa location, Just day scenes and date"
+            )
+            logging.info(f"Unzipping and filtering file according to Africa Pathrows")
+            log = True
+
         if (
             # Filter to skip all LANDSAT_4
             row.get("Satellite")
@@ -223,8 +241,6 @@ def sync_data(file_name: str, date_to_process: str):
             display_id_list = filter_africa_location_from_gzip_file(
                 file_path=file_path, production_date=date_to_process
             )
-
-            # display_id_list = filter_africa_location_from_gzip_file(file_path=file_path)
 
             if display_id_list:
                 # request the API through the display id and send the information to the queue
