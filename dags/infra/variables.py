@@ -11,9 +11,7 @@ DB_HOSTNAME = Variable.get("db_hostname", "db-writer")
 
 AWS_DEFAULT_REGION = Variable.get("aws_default_region", "us-west-2")
 SECRET_AWS_NAME = Variable.get("secret_aws_name", "indexing-aws-creds-prod")
-DB_DUMP_S3_ROLE = Variable.get("db_dump_s3_role", "deafrica-prod-af-eks-db-dump-to-s3")
 SECRET_DBA_ADMIN_NAME = Variable.get("db_dba_admin_secret", "dba-admin")
-DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-dev-odc-db-dump")
 
 SECRET_EXPLORER_WRITER_NAME = Variable.get(
     "db_explorer_writer_secret", "explorer-writer"
