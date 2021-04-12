@@ -22,3 +22,5 @@ SENTINEL_COGS_BUCKET = Variable.get("sentinel_cogs", "sentinel-cogs")
 SENTINEL_COGS_INVENTORY_BUCKET = Variable.get(
     "sentinel_cogs_inventory", "sentinel-cogs-inventory"
 )
+
+DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-odc-db-dump")
