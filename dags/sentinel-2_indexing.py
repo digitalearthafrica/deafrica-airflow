@@ -77,7 +77,7 @@ DEFAULT_ARGS = {
 affinity = ONDEMAND_NODE_AFFINITY
 
 dag = DAG(
-    "",
+    dag_id=DAG_NAME,
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
