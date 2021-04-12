@@ -30,7 +30,7 @@ from infra.variables import (
     SECRET_AWS_NAME,
 )
 from infra.podconfig import (
-    NODE_AFFINITY,
+    ONDEMAND_NODE_AFFINITY,
 )
 
 DAG_NAME = "utility_indexing_annual_ows_explorer_update"
@@ -98,7 +98,7 @@ with dag:
         name="datacube-index",
         task_id="batch-indexing-task",
         get_logs=True,
-        affinity=NODE_AFFINITY,
+        affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
     )
 

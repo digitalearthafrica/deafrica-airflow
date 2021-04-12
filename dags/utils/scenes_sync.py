@@ -10,7 +10,8 @@ from pathlib import Path
 from airflow.models import Variable
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.variables import SYNC_LANDSAT_CONNECTION_SQS_QUEUE, AWS_DEFAULT_REGION
+from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     BASE_BULK_CSV_URL,

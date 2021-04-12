@@ -20,7 +20,7 @@ from airflow.operators.python_operator import PythonOperator
 
 # [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from landsat_scenes_sync.variables import (
     AWS_DEFAULT_REGION,
     USGS_S3_BUCKET_NAME,
