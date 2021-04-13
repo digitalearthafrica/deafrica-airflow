@@ -54,8 +54,8 @@ DEFAULT_ARGS = {
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "ows-db", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "ows-db", "postgres-password"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
