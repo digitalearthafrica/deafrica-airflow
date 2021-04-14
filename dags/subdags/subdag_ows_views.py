@@ -12,15 +12,15 @@ from textwrap import dedent
 import kubernetes.client.models as k8s
 
 from infra.images import OWS_CONFIG_IMAGE, OWS_IMAGE
-from infra.podconfig import (
+from subdags.podconfig import (
     OWS_CFG_PATH,
     OWS_CFG_MOUNT_PATH,
     OWS_CFG_IMAGEPATH,
-    ONDEMAND_NODE_AFFINITY,
     OWS_DATACUBE_CFG,
     OWS_PYTHON_PATH,
     OWS_CFG_FOLDER_PATH,
 )
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.variables import SECRET_OWS_WRITER_NAME
 
 OWS_SECRETS = [
