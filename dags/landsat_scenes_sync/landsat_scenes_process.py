@@ -42,18 +42,24 @@ DEFAULT_ARGS = {
     # "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "limit_of_processes": 30,
-    "version": "0.4",
+    "version": "0.6.2",
 }
 # [END default_args]
 
 
 def terminate(start_timer, **kwargs):
+    """
+    Function to present the processed time
+    :param start_timer:
+    :param kwargs:
+    :return:
+    """
     print(f"Message processed and sent in {time_process(start=start_timer)}")
 
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_process",
+    "landsat_scenes_processing",
     default_args=DEFAULT_ARGS,
     description="Process Queue Messages",
     concurrency=CONCURRENCY,

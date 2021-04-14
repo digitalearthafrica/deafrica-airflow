@@ -1,10 +1,11 @@
 """
 """
+from datetime import timedelta, datetime
+
+from airflow import DAG
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.operators.python_operator import PythonOperator
-from airflow.contrib.operators.aws_sqs_publish_operator import SQSPublishOperator
-from datetime import timedelta, datetime
-from airflow import DAG
+
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 

@@ -1,10 +1,8 @@
 """
     Variables to support on the Landsat process
 """
-from infra.variables import (
-    AWS_DEFAULT_REGION,
-)
-from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.variables import AWS_DEFAULT_REGION
 
 # ######### USGS ############
 

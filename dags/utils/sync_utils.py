@@ -8,7 +8,6 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -51,7 +50,6 @@ def request_url(url: str, params=None):
     resp = requests.get(url=url, params=params)
     # Check return 200
     test_http_return(resp)
-    logging.info(f"Requested {url}")
     return json.loads(resp.content)
 
 
@@ -112,6 +110,8 @@ def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = Tr
     :param always_return_path:(bool) Returns the path even if already updated
     :return: (String) File path where it was downloaded. Hardcoded for /tmp/
     """
+
+    logging.info("Start downloading files")
 
     url = urlparse(f"{url}{file_name}")
     file_path = Path(f"/tmp/{file_name}")
