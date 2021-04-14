@@ -451,7 +451,29 @@ def process():
                 logging.info(f"Message received {message.body}")
 
                 logging.info("Start conversion from message to pystac item process")
-                item = Item.from_dict(json.loads(message.body))
+                try:
+                    message_body = message.body
+                    logging.info(f"message_body {message_body}")
+                except Exception as e:
+                    logging.error(e)
+                    raise e
+                try:
+                    dict_file = json.loads(message_body)
+                    logging.info(f"dict_file {dict_file}")
+                except Exception as e:
+                    logging.error(e)
+                    raise e
+                try:
+                    item = Item.from_dict(dict_file)
+                    logging.info(f"item {item}")
+                except Exception as e:
+                    logging.error(e)
+                    raise e
+                # try:
+                #     item = Item.from_dict(json.loads(message.body))
+                # except Exception as e:
+                #     raise e
+
                 logging.info(f"Message converted {item.to_dict()}")
 
                 logging.info("Checking if Stac was already processed")
