@@ -18,18 +18,11 @@ from infra.connections import (
     SYNC_LANDSAT_INVENTORY_ID,
     SYNC_LANDSAT_CONNECTION_ID,
 )
-from infra.s3_bucket import LANDSAT_SYNC_INVENTORY_BUCKET, LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_INVENTORY_BUCKET, LANDSAT_SYNC_S3_BUCKET_NAME
 
 from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_C2_FOLDER_NAME,
-)
-from infra.s3_buckets import (
-    LANDSAT_SYNC_INVENTORY_BUCKET,
-    LANDSAT_SYNC_S3_BUCKET_NAME,
-    SENTINEL_2_INVENTORY_BUCKET,
-    SENTINEL_2_INVENTORY_UTILS_BUCKET,
-    SENTINEL_COGS_INVENTORY_BUCKET,
 )
 from landsat_scenes_sync.variables import (
     MANIFEST_SUFFIX,
@@ -56,6 +49,7 @@ default_args = {
     "email_on_success": True,
     "email_on_retry": False,
     "retries": 0,
+    "version": "0.0.1",
 }
 
 

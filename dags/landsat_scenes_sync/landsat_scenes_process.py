@@ -61,7 +61,7 @@ def terminate(start_timer, **kwargs):
 dag = DAG(
     "landsat_scenes_processing",
     default_args=DEFAULT_ARGS,
-    description="Process Queue Messages",
+    description="Process Landsat Queue Messages",
     concurrency=CONCURRENCY,
     max_active_runs=MAX_ACTIVE_RUNS,
     schedule_interval="0 */12 * * *",

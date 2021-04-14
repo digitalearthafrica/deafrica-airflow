@@ -1,5 +1,5 @@
 """
-# sqs supplied by terraform
+# Variables provided from infra to dags
 """
 from airflow.models import Variable
 
