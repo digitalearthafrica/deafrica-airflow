@@ -75,9 +75,12 @@ def request_usgs_api(url: str):
     """ ""
     try:
         response = request_url(url=url)
-        logging.info(f"stac_version {response.get('stac_version')}")
-        if response.get("stac_version") and response["stac_version"] != "0.7.0":
-            return response
+        if response.get("stac_version"):
+            if response["stac_version"] == "1.0.0-beta.2":
+                return response
+            else:
+                logging.info(f"stac_version {response.get('stac_version')}")
+
     except Exception as error:
         # If the request return an error, just log and keep going
         logging.error(f"Error requesting API: {error}")
@@ -125,6 +128,7 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
     :param production_date: (String) Filter for L2 Product Generation Date ("YYYY/MM/DD" or "YYYY-MM-DD")
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
+    # It'll compare strings so it must have the same format
     production_date = production_date.replace("-", "/")
 
     # Download updated Pathrows
@@ -188,9 +192,9 @@ def sync_data(file_name: str, date_to_process: str):
             stac_list = retrieve_stac_from_api(display_ids=display_id_list)
 
             # Publish stac to the queue
-            # messages_sent = publish_messages(datasets=stac_list)
-            # logging.info(f"Messages sent {messages_sent}")
-            logging.info(f"Messages sent {len([s for s in stac_list])}")
+            messages_sent = publish_messages(datasets=stac_list)
+            logging.info(f"Messages sent {messages_sent}")
+            # logging.info(f"Messages sent {len([s for s in stac_list])}")
 
         else:
             logging.info(
