@@ -31,18 +31,18 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2020, 4, 8),
-    "catchup": True,
-    "version": "0.6.2",
+    "start_date": datetime(2021, 1, 1),
+    "version": "0.7.0",
 }
 # [END default_args]
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_sync",
+    "landsat_scenes_identifying",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval="0 */12 * * *",
+    schedule_interval="@daily",
+    catchup=True,
     tags=[
         "Scene",
     ],
@@ -64,7 +64,7 @@ with dag:
             PythonOperator(
                 task_id=sat,
                 python_callable=sync_data,
-                op_kwargs=dict(file_name=file),
+                op_kwargs=dict(file_name=file, date_to_process="{{ ds }}"),
             )
         )
 
