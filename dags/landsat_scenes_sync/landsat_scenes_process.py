@@ -42,7 +42,7 @@ DEFAULT_ARGS = {
     # "start_date": datetime(2021, 3, 29),
     "catchup": False,
     "limit_of_processes": 30,
-    "version": "0.4",
+    "version": "0.6",
 }
 # [END default_args]
 
