@@ -7,21 +7,20 @@ by region and processing date, and submits them to our processing SQS.
 """
 # [START import_module]
 from datetime import timedelta, datetime
+from utils.check_usgs_file_dates_logic import check_files_dates
 
 # The DAG object; we'll need this to instantiate a DAG
 from airflow import DAG
 
 # Operators; we need this to operate!
 from airflow.operators.dummy_operator import DummyOperator
-
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import sync_data
-
-# [END import_module]
 
 # [START default_args]
 
+
+# [END import_module]
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -31,18 +30,18 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 4, 10),
-    "version": "0.7.0",
+    "start_date": datetime(2021, 4, 13),
+    "version": "test-0.0.1",
 }
 # [END default_args]
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_identifying",
+    "landsat_scenes_check_usgs_file_dates",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
     schedule_interval="@daily",
-    catchup=True,
+    catchup=False,
     tags=[
         "Scene",
     ],
@@ -63,8 +62,8 @@ with dag:
         processes.append(
             PythonOperator(
                 task_id=sat,
-                python_callable=sync_data,
-                op_kwargs=dict(file_name=file, date_to_process="{{ ds }}"),
+                python_callable=check_files_dates,
+                op_kwargs=dict(file_name=file),
             )
         )
 

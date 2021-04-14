@@ -48,12 +48,18 @@ DEFAULT_ARGS = {
 
 
 def terminate(start_timer, **kwargs):
+    """
+    Function to present the processed time
+    :param start_timer:
+    :param kwargs:
+    :return:
+    """
     print(f"Message processed and sent in {time_process(start=start_timer)}")
 
 
 # [START instantiate_dag]
 dag = DAG(
-    "landsat_scenes_process",
+    "landsat_scenes_processing",
     default_args=DEFAULT_ARGS,
     description="Process Queue Messages",
     concurrency=CONCURRENCY,

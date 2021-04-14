@@ -8,7 +8,6 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -51,7 +50,6 @@ def request_url(url: str, params=None):
     resp = requests.get(url=url, params=params)
     # Check return 200
     test_http_return(resp)
-    logging.info(f"requested {url}")
     return json.loads(resp.content)
 
 
