@@ -49,6 +49,7 @@ default_args = {
     "email_on_success": True,
     "email_on_retry": False,
     "retries": 0,
+    "version": "0.0.1",
 }
 
 

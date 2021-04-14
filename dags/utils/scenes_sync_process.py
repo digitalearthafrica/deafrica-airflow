@@ -451,8 +451,14 @@ def process():
                 logging.info(f"Message received {message.body}")
 
                 logging.info("Start conversion from message to pystac item process")
+
                 item = Item.from_dict(json.loads(message.body))
-                logging.info(f"Message converted {item.to_dict()}")
+
+                try:
+                    logging.info(f"Message converted {item.to_dict()}")
+                except Exception as e:
+                    logging.error(e)
+                    pass
 
                 logging.info("Checking if Stac was already processed")
                 already_processed = scenes_sync.check_already_copied(item=item)
