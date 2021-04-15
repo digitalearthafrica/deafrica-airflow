@@ -12,6 +12,7 @@ from airflow import DAG
 from airflow.contrib.hooks.aws_hook import AwsHook
 
 # Operators; we need this to operate!
+from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
@@ -26,6 +27,7 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
 )
+from utils.aws_utils import S3
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -122,6 +124,25 @@ def copy_s3_to_s3_boto3(
     logging.info(f"RETURNED {returned}")
 
 
+def check_key_on_s3(conn_id):
+    try:
+        bucket = S3Hook(aws_conn_id=conn_id)
+
+        not_exist = bucket.get_conn().head_object(
+            Bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            Key="collection02/level-2/standard/oli-tirs/2015/195/044/LC08_L2SP_195044_20151102_20210219_02_T1/LC08_L2SP_195044_20151102_20210219_02_T1_SR_B5.TIF",
+        )
+        logging.info(f"The key exist {not_exist}")
+
+        not_exist2 = bucket.get_conn().head_object(
+            Bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            Key="collection02/level-2/standard/oli-tirs/2015/195/044/LC08_L2SP_195044_20151102_20210219_02_T1/LC08_L2SP_195044_20151102_20210219_02_T1_SR_B88.TIF",
+        )
+        logging.info(f"The key exist {not_exist2}")
+    except Exception as e:
+        logging.error(e)
+
+
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
@@ -130,28 +151,36 @@ with dag:
         "collection02/level-2/standard/oli-tirs/2013/191/038/LC08_L2SP_191038_20130329_20200913_02_T1/LC08_L2SP_191038_20130329_20200913_02_T1_ST_B10.TIF",
     ]
 
-    processes = []
-    count = 0
-    for path in path_list:
-        processes.append(
-            PythonOperator(
-                task_id=f"TEST-{count}",
-                python_callable=copy_s3_to_s3_boto3,
-                op_kwargs=dict(
-                    conn_id=SYNC_LANDSAT_CONNECTION_ID,
-                    source_bucket=USGS_S3_BUCKET_NAME,
-                    destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
-                    source_bucket_region=USGS_AWS_REGION,
-                    destination_bucket_region=AWS_DEFAULT_REGION,
-                    source_key=path,
-                    destination_key=path,
-                    request_payer="requester",
-                    acl="bucket-owner-full-control",
-                ),
-                dag=dag,
-            )
+    # processes = []
+    # count = 0
+    # for path in path_list:
+    #     processes.append(
+    #         PythonOperator(
+    #             task_id=f"TEST-{count}",
+    #             python_callable=copy_s3_to_s3_boto3,
+    #             op_kwargs=dict(
+    #                 conn_id=SYNC_LANDSAT_CONNECTION_ID,
+    #                 source_bucket=USGS_S3_BUCKET_NAME,
+    #                 destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+    #                 source_bucket_region=USGS_AWS_REGION,
+    #                 destination_bucket_region=AWS_DEFAULT_REGION,
+    #                 source_key=path,
+    #                 destination_key=path,
+    #                 request_payer="requester",
+    #                 acl="bucket-owner-full-control",
+    #             ),
+    #             dag=dag,
+    #         )
+    #     )
+    #     count += 1
+
+    processes = [
+        PythonOperator(
+            task_id="TEST-Check_key",
+            python_callable=check_key_on_s3,
+            op_kwargs=dict(conn_id=SYNC_LANDSAT_CONNECTION_ID),
         )
-        count += 1
+    ]
 
     END = DummyOperator(task_id="end-tasks")
 
