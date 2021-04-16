@@ -81,9 +81,14 @@ def get_and_filter_keys(s3_bucket_client):
 
     count = 0
     for key in list_keys:
-        if count < 2:
-            logging.info(f"First key {key}")
-            count += 1
+        if count < 3:
+            logging.info(f"Example key {key}")
+            try:
+                logging.info(f'Example2 key {key.split("/")[-2].split("_")[1]}')
+            except:
+                pass
+            if ".json" in key:
+                count += 1
         if (
             ".json" in key
             # TODO check, after inventory creation, if the key will have the base folder name
@@ -97,15 +102,6 @@ def get_and_filter_keys(s3_bucket_client):
 
     return set(to_return)
 
-    # return set(
-    #     key for key in s3_bucket_client.retrieve_keys_from_inventory(manifest_sufix=MANIFEST_SUFFIX)
-    #     if (
-    #             ".json" in key
-    #             and key.startswith(SENTINEL_2_S3_COGS_FOLDER_NAME)
-    #             and key.split("/")[-2].split("_")[1] in get_africa_tiles_ids()
-    #     )
-    # )
-
 
 def generate_buckets_diff(land_sat: str, file_name: str):
     """
@@ -114,15 +110,21 @@ def generate_buckets_diff(land_sat: str, file_name: str):
     """
     try:
         start_timer = time.time()
+
+        # Download bulk file
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
+        # Retrieve keys from the bulk file
         source_keys = get_and_filter_keys_from_files(file_path)
 
+        # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=SYNC_LANDSAT_INVENTORY_ID,
             bucket_name=LANDSAT_SYNC_INVENTORY_BUCKET,
             region=AWS_DEFAULT_REGION,
         )
+
+        # Retrieve keys from inventory bucket
         dest_keys = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
 
         # Keys that are missing, they are in the source but not in the bucket
@@ -132,7 +134,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         orphaned_keys = dest_keys.difference(source_keys)
 
         # Build missing scenes links
-        # TODO Chack with Alex if we need that and how to build (USGS API link, USGS Display ID list ...)
+        # TODO FIX the link to point to the file
         missing_scenes = [
             f"s3://{LANDSAT_SYNC_S3_BUCKET_NAME}/{key}" for key in missing_keys
         ]
@@ -144,25 +146,28 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         logging.info(f"key {key}")
 
         # Store report in the S3 bucket
-        s3_report = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+        # s3_report = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+        #
+        # s3_report.put_object(
+        #     bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
+        #     key=key,
+        #     region=AWS_DEFAULT_REGION,
+        #     body="\n".join(missing_scenes),
+        # )
 
-        s3_report.put_object(
-            bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
-            key=key,
-            region=AWS_DEFAULT_REGION,
-            body="\n".join(missing_scenes),
-        )
+        logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}")
 
         if len(orphaned_keys) > 0:
             output_filename = f"{land_sat}_{datetime.today().isoformat()}_orphaned.txt"
             key = REPORTING_PREFIX + output_filename
-            s3_report.put_object(
-                bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
-                key=key,
-                region=AWS_DEFAULT_REGION,
-                body="\n".join(orphaned_keys),
-            )
+            # s3_report.put_object(
+            #     bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
+            #     key=key,
+            #     region=AWS_DEFAULT_REGION,
+            #     body="\n".join(orphaned_keys),
+            # )
+            logging.info(f"Number of orphaned scenes: {len(len(orphaned_keys))}")
             logging.info(
                 f"Wrote orphaned scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}"
             )

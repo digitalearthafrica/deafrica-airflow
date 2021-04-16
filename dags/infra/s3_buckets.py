@@ -3,10 +3,16 @@
 """
 from airflow.models import Variable
 
-LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get("landsat_bucket_name", "deafrica-landsat")
+# LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
+#     "landsat_bucket_name", "deafrica-landsat"
+# )
 
 LANDSAT_SYNC_INVENTORY_BUCKET = Variable.get(
     "deafrica_landsat_inventory", "deafrica-landsat-inventory"
+)
+
+LANDSAT_SYNC_S3_BUCKET_NAME = Variable.get(
+    "landsat_bucket_name", "deafrica-landsat-dev"
 )
 
 SENTINEL_2_INVENTORY_BUCKET = Variable.get(
