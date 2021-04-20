@@ -64,8 +64,6 @@ def publish_messages(path_list):
         if count % 10 == 0:
             post_messages(messages)
             messages = []
-        if count > 100:
-            break
 
     # Post the last messages if there are any
     if len(messages) > 0:
@@ -163,7 +161,6 @@ def retrieve_list_of_files(scene_list):
         ]
 
         if not sr_st_files:
-
             raise Exception(
                 f'Neither SR nor ST file was found for {scene["Display ID"]}'
             )
@@ -215,6 +212,7 @@ def sync_data(file_name: str, date_to_process: str):
 
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
+            # path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:50])
             path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue

@@ -11,7 +11,6 @@ from datetime import timedelta, datetime
 from airflow import DAG
 
 # Operators; we need this to operate!
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 # [START default_args]
@@ -54,8 +53,18 @@ dag = DAG(
 
 
 def filter_path_with_no_stac(list_keys):
-    def filter_path(key):
+    """
+    Find folders which the sr_stac.json file isn't present
+    :param list_keys:
+    :return:
+    """
 
+    def filter_path(key):
+        """
+        Filter path
+        :param key:
+        :return:
+        """
         s3 = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
         stac_file_name = f'{key.split("/")[-2]}_stac.json'
         returned = s3.key_not_existent(
@@ -78,6 +87,11 @@ def filter_path_with_no_stac(list_keys):
 
 
 def check_key_on_s3(conn_id):
+    """
+    Check if the key is present in an AWS s3 bucket
+    :param conn_id:
+    :return:
+    """
     try:
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(

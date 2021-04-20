@@ -16,10 +16,6 @@ from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-# [END import_module]
-
-
-# [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from landsat_scenes_sync.variables import (
@@ -29,6 +25,8 @@ from landsat_scenes_sync.variables import (
 )
 from utils.aws_utils import S3
 
+# [END import_module]
+# [START default_args]
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
     "email": ["rodrigo.carvalho@ga.gov.au"],
@@ -125,6 +123,11 @@ def copy_s3_to_s3_boto3(
 
 
 def check_key_on_s3(conn_id):
+    """
+    Check communication
+    :param conn_id:
+    :return:
+    """
     try:
         bucket = S3Hook(aws_conn_id=conn_id)
 
