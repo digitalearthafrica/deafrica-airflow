@@ -193,7 +193,7 @@ class ScenesSyncProcess:
 
         sr_dict = json.loads(response)
 
-        if sr_dict.get("stac_version") == "0.7.0":
+        if "1.0.0" not in sr_dict.get("stac_version"):
             logging.error(f"Stac version {sr_dict['stac_version']} not compatible")
             raise Exception(f"Stac version {sr_dict['stac_version']} not compatible")
 
