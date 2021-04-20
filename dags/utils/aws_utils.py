@@ -212,6 +212,7 @@ class S3:
         self,
         bucket_name,
         region,
+        prefix: str = None,
         request_payer: str = None,
         continuation_token: str = None,
     ):
@@ -223,10 +224,18 @@ class S3:
         if request_payer:
             kwargs.update({"RequestPayer": request_payer})
 
+        if prefix:
+            kwargs.update({"Prefix": prefix})
+
         if continuation_token:
             kwargs.update({"ContinuationToken": continuation_token})
 
-        return bucket_client.list_objects_v2(**kwargs)
+        returned = bucket_client.list_objects_v2(**kwargs)
+
+        if returned.get("Contents"):
+            return returned["Contents"]
+        else:
+            return []
 
 
 class SQS:

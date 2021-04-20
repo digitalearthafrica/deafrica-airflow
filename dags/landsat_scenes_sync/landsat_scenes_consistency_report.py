@@ -7,6 +7,7 @@ s3://deafrica-landsat-dev/<date>/status-report
 
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
@@ -16,26 +17,26 @@ from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import (
     SYNC_LANDSAT_INVENTORY_ID,
-    SYNC_LANDSAT_CONNECTION_ID,
 )
 from infra.s3_buckets import LANDSAT_SYNC_INVENTORY_BUCKET, LANDSAT_SYNC_S3_BUCKET_NAME
-
 from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_C2_FOLDER_NAME,
 )
 from landsat_scenes_sync.variables import (
     MANIFEST_SUFFIX,
-    AFRICA_GZ_TILES_IDS_URL,
     BASE_BULK_CSV_URL,
+    USGS_API_INDIVIDUAL_ITEM_URL,
+    USGS_INDEX_URL,
+    AFRICA_GZ_PATHROWS_URL,
 )
-from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
     read_csv_from_gzip,
     read_big_csv_files_from_gzip,
     download_file_to_tmp,
     time_process,
+    request_url,
 )
 
 REPORTING_PREFIX = "status-report/"
@@ -59,12 +60,29 @@ def get_and_filter_keys_from_files(file_path: Path):
     :param file_path:
     :return:
     """
+
+    # Download updated Pathrows
+    africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
+
     for row in read_big_csv_files_from_gzip(file_path):
-        if row.get("Display ID"):
+        if (
+            # Filter to skip all LANDSAT_4
+            row.get("Satellite")
+            and row["Satellite"] != "LANDSAT_4"
+            # Filter to get just day
+            and (
+                row.get("Day/Night Indicator")
+                and row["Day/Night Indicator"].upper() == "DAY"
+            )
+            # Filter to get just from Africa
+            and (
+                row.get("WRS Path")
+                and row.get("WRS Row")
+                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+            )
+        ):
             # Create name as it's stored in the S3 bucket, so it can be compared
             yield f'{row["Display ID"]}_stac.json'
-        else:
-            logging.error(f"Display ID not found in {row}")
 
 
 def get_and_filter_keys(s3_bucket_client):
@@ -73,34 +91,59 @@ def get_and_filter_keys(s3_bucket_client):
     :param s3_bucket_client:
     :return:
     """
-    to_return = []
 
     list_keys = s3_bucket_client.retrieve_keys_from_inventory(
         manifest_sufix=MANIFEST_SUFFIX
     )
 
-    count = 0
-    for key in list_keys:
-        if count < 3:
-            logging.info(f"Example key {key}")
-            try:
-                logging.info(f'Example2 key {key.split("/")[-2].split("_")[1]}')
-            except:
-                pass
-            if ".json" in key:
-                count += 1
+    return set(
+        key.split("/")[-1]
+        for key in list_keys
         if (
-            ".json" in key
-            # TODO check, after inventory creation, if the key will have the base folder name
+            "_stac.json" in key
+            # Filter to remove inventory folder or any other despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
             and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
-            # TODO check, after inventory creation, if the key will have the Africa tile number
-            and key.split("/")[-2].split("_")[1]
-            in read_csv_from_gzip(file_path=AFRICA_GZ_TILES_IDS_URL)
-        ):
-            file_name = key.split("/")[-1]
-            to_return.append(file_name)
+        )
+    )
 
-    return set(to_return)
+
+def build_s3_url_from_api_metadata(display_ids):
+    """
+    Function to create Python threads which will request the API simultaneously
+
+    :param display_ids: (list) id list from the bulk CSV file
+    :return:
+    """
+
+    def request_usgs_api(url: str):
+
+        try:
+            response = request_url(url=url)
+            if response.get("assets"):
+                index_asset = response["assets"].get("index")
+                if index_asset and hasattr(index_asset, "href"):
+                    file_name = index_asset.href.split("/")[-1]
+                    asset_s3_path = index_asset.href.replace(USGS_INDEX_URL, "")
+                    return f"{asset_s3_path}/{file_name}_SR_stac.json"
+
+        except Exception as error:
+            # If the request return an error, just log and keep going
+            logging.error(f"Error requesting API: {error}")
+
+    # Limit number of threads
+    num_of_threads = 50
+    with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+        tasks = []
+        for display_id in display_ids:
+            tasks.append(
+                executor.submit(
+                    request_usgs_api, f"{USGS_API_INDIVIDUAL_ITEM_URL}/{display_id}"
+                )
+            )
+
+        for future in as_completed(tasks):
+            if future.result():
+                yield future.result()
 
 
 def generate_buckets_diff(land_sat: str, file_name: str):
@@ -128,22 +171,32 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         dest_keys = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
 
         # Keys that are missing, they are in the source but not in the bucket
-        missing_keys = [key for key in source_keys if key not in dest_keys]
+        missing_keys = set(key for key in source_keys if key not in dest_keys)
+
+        logging.info(f"missing_keys 10 first keys {list(missing_keys)[0:10]}")
 
         # Keys that are lost, they are in the bucket but not found in the files
         orphaned_keys = dest_keys.difference(source_keys)
+        logging.info(f"orphaned_keys 10 first keys {list(orphaned_keys)[0:10]}")
+        # logging.info(f"COMPARING {[k for k in orphaned_keys if k not in missing_keys]}")
 
         # Build missing scenes links
         # TODO FIX the link to point to the file
+        # USGS API URL
         missing_scenes = [
-            f"s3://{LANDSAT_SYNC_S3_BUCKET_NAME}/{key}" for key in missing_keys
+            f"{USGS_API_INDIVIDUAL_ITEM_URL}/{key}" for key in missing_keys
         ]
+        logging.info(f"missing_scenes1 : {len(missing_scenes)}")
+
+        # S3 path
+        missing_scenes = [
+            f"s3://{path}"
+            for path in build_s3_url_from_api_metadata(display_ids=missing_keys)
+        ]
+        logging.info(f"missing_scenes2 : {len(missing_scenes)}")
 
         output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
-
-        logging.info(f"output_filename {output_filename}")
-        logging.info(f"key {key}")
 
         # Store report in the S3 bucket
         # s3_report = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
@@ -167,7 +220,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
             #     region=AWS_DEFAULT_REGION,
             #     body="\n".join(orphaned_keys),
             # )
-            logging.info(f"Number of orphaned scenes: {len(len(orphaned_keys))}")
+            logging.info(f"Number of orphaned scenes: {len(orphaned_keys)}")
             logging.info(
                 f"Wrote orphaned scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}"
             )
