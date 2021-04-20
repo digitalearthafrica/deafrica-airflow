@@ -13,11 +13,11 @@ from pystac import Item, Link
 from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_bucket import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from infra.variables import (
     LANDSAT_SYNC_SNS_TOPIC_ARN,
 )
-from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
@@ -168,62 +168,55 @@ class ScenesSyncProcess:
 
             return {"path": asset_s3_path, "file_name": file_name}
 
-    def retrieve_sat_json_file_from_s3_and_convert_to_item(self, sr_item: Item):
+    def retrieve_st_and_sr_json_files_from_s3_and_convert_to_item(
+        self, sr_path, st_path
+    ):
         """
-        Function to access AWS USGS S3 and retrieve their ST json file
-        :param sr_item: SR Pystac Item
-        :return: ST Pystac Item
+        Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the ST and SR assets and
+        return SR_ITEM
+        :param sr_path:(str) S3 Path to the the SR file
+        :param st_path:(str) S3 Path to the the ST file
+        :return:(ITEM) Retun a stactools Item with assets merged
         """
 
-        path_and_name = self.find_s3_path_and_file_name_from_item(
-            item=sr_item, start_url=USGS_INDEX_URL
-        )
-
-        if (
-            path_and_name
-            and path_and_name.get("path")
-            and path_and_name.get("file_name")
-        ):
-            full_path = (
-                f"{path_and_name['path']}/{path_and_name['file_name']}_ST_stac.json"
-            )
-
-            logging.debug(f"Accessing file {full_path}")
-
+        def retrieve_file(path):
             params = {"RequestPayer": "requester"}
-            response = self.s3.get_s3_contents_and_attributes(
+            return self.s3.get_s3_contents_and_attributes(
                 bucket_name=USGS_S3_BUCKET_NAME,
-                key=full_path,
+                key=path,
                 params=params,
                 region=USGS_AWS_REGION,
             )
 
-            return Item.from_dict(json.loads(response))
+        logging.debug(f"Accessing SR file {sr_path}")
+        response = retrieve_file(sr_path)
 
-    def merge_assets(self, item: Item):
-        """
-        Function to merge missing assets (from the ST) into the main Pystac file (SR)
+        sr_dict = json.loads(response)
 
-        Sometimes there are differences between what USGS returns from their API, and
-        what was written to S3.
+        if sr_dict.get("stac_version") == "0.7.0":
+            logging.error(f"Stac version {sr_dict['stac_version']} not compatible")
+            raise Exception(f"Stac version {sr_dict['stac_version']} not compatible")
 
-        :param item: Pystac Item
-        :return: None
-        """
+        sr_item = Item.from_dict(sr_dict)
 
-        new_item = self.retrieve_sat_json_file_from_s3_and_convert_to_item(sr_item=item)
+        if st_path:
+            logging.debug(f"Accessing ST file {st_path}")
+            response = retrieve_file(st_path)
+            st_item = Item.from_dict(json.loads(response))
 
-        if new_item:
-            new_item_assets = new_item.get_assets()
+            st_assets = st_item.get_assets()
+            sr_assets = sr_item.get_assets()
+            sr_assets.update(st_assets)
+            sr_item.assets = sr_assets
 
-            assets = item.get_assets()
+        # If we can load the blue band, use it to add proj information
+        if not sr_item.assets.get("SR_B2.TIF") and not sr_item.assets.get("SR_B10.TIF"):
+            logging.error("Asset SR_B2.TIF or SR_B10.TIF missing")
+            raise Exception("Asset SR_B2.TIF or SR_B10.TIF required")
 
-            # Add missing assets to the original item
-            [
-                item.add_asset(key=key, asset=asset)
-                for key, asset in new_item_assets.items()
-                if key not in assets.keys()
-            ]
+        logging.info(f"number of assets after merged {len(sr_item.assets)}")
+
+        return sr_item
 
     def retrieve_asset_s3_path_from_item(self, item: Item):
         """
@@ -325,8 +318,8 @@ class ScenesSyncProcess:
             AWS_S3_ENDPOINT=AFRICA_S3_ENDPOINT,
             CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
         ):
-            # TODO Remove the Links below once Stactools library is updated
-            #
+            # TODO Remove the Links below once Stactools library is updated.
+            #  The new Stactools does not need self link or source link if they are already present within the item
             self_link = item.get_single_link("self")
             self_target = self_link.target
             source_link = item.get_single_link("derived_from")
@@ -338,7 +331,7 @@ class ScenesSyncProcess:
 
             if not returned.properties.get("proj:epsg"):
                 raise Exception(
-                    "There was an issue converting stac 0.7 to 1.0. <proj:epsg> property is required"
+                    "There was an issue converting stac. <proj:epsg> property is required"
                 )
 
             return returned
@@ -450,16 +443,23 @@ def process():
 
                 logging.info(f"Message received {message.body}")
 
-                logging.info("Start conversion from message to pystac item process")
+                item = None
+                for scene_id, sr_st_items in json.loads(message.body).items():
+                    logging.info(
+                        "Retrieving SR and ST metadata merging and converting to  to pystac item"
+                    )
+                    # The sync process will always send the SR and will send the ST when present.
+                    sr_st_items.sort()
+                    item = scenes_sync.retrieve_st_and_sr_json_files_from_s3_and_convert_to_item(
+                        sr_path=sr_st_items[0],
+                        st_path=sr_st_items[1] if len(sr_st_items) == 2 else "",
+                    )
 
-                item = Item.from_dict(json.loads(message.body))
-
-                try:
-                    logging.info(f"Trying to convert")
-                    logging.info(f"Message converted {item.to_dict()}")
-                except Exception as e:
-                    logging.error(e)
-                    pass
+                    try:
+                        logging.info(f"Message converted {item.to_dict()}")
+                    except Exception as e:
+                        logging.error(e)
+                        pass
 
                 logging.info("Checking if Stac was already processed")
                 already_processed = scenes_sync.check_already_copied(item=item)
@@ -472,10 +472,6 @@ def process():
                     logging.info("Start process to replace links")
                     scenes_sync.replace_links(item=item)
                     logging.info("Links Replaced")
-
-                    logging.info("Start process to merge assets")
-                    scenes_sync.merge_assets(item=item)
-                    logging.info("Assets Merged")
 
                     logging.info(
                         "Start process to store all S3 asset href witch will be retrieved from USGS"
@@ -507,6 +503,8 @@ def process():
                     )
 
                     # Transform stac to 1.0.0-beta.2
+                    # Even with USGS sending stac 1.0, we must pass through the
+                    # transformation process which add information that's missing from USGS
                     logging.info(
                         f"Starting process to transform stac 0.7.0 to 1.0.0-beta.2"
                     )

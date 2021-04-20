@@ -35,9 +35,7 @@ from textwrap import dedent
 
 import kubernetes.client.models as k8s
 
-QUEUE_NAME = "deafrica-dev-eks-sentinel-2-indexing"
-
-DAG_NAME = "Sentinel-2_indexing"
+DAG_NAME = "sentinel-2_indexing"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -84,7 +82,7 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "Sentinel-2"],
+    tags=["k8s", "sentinel-2"],
 )
 
 
@@ -105,7 +103,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
-            QUEUE_NAME,
+            "deafrica-prod-af-eks-sentinel-2-indexing",
             "s2_l2a",
         ],
         labels={"step": "sqs-to-rds"},

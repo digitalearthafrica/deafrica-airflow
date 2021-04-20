@@ -11,6 +11,7 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 
 from infra.images import INDEXER_IMAGE
+from infra.sqs_queues import INDEX_LANDSAT_CONNECTION_SQS_QUEUE
 from infra.variables import DB_HOSTNAME, DB_DATABASE, SECRET_ODC_WRITER_NAME
 
 DEFAULT_ARGS = {
@@ -91,7 +92,7 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
-            "deafrica-dev-eks-index-landsat-scene",
+            INDEX_LANDSAT_CONNECTION_SQS_QUEUE,
             "ls8_c2l2 ls7_c2l2 ls5_c2l2",
             "--update-if-exists",
             "--allow-unsafe",
