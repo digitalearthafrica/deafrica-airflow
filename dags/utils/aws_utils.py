@@ -4,6 +4,7 @@ AWS wrap using Airflow hooks
 import logging
 
 import boto3
+from airflow import AirflowException
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
@@ -27,6 +28,11 @@ class S3:
         :return:
         """
         cred = self.s3_hook.get_session().get_credentials()
+
+        if not cred:
+            raise AirflowException(
+                "Credential not found, please ensure you have the right one configured on Airflow connections"
+            )
 
         session = boto3.session.Session()
 
@@ -260,7 +266,7 @@ class S3:
         :param prefix: (str)
         :param request_payer: (str)
         :param continuation_token: (str)
-        :return: (list) List of directories
+        :return: (dict)
         """
         bucket_client = self.get_bucket_client(region=region)
 
@@ -275,12 +281,7 @@ class S3:
         if continuation_token:
             kwargs.update({"ContinuationToken": continuation_token})
 
-        returned = bucket_client.list_objects_v2(**kwargs)
-
-        if returned.get("Contents"):
-            return returned["Contents"]
-        else:
-            return []
+        return bucket_client.list_objects_v2(**kwargs)
 
 
 class SQS:

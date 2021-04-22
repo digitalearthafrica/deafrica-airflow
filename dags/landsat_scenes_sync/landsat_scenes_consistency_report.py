@@ -29,6 +29,8 @@ from landsat_scenes_sync.variables import (
     USGS_API_INDIVIDUAL_ITEM_URL,
     USGS_INDEX_URL,
     AFRICA_GZ_PATHROWS_URL,
+    USGS_S3_BUCKET_PATH,
+    AFRICA_S3_BUCKET_PATH,
 )
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
@@ -37,6 +39,7 @@ from utils.sync_utils import (
     download_file_to_tmp,
     time_process,
     request_url,
+    convert_str_to_date,
 )
 
 REPORTING_PREFIX = "status-report/"
@@ -61,6 +64,22 @@ def get_and_filter_keys_from_files(file_path: Path):
     :return:
     """
 
+    def build_path(file_row):
+        # USGS changes - for _ when generates the CSV bulk file
+        identifier = file_row["Sensor Identifier"].lower().replace("_", "-")
+        year_acquired = convert_str_to_date(file_row["Date Acquired"]).year
+
+        return (
+            "collection02/level-2/standard/{identifier}/{year_acquired}/"
+            "{target_path}/{target_row}/{display_id}/".format(
+                identifier=identifier,
+                year_acquired=year_acquired,
+                target_path=file_row["WRS Path"],
+                target_row=file_row["WRS Row"],
+                display_id=file_row["Display ID"],
+            )
+        )
+
     # Download updated Pathrows
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
@@ -82,7 +101,8 @@ def get_and_filter_keys_from_files(file_path: Path):
             )
         ):
             # Create name as it's stored in the S3 bucket, so it can be compared
-            yield f'{row["Display ID"]}_stac.json'
+            yield build_path(row)
+            # yield f'{row["Display ID"]}_stac.json'
 
 
 def get_and_filter_keys(s3_bucket_client):
@@ -96,15 +116,24 @@ def get_and_filter_keys(s3_bucket_client):
         manifest_sufix=MANIFEST_SUFFIX
     )
 
-    return set(
-        key.split("/")[-1]
-        for key in list_keys
+    for key in list_keys:
         if (
             "_stac.json" in key
             # Filter to remove inventory folder or any other despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
             and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
-        )
-    )
+        ):
+            yield f"{key.rsplit('/', 1)[0]}/"
+
+    # return set(
+    #     key
+    #     # key.split("/")[-1]
+    #     for key in list_keys
+    #     if (
+    #         "_stac.json" in key
+    #         # Filter to remove inventory folder or any other despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
+    #         and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
+    #     )
+    # )
 
 
 def build_s3_url_from_api_metadata(display_ids):
@@ -158,7 +187,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
         # Retrieve keys from the bulk file
-        source_keys = get_and_filter_keys_from_files(file_path)
+        source_paths = get_and_filter_keys_from_files(file_path)
 
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
@@ -168,32 +197,26 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         )
 
         # Retrieve keys from inventory bucket
-        dest_keys = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
+        dest_paths = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
 
         # Keys that are missing, they are in the source but not in the bucket
-        missing_keys = set(key for key in source_keys if key not in dest_keys)
-
-        logging.info(f"missing_keys 10 first keys {list(missing_keys)[0:10]}")
-
-        # Keys that are lost, they are in the bucket but not found in the files
-        orphaned_keys = dest_keys.difference(source_keys)
-        logging.info(f"orphaned_keys 10 first keys {list(orphaned_keys)[0:10]}")
-        # logging.info(f"COMPARING {[k for k in orphaned_keys if k not in missing_keys]}")
-
-        # Build missing scenes links
-        # TODO FIX the link to point to the file
-        # USGS API URL
         missing_scenes = [
-            f"{USGS_API_INDIVIDUAL_ITEM_URL}/{key}" for key in missing_keys
+            "{s3_path}{base_path}".format(s3_path=USGS_S3_BUCKET_PATH, base_path=path)
+            for path in source_paths
+            if path not in dest_paths
         ]
-        logging.info(f"missing_scenes1 : {len(missing_scenes)}")
 
-        # S3 path
-        missing_scenes = [
-            f"s3://{path}"
-            for path in build_s3_url_from_api_metadata(display_ids=missing_keys)
+        # Keys that are orphan, they are in the bucket but not found in the files
+        orphaned_scenes = [
+            "{s3_path}{base_path}".format(s3_path=AFRICA_S3_BUCKET_PATH, base_path=path)
+            for path in dest_paths
+            if path not in source_paths
         ]
-        logging.info(f"missing_scenes2 : {len(missing_scenes)}")
+
+        logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
+        logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+
+        logging.info(f"len(missing_scenes) : {len(missing_scenes)}")
 
         output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
@@ -211,22 +234,22 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}")
 
-        if len(orphaned_keys) > 0:
+        if len(orphaned_scenes) > 0:
             output_filename = f"{land_sat}_{datetime.today().isoformat()}_orphaned.txt"
             key = REPORTING_PREFIX + output_filename
             # s3_report.put_object(
             #     bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
             #     key=key,
             #     region=AWS_DEFAULT_REGION,
-            #     body="\n".join(orphaned_keys),
+            #     body="\n".join(orphaned_scenes),
             # )
-            logging.info(f"Number of orphaned scenes: {len(orphaned_keys)}")
+            logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(
                 f"Wrote orphaned scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}"
             )
 
         message = (
-            f"{len(missing_keys)} scenes are missing from {LANDSAT_SYNC_S3_BUCKET_NAME} and {len(orphaned_keys)} "
+            f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_S3_BUCKET_NAME} and {len(orphaned_scenes)} "
             f"scenes no longer exist in USGS"
         )
         logging.info(message)

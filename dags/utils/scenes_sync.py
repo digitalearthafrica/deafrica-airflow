@@ -147,13 +147,13 @@ def retrieve_list_of_files(scene_list):
             )
         )
         logging.info(f"folder_link {folder_link}")
-        list_obj_folder = s3.list_objects(
+        response = s3.list_objects(
             bucket_name=USGS_S3_BUCKET_NAME,
             region=USGS_AWS_REGION,
             prefix=folder_link,
             request_payer="requester",
         )
-
+        list_obj_folder = response["Contents"] if response.get("Contents") else []
         sr_st_files = [
             obj["Key"]
             for obj in list_obj_folder
