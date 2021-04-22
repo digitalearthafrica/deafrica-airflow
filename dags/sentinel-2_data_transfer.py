@@ -22,13 +22,13 @@ from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
 
-AFRICA_CONN_ID = "svc_deafrica_dev_eks_sentinel_2_sync"
-US_CONN_ID = "deafrica_migration_us"
+from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+
 DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
 SRC_BUCKET_NAME = "sentinel-cogs"
 SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
 SQS_QUEUE = "deafrica-dev-eks-sentinel-2-sync"
-CONCURRENCY = 1
+CONCURRENCY = 32
 
 default_args = {
     "owner": "Airflow",
@@ -69,13 +69,14 @@ def africa_tile_ids():
     Load Africa tile ids
     :return: Set of tile ids
     """
-
+    # TODO DEal with that Rodrigo
     africa_tile_ids = set(
         pd.read_csv(
             (
                 "https://raw.githubusercontent.com/digitalearthafrica/"
                 "deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
-            )
+            ),
+            header=None,
         ).values.ravel()
     )
 
@@ -83,6 +84,11 @@ def africa_tile_ids():
 
 
 def get_self_link(message_content):
+    """
+
+    :param message_content:
+    :return:
+    """
     # Try the first link
     self_link = message_content["links"][0]["href"]
     # But replace it with the canonical one if it exists
@@ -93,6 +99,11 @@ def get_self_link(message_content):
 
 
 def get_derived_from_link(message_content):
+    """
+
+    :param message_content:
+    :return:
+    """
     for link in message_content["links"]:
         if link["rel"] == "derived_from":
             return link["href"]
@@ -148,7 +159,7 @@ def publish_to_sns(updated_stac, attributes):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    sns_hook = AwsSnsHook(aws_conn_id=AFRICA_CONN_ID)
+    sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
     "Replace https with s3 uri"
     sns_hook.publish_to_target(
@@ -163,7 +174,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
@@ -178,24 +189,15 @@ def start_transfer(stac_item):
     Transfer a scene from source to destination bucket
     """
 
-    s3_hook_oregon = S3Hook(aws_conn_id=US_CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=S2_US_CONN_ID)
     s3_filepath = get_derived_from_link(stac_item)
 
     # Check file exists
-    bucket_name, key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+    bucket_name, stac_key = s3_hook_oregon.parse_s3_url(s3_filepath)
+    key_exists = s3_hook_oregon.check_for_key(stac_key, bucket_name=SRC_BUCKET_NAME)
     if not key_exists:
-        raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
+        raise ValueError(f"{stac_key} does not exist in the {SRC_BUCKET_NAME} bucket")
 
-    try:
-        s3_hook = S3Hook(aws_conn_id=AFRICA_CONN_ID)
-        s3_hook.load_string(
-            string_data=json.dumps(stac_item),
-            key=key,
-            bucket_name=DEST_BUCKET_NAME,
-        )
-    except Exception as exc:
-        raise ValueError(f"{key} failed to copy")
     urls = []
     # Add URL of .tif files
     urls.extend(
@@ -208,17 +210,19 @@ def start_transfer(stac_item):
             f"There are less than 17 files in {stac_item.get('id')} scene, failing"
         )
 
-    scene_path = Path(key).parent
+    scene_path = Path(stac_key).parent
     print(f"Copying {scene_path}")
 
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(key, bucket_name=SRC_BUCKET_NAME)
+        key_exists = s3_hook_oregon.check_for_key(src_key, bucket_name=SRC_BUCKET_NAME)
         src_keys.append(src_key)
 
         if not key_exists:
-            raise ValueError(f"{key} does not exist in the {SRC_BUCKET_NAME} bucket")
+            raise ValueError(
+                f"{src_key} does not exist in the {SRC_BUCKET_NAME} bucket"
+            )
 
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
@@ -232,14 +236,30 @@ def start_transfer(stac_item):
             else:
                 copied_files.append(result)
 
+    # write the STAC file to s3
     if len(copied_files) == 17:
         print(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
+    try:
+        s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
+        s3_hook.load_string(
+            string_data=json.dumps(stac_item),
+            key=stac_key,
+            replace=True,
+            bucket_name=DEST_BUCKET_NAME,
+        )
+    except Exception as exc:
+        raise ValueError(f"{stac_key} failed to copy")
 
 
 def is_valid_tile_id(stac_item, valid_tile_ids):
+    """
 
+    :param stac_item:
+    :param valid_tile_ids:
+    :return:
+    """
     tile_id = stac_item["id"].split("_")[1]
 
     if tile_id not in valid_tile_ids:
@@ -256,7 +276,7 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=AFRICA_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
@@ -276,11 +296,9 @@ def copy_s3_objects(ti, **kwargs):
             publish_to_sns(updated_stac, attributes)
             message.delete()
             successful += 1
-            break
         except ValueError as err:
             failed += 1
             print(err)
-            break
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
@@ -296,7 +314,7 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
@@ -309,10 +327,20 @@ def trigger_sensor(ti, **kwargs):
 
 
 def end_dag():
+    """
+
+    :return:
+    """
     print("Message queue is empty, terminating DAG")
 
 
 def terminate(ti, **kwargs):
+    """
+
+    :param ti:
+    :param kwargs:
+    :return:
+    """
     successful_msg_counts = 0
     failed_msg_counts = 0
 
