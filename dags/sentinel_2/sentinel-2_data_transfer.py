@@ -88,31 +88,22 @@ def correct_stac_links(stac_item: Item):
 
     # Update derived_from link to match destination
     derived_from_link = stac_item.get_single_link("derived_from")
-    derived_from_link.target = self_link.replace(
+    derived_from_link.target = self_link.get_href().replace(
         SENTINEL_2_URL,
         f"s3://{SENTINEL_COGS_BUCKET}",
     )
+
     # Update self link to match destination
     self_link = stac_item.get_single_link("self")
-    self_link.target = self_link.replace(
+    self_link.target = self_link.get_href().replace(
         SENTINEL_2_URL,
         f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}",
     )
 
-    # for link in stac_item.links:
-    #     if link.rel == "derived_from":
-    #         link.target = link.target.replace(
-    #             "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-    #             "s3://sentinel-cogs",
-    #         )
-    #     else:
-    #         link.target = link.target.replace(
-    #             "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-    #             "s3://deafrica-sentinel-2",
-    #         )
-
     stac_item.links.remove(stac_item.get_single_link("canonical"))
     stac_item.links.remove(stac_item.get_single_link("via-cirrus"))
+
+    logging.info(f"Links changed to {[link for link in stac_item.links]}")
 
     return stac_item
 
@@ -282,7 +273,11 @@ def copy_s3_objects(ti, **kwargs):
             if not is_valid_tile_id(stac_item, valid_tile_ids):
                 message.delete()
                 continue
+
+            logging.info("Correcting links")
             updated_stac = correct_stac_links(stac_item)
+            logging.info("Corrected")
+
             start_transfer(updated_stac)
             publish_to_sns(updated_stac, attributes)
             # message.delete()
