@@ -19,6 +19,10 @@ SENTINEL_2_INVENTORY_UTILS_BUCKET = Variable.get(
     "deafrica_sentinel_2", "deafrica-sentinel-2"
 )
 
+SENTINEL_2_SYNC_BUCKET = Variable.get(
+    "deafrica_sentinel_2_sync", "deafrica-sentinel-2-dev-sync"
+)
+
 SENTINEL_COGS_BUCKET = Variable.get("sentinel_cogs", "sentinel-cogs")
 
 SENTINEL_COGS_INVENTORY_BUCKET = Variable.get(

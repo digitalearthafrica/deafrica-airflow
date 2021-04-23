@@ -5,34 +5,35 @@ The SQS is subscribed to the following SNS topic:
 arn:aws:sns:us-west-2:482759440949:cirrus-dev-publish
 """
 import json
-from pathlib import Path
-from datetime import datetime, timedelta
-from typing import Iterable
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import pandas as pd
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Iterable
 
 from airflow import DAG
+from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
+from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
+from airflow.hooks.S3_hook import S3Hook
+from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import (
     PythonOperator,
     BranchPythonOperator,
 )
-
-from airflow.operators.dummy_operator import DummyOperator
-from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
-from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
-from airflow.hooks.S3_hook import S3Hook
+from pystac import Item
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_COGS_BUCKET
+from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
+from infra.sqs_queues import SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE
+from sentinel_2.variables import AFRICA_TILES
+from utils.sync_utils import read_csv_from_gzip
 
-DEST_BUCKET_NAME = "deafrica-sentinel-2-dev-sync"
-SRC_BUCKET_NAME = "sentinel-cogs"
-SENTINEL2_TOPIC_ARN = "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic"
-SQS_QUEUE = "deafrica-dev-eks-sentinel-2-sync"
 CONCURRENCY = 32
 
 default_args = {
     "owner": "Airflow",
-    "email": ["toktam.ebadi@ga.gov.au"],
+    "email": ["alex.leith@ga.gov.au", "rodrigo.carvalho@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
@@ -64,91 +65,38 @@ def get_messages(
                 yield message
 
 
-def africa_tile_ids():
-    """
-    Load Africa tile ids
-    :return: Set of tile ids
-    """
-    # TODO DEal with that Rodrigo
-    africa_tile_ids = set(
-        pd.read_csv(
-            (
-                "https://raw.githubusercontent.com/digitalearthafrica/"
-                "deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
-            ),
-            header=None,
-        ).values.ravel()
-    )
-
-    return africa_tile_ids
-
-
-def get_self_link(message_content):
-    """
-
-    :param message_content:
-    :return:
-    """
-    # Try the first link
-    self_link = message_content["links"][0]["href"]
-    # But replace it with the canonical one if it exists
-    for link in message_content["links"]:
-        if link["rel"] == "canonical":
-            self_link = link["href"]
-    return self_link
-
-
-def get_derived_from_link(message_content):
-    """
-
-    :param message_content:
-    :return:
-    """
-    for link in message_content["links"]:
-        if link["rel"] == "derived_from":
-            return link["href"]
-
-
-def correct_stac_links(stac_item):
+def correct_stac_links(stac_item: Item):
     """
     Replace the https link of the source bucket
     with s3 link of the destination bucket
     """
 
-    # Extract source link before updating STAC file
-    src_link = get_self_link(stac_item)
+    # Replace self link for canonical link
+    self_link = stac_item.get_single_link("self")
+    canonical_link = stac_item.get_single_link("canonical")
+    if self_link and canonical_link:
+        self_link.target = canonical_link.target
 
     # Update links to match destination
-    stac_str = json.dumps(stac_item)
-    # "Replace https with s3 uri"
-    stac_item = stac_str.replace(
-        "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-        "s3://deafrica-sentinel-2",
-    )
-    updated_stac = json.loads(stac_item)
-    # Update self and derived_from links
-    for x in updated_stac["links"]:
-        # Replace derived-from link with s3 links to sentinel-cogs bucket
-        if x["rel"] == "derived_from":
-            x["href"] = src_link.replace(
+    for link in stac_item.links:
+        if link.rel == "derived_from":
+            link.target = link.target.replace(
                 "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
                 "s3://sentinel-cogs",
             )
-        elif x["rel"] == "self":
-            x["href"] = src_link.replace(
+        else:
+            link.target = link.target.replace(
                 "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
                 "s3://deafrica-sentinel-2",
             )
-    # Drop canonical and via-cirrus links
-    updated_stac["links"] = [
-        x
-        for x in updated_stac["links"]
-        if x["rel"] != "canonical" and x["rel"] != "via-cirrus"
-    ]
-    return updated_stac
+
+    stac_item.links.remove(stac_item.get_single_link("canonical"))
+    stac_item.links.remove(stac_item.get_single_link("via-cirrus"))
+
+    return stac_item
 
 
-def publish_to_sns(updated_stac, attributes):
+def publish_to_sns(updated_stac: Item, attributes):
     """
     Publish a message to a SNS topic
     param updated_stac: STAC with updated links for the destination bucket
@@ -163,8 +111,8 @@ def publish_to_sns(updated_stac, attributes):
 
     "Replace https with s3 uri"
     sns_hook.publish_to_target(
-        target_arn=SENTINEL2_TOPIC_ARN,
-        message=json.dumps(updated_stac),
+        target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
+        message=json.dumps(updated_stac.to_dict()),
         message_attributes=attributes,
     )
 
@@ -178,50 +126,58 @@ def write_scene(src_key):
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
-        source_bucket_name=SRC_BUCKET_NAME,
-        dest_bucket_name=DEST_BUCKET_NAME,
+        source_bucket_name=SENTINEL_COGS_BUCKET,
+        dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
     )
     return True
 
 
-def start_transfer(stac_item):
+def start_transfer(stac_item: Item):
     """
     Transfer a scene from source to destination bucket
     """
 
     s3_hook_oregon = S3Hook(aws_conn_id=S2_US_CONN_ID)
-    s3_filepath = get_derived_from_link(stac_item)
+    derived_from_link = stac_item.get_single_link("derived_from")
+    s3_filepath = derived_from_link.get_href()
 
     # Check file exists
     bucket_name, stac_key = s3_hook_oregon.parse_s3_url(s3_filepath)
-    key_exists = s3_hook_oregon.check_for_key(stac_key, bucket_name=SRC_BUCKET_NAME)
-    if not key_exists:
-        raise ValueError(f"{stac_key} does not exist in the {SRC_BUCKET_NAME} bucket")
-
-    urls = []
-    # Add URL of .tif files
-    urls.extend(
-        [v["href"] for k, v in stac_item["assets"].items() if "geotiff" in v["type"]]
+    key_exists = s3_hook_oregon.check_for_key(
+        stac_key, bucket_name=SENTINEL_COGS_BUCKET
     )
+    if not key_exists:
+        raise ValueError(
+            f"{stac_key} does not exist in the {SENTINEL_COGS_BUCKET} bucket"
+        )
+
+    # Add URL of .tif files
+    urls = [
+        asset.href
+        for k, asset in stac_item.get_assets().items()
+        if "geotiff" in asset.media_type
+    ]
 
     # Check that all bands and STAC exist
     if len(urls) != 17:
         raise ValueError(
-            f"There are less than 17 files in {stac_item.get('id')} scene, failing"
+            f"There are less than 17 files in {stac_item.id} scene, failing"
         )
 
     scene_path = Path(stac_key).parent
-    print(f"Copying {scene_path}")
+    logging.info(f"Copying {scene_path}")
 
     src_keys = []
     for src_url in urls:
         bucket_name, src_key = s3_hook_oregon.parse_s3_url(src_url)
-        key_exists = s3_hook_oregon.check_for_key(src_key, bucket_name=SRC_BUCKET_NAME)
+        key_exists = s3_hook_oregon.check_for_key(
+            src_key, bucket_name=SENTINEL_COGS_BUCKET
+        )
         src_keys.append(src_key)
 
         if not key_exists:
             raise ValueError(
-                f"{src_key} does not exist in the {SRC_BUCKET_NAME} bucket"
+                f"{src_key} does not exist in the {SENTINEL_COGS_BUCKET} bucket"
             )
 
     copied_files = []
@@ -238,32 +194,34 @@ def start_transfer(stac_item):
 
     # write the STAC file to s3
     if len(copied_files) == 17:
-        print(f"Succeeded: {scene_path} ")
+        logging.info(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
     try:
         s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
         s3_hook.load_string(
-            string_data=json.dumps(stac_item),
+            string_data=json.dumps(stac_item.to_dict()),
             key=stac_key,
             replace=True,
-            bucket_name=DEST_BUCKET_NAME,
+            bucket_name=SENTINEL_2_SYNC_BUCKET,
         )
     except Exception as exc:
         raise ValueError(f"{stac_key} failed to copy")
 
 
-def is_valid_tile_id(stac_item, valid_tile_ids):
+def is_valid_tile_id(stac_item: Item, valid_tile_ids: list):
     """
 
     :param stac_item:
     :param valid_tile_ids:
     :return:
     """
-    tile_id = stac_item["id"].split("_")[1]
+    tile_id = stac_item.id.split("_")[1]
 
-    if tile_id not in valid_tile_ids:
-        print(f"{tile_id} is not in the list of Africa tiles for {stac_item.get('id')}")
+    if not tile_id or tile_id not in valid_tile_ids:
+        logging.error(
+            f"{tile_id} is not in the list of Africa tiles for {stac_item.id}"
+        )
         return False
     return True
 
@@ -278,13 +236,15 @@ def copy_s3_objects(ti, **kwargs):
 
     sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
+    queue = sqs.get_queue_by_name(QueueName=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
     messages = get_messages(queue, visibility_timeout=600)
-    valid_tile_ids = africa_tile_ids()
+    valid_tile_ids = read_csv_from_gzip(file_path=AFRICA_TILES)
 
     for message in messages:
         message_body = json.loads(message.body)
-        stac_item = json.loads(message_body["Message"])
+        message_body_dict = json.loads(message_body["Message"])
+        stac_item = Item.from_dict(message_body_dict)
+
         attributes = message_body.get("MessageAttributes", {})
 
         try:
@@ -298,7 +258,7 @@ def copy_s3_objects(ti, **kwargs):
             successful += 1
         except ValueError as err:
             failed += 1
-            print(err)
+            logging.error(err)
 
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
@@ -316,9 +276,9 @@ def trigger_sensor(ti, **kwargs):
 
     sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SQS_QUEUE)
+    queue = sqs.get_queue_by_name(QueueName=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
-    print("Queue size:", queue_size)
+    logging.info(f"Queue size: {queue_size}")
 
     if queue_size > 0:
         return "run_tasks"
@@ -331,7 +291,7 @@ def end_dag():
 
     :return:
     """
-    print("Message queue is empty, terminating DAG")
+    logging.info("Message queue is empty, terminating DAG")
 
 
 def terminate(ti, **kwargs):
@@ -350,7 +310,7 @@ def terminate(ti, **kwargs):
         )
         failed_msg_counts += ti.xcom_pull(key="failed", task_ids=f"data_transfer_{idx}")
 
-    print(
+    logging.info(
         f"{successful_msg_counts} were successfully processed, and {failed_msg_counts} failed"
     )
 
