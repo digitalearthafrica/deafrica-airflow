@@ -18,6 +18,8 @@ from airflow.operators.python_operator import PythonOperator
 
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 
+from infra.sqs_queues import INDEX_SENTINEL_2_CONNECTION_SQS_QUEUE
+from sentinel_2.variables import AFRICA_TILES
 from subdags.subdag_ows_views import ows_update_extent_subdag
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from infra.podconfig import (
@@ -102,8 +104,8 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
-            "--region-code-list-uri=https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz",
-            "deafrica-prod-af-eks-sentinel-2-indexing",
+            f"--region-code-list-uri={AFRICA_TILES}",
+            INDEX_SENTINEL_2_CONNECTION_SQS_QUEUE,
             "s2_l2a",
         ],
         labels={"step": "sqs-to-rds"},

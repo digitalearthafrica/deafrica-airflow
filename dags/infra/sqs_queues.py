@@ -15,3 +15,7 @@ INDEX_LANDSAT_CONNECTION_SQS_QUEUE = Variable.get(
 SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE = Variable.get(
     "sync_sentinel_2_sqs_queue", "deafrica-dev-eks-sentinel-2-sync"
 )
+
+INDEX_SENTINEL_2_CONNECTION_SQS_QUEUE = Variable.get(
+    "index_sentinel_2_scenes_sqs_queue", "deafrica-prod-af-eks-sentinel-2-indexing"
+)
