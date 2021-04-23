@@ -121,12 +121,11 @@ def publish_to_sns(updated_stac: Item, attributes):
 
     sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
-    logging.info("I must uncomment that but here Sends to SNS")
-    # sns_hook.publish_to_target(
-    #     target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
-    #     message=json.dumps(updated_stac.to_dict()),
-    #     message_attributes=attributes,
-    # )
+    sns_hook.publish_to_target(
+        target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
+        message=json.dumps(updated_stac.to_dict()),
+        message_attributes=attributes,
+    )
 
 
 def write_scene(src_key):
@@ -134,14 +133,13 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    # s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
-    # s3_hook.copy_object(
-    #     source_bucket_key=src_key,
-    #     dest_bucket_key=src_key,
-    #     source_bucket_name=SENTINEL_COGS_BUCKET,
-    #     dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
-    # )
-    logging.info("I must uncomment that but here writes in our S3")
+    s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
+    s3_hook.copy_object(
+        source_bucket_key=src_key,
+        dest_bucket_key=src_key,
+        source_bucket_name=SENTINEL_COGS_BUCKET,
+        dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
+    )
     return True
 
 
