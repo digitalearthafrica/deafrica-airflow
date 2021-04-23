@@ -4,10 +4,10 @@
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.variables import AWS_DEFAULT_REGION
 
-# ######### USGS ############
+# ######### Element-84 ############
 SRC_BUCKET_NAME = "sentinel-cogs-inventory"
-# SRC_BUCKET_NAME = "s3://sentinel-cogs-inventory"
 
+SENTINEL_COGS_BUCKET = "sentinel-cogs"
 
 # ######### AFRICA ############
 

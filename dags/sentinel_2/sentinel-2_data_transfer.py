@@ -23,10 +23,12 @@ from airflow.operators.python_operator import (
 from pystac import Item
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
-from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_COGS_BUCKET
+from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET
 from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
 from infra.sqs_queues import SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE
-from sentinel_2.variables import AFRICA_TILES
+from infra.variables import AWS_DEFAULT_REGION
+from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET
+from utils.aws_utils import SQS
 from utils.sync_utils import read_csv_from_gzip
 
 CONCURRENCY = 32
@@ -42,7 +44,7 @@ default_args = {
 
 def get_messages(
     queue,
-    limit: bool = None,
+    limit: int = None,
     visibility_timeout: int = 60,
     message_attributes: Iterable[str] = ["All"],
 ):
@@ -109,12 +111,12 @@ def publish_to_sns(updated_stac: Item, attributes):
 
     sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
-    "Replace https with s3 uri"
-    sns_hook.publish_to_target(
-        target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
-        message=json.dumps(updated_stac.to_dict()),
-        message_attributes=attributes,
-    )
+    logging.info("I must uncomment that but here Sends to SNS")
+    # sns_hook.publish_to_target(
+    #     target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
+    #     message=json.dumps(updated_stac.to_dict()),
+    #     message_attributes=attributes,
+    # )
 
 
 def write_scene(src_key):
@@ -122,13 +124,14 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
-    s3_hook.copy_object(
-        source_bucket_key=src_key,
-        dest_bucket_key=src_key,
-        source_bucket_name=SENTINEL_COGS_BUCKET,
-        dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
-    )
+    # s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
+    # s3_hook.copy_object(
+    #     source_bucket_key=src_key,
+    #     dest_bucket_key=src_key,
+    #     source_bucket_name=SENTINEL_COGS_BUCKET,
+    #     dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
+    # )
+    logging.info("I must uncomment that but here writes in our S3")
     return True
 
 
@@ -180,6 +183,7 @@ def start_transfer(stac_item: Item):
                 f"{src_key} does not exist in the {SENTINEL_COGS_BUCKET} bucket"
             )
 
+    logging.info(f"These are keys {src_keys}")
     copied_files = []
     with ThreadPoolExecutor(max_workers=20) as executor:
         task = {executor.submit(write_scene, key): key for key in src_keys}
@@ -234,15 +238,21 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
-    sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
-    messages = get_messages(queue, visibility_timeout=600)
+    logging.info(f"Connecting to AWS SQS {SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE}")
+    logging.info(f"Conn_id Name {S2_US_CONN_ID}")
+    sqs = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
+    queue = sqs.get_queue(queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
+    messages = get_messages(queue, limit=20, visibility_timeout=600)
+
+    logging.info("Reading Africa's visible tiles")
     valid_tile_ids = read_csv_from_gzip(file_path=AFRICA_TILES)
 
     for message in messages:
         message_body = json.loads(message.body)
         message_body_dict = json.loads(message_body["Message"])
+
+        logging.info(f"Message received {message_body_dict}")
+        logging.info(f"Converting message into pystac Item")
         stac_item = Item.from_dict(message_body_dict)
 
         attributes = message_body.get("MessageAttributes", {})
@@ -254,7 +264,7 @@ def copy_s3_objects(ti, **kwargs):
             updated_stac = correct_stac_links(stac_item)
             start_transfer(updated_stac)
             publish_to_sns(updated_stac, attributes)
-            message.delete()
+            # message.delete()
             successful += 1
         except ValueError as err:
             failed += 1
