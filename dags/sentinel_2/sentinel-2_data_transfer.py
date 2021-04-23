@@ -139,12 +139,14 @@ def start_transfer(stac_item: Item):
     """
     Transfer a scene from source to destination bucket
     """
+    logging.info("Transfering Files")
 
     s3_hook_oregon = S3Hook(aws_conn_id=S2_US_CONN_ID)
     derived_from_link = stac_item.get_single_link("derived_from")
     s3_filepath = derived_from_link.get_href()
 
     # Check file exists
+    logging.info(f"Check if file exist {s3_filepath}")
     bucket_name, stac_key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(
         stac_key, bucket_name=SENTINEL_COGS_BUCKET
@@ -269,9 +271,19 @@ def copy_s3_objects(ti, **kwargs):
         except ValueError as err:
             failed += 1
             logging.error(err)
+        logging.info(
+            "*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+        )
+        logging.info("")
 
+    logging.info(
+        "====================================================================="
+    )
     ti.xcom_push(key="successful", value=successful)
     ti.xcom_push(key="failed", value=failed)
+    logging.info(
+        "====================================================================="
+    )
 
 
 def trigger_sensor(ti, **kwargs):
