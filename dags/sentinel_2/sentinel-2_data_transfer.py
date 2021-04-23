@@ -20,14 +20,14 @@ from airflow.operators.python_operator import (
     PythonOperator,
     BranchPythonOperator,
 )
-from pystac import Item
+from pystac import Item, Link
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
-from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET
+from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
 from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
 from infra.sqs_queues import SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
-from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET
+from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
 from utils.aws_utils import SQS
 from utils.sync_utils import read_csv_from_gzip
 
@@ -78,19 +78,38 @@ def correct_stac_links(stac_item: Item):
     canonical_link = stac_item.get_single_link("canonical")
     if self_link and canonical_link:
         self_link.target = canonical_link.target
+    elif not self_link and canonical_link:
+        stac_item.add_link(
+            Link(
+                rel="self",
+                target=canonical_link.target,
+            )
+        )
 
-    # Update links to match destination
-    for link in stac_item.links:
-        if link.rel == "derived_from":
-            link.target = link.target.replace(
-                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-                "s3://sentinel-cogs",
-            )
-        else:
-            link.target = link.target.replace(
-                "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
-                "s3://deafrica-sentinel-2",
-            )
+    # Update derived_from link to match destination
+    derived_from_link = stac_item.get_single_link("derived_from")
+    derived_from_link.target = self_link.replace(
+        SENTINEL_2_URL,
+        f"s3://{SENTINEL_COGS_BUCKET}",
+    )
+    # Update self link to match destination
+    self_link = stac_item.get_single_link("self")
+    self_link.target = self_link.replace(
+        SENTINEL_2_URL,
+        f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}",
+    )
+
+    # for link in stac_item.links:
+    #     if link.rel == "derived_from":
+    #         link.target = link.target.replace(
+    #             "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+    #             "s3://sentinel-cogs",
+    #         )
+    #     else:
+    #         link.target = link.target.replace(
+    #             "https://sentinel-cogs.s3.us-west-2.amazonaws.com",
+    #             "s3://deafrica-sentinel-2",
+    #         )
 
     stac_item.links.remove(stac_item.get_single_link("canonical"))
     stac_item.links.remove(stac_item.get_single_link("via-cirrus"))
@@ -149,7 +168,7 @@ def start_transfer(stac_item: Item):
     logging.info(f"Check if file exist {s3_filepath}")
     bucket_name, stac_key = s3_hook_oregon.parse_s3_url(s3_filepath)
     key_exists = s3_hook_oregon.check_for_key(
-        stac_key, bucket_name=SENTINEL_COGS_BUCKET
+        key=stac_key, bucket_name=SENTINEL_COGS_BUCKET
     )
     if not key_exists:
         raise ValueError(
