@@ -7,12 +7,14 @@ DAG to index Sentinel-2 geomedian backlog data.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.kubernetes.secret import Secret
 from airflow.contrib.operators.kubernetes_pod_operator import (
     KubernetesPodOperator,
 )
+from airflow.kubernetes.secret import Secret
 
 from infra.images import INDEXER_IMAGE
+from infra.s3_buckets import SENTINEL_2_SERVICES_BUCKET
+from infra.variables import SECRET_ODC_WRITER_NAME, DB_HOSTNAME
 
 DEFAULT_ARGS = {
     "owner": "Toktam Ebadi",
@@ -26,13 +28,13 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer"
+        "DB_HOSTNAME": DB_HOSTNAME,
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
+        Secret("env", "DB_DATABASE", SECRET_ODC_WRITER_NAME, "database-name"),
     ],
 }
 
@@ -63,7 +65,7 @@ with DAG(
                 "s3-to-dc",
                 "--stac",
                 "--no-sign-request",
-                f"s3://deafrica-services/gm_s2_annual/1-0-0/x{index}/**/*.json",
+                f"s3://{SENTINEL_2_SERVICES_BUCKET}/gm_s2_annual/1-0-0/x{index}/**/*.json",
                 "gm_s2_annual",
             ],
             labels={"backlog": "s3-to-dc"},

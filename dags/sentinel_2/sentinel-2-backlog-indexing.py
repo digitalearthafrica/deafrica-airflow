@@ -7,15 +7,15 @@ DAG to index Sentinel-2 backlog data.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.kubernetes.secret import Secret
-from airflow.kubernetes.volume import Volume
-from airflow.kubernetes.volume_mount import VolumeMount
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from airflow.operators.dummy_operator import DummyOperator
+from airflow.kubernetes.secret import Secret
 
-from textwrap import dedent
-
-import kubernetes.client.models as k8s
+from infra.s3_buckets import SENTINEL_2_INVENTORY_UTILS_BUCKET
+from infra.variables import (
+    DB_HOSTNAME,
+    SECRET_ODC_WRITER_NAME,
+    SENTINEL_2_S3_COGS_FOLDER_NAME,
+)
 
 DEFAULT_ARGS = {
     "owner": "Toktam Ebadi",
@@ -29,14 +29,15 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
+        "DB_HOSTNAME": DB_HOSTNAME,
         "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
         "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
+        Secret("env", "DB_DATABASE", SECRET_ODC_WRITER_NAME, "database-name"),
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
@@ -52,7 +53,6 @@ DEFAULT_ARGS = {
             "sentinel-2-indexing-user",
             "AWS_SECRET_ACCESS_KEY",
         ),
-        Secret("env", "DB_DATABASE", "odc-writer", "database-name"),
     ],
 }
 
@@ -85,7 +85,7 @@ with DAG(
                 "s3-to-dc",
                 "--stac",
                 "--no-sign-request",
-                f"s3://deafrica-sentinel-2/sentinel-s2-l2a-cogs/{utm_zone}/**/*.json",
+                f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}/{SENTINEL_2_S3_COGS_FOLDER_NAME}/{utm_zone}/**/*.json",
                 "s2_l2a",
             ],
             labels={"backlog": "s3-to-dc"},
