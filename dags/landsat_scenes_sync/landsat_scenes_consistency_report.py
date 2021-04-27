@@ -102,7 +102,6 @@ def get_and_filter_keys_from_files(file_path: Path):
         ):
             # Create name as it's stored in the S3 bucket, so it can be compared
             yield build_path(row)
-            # yield f'{row["Display ID"]}_stac.json'
 
 
 def get_and_filter_keys(s3_bucket_client):
