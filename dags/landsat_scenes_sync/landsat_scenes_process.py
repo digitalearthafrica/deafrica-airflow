@@ -13,7 +13,7 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync_process import process
+from utils.landsat_scenes_sync_process_logic import process
 from utils.sync_utils import time_process
 
 # [END import_module]
@@ -38,10 +38,11 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 4, 14),
+    "start_date": datetime(2021, 5, 4),
     "catchup": True,
-    "limit_of_processes": 30,
-    "version": "0.6.2",
+    # "limit_of_processes": 30,
+    "limit_of_processes": 1,
+    "version": "0.8",
 }
 # [END default_args]
 
@@ -61,8 +62,8 @@ dag = DAG(
     "landsat_scenes_processing",
     default_args=DEFAULT_ARGS,
     description="Process Landsat Queue Messages",
-    concurrency=CONCURRENCY,
-    max_active_runs=MAX_ACTIVE_RUNS,
+    # concurrency=CONCURRENCY,
+    # max_active_runs=MAX_ACTIVE_RUNS,
     schedule_interval="0 */12 * * *",
     tags=["Scene"],
 )

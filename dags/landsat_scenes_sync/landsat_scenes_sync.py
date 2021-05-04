@@ -16,7 +16,7 @@ from airflow.operators.dummy_operator import DummyOperator
 
 from airflow.operators.python_operator import PythonOperator
 
-from utils.scenes_sync import sync_data
+from utils.landsat_scenes_identifying_logic import identifying_data
 
 # [END import_module]
 
@@ -31,7 +31,8 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2020, 6, 20),
+    "start_date": datetime(2021, 5, 4),
+    # "start_date": datetime(2020, 6, 20),
     "version": "0.7.3",
 }
 # [END default_args]
@@ -42,7 +43,8 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
     schedule_interval="@daily",
-    catchup=True,
+    catchup=False,
+    # catchup=True,
     tags=[
         "Scene",
     ],
@@ -56,14 +58,14 @@ with dag:
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
         "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
-        # "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
     for sat, file in files.items():
         processes.append(
             PythonOperator(
                 task_id=sat,
-                python_callable=sync_data,
+                python_callable=identifying_data,
                 op_kwargs=dict(file_name=file, date_to_process="{{ ds }}"),
             )
         )
