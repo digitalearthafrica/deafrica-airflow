@@ -37,6 +37,8 @@ def rasterio_test(json_path):
     print(json_path)
     item = convert(json_path=json_path)
 
+    item.ext.enable("projection")
+
     with rasterio.Env(
         aws_unsigned=True,
         # CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
@@ -47,19 +49,22 @@ def rasterio_test(json_path):
                     href = asset.href.replace(
                         "s3://deafrica-landsat-dev/",
                         "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
+                    ).replace(
+                        "https://landsatlook.usgs.gov/data/",
+                        "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
                     )
-                    # ).replace(
-                    #     'https://landsatlook.usgs.gov/data/',
-                    #     'https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/'
-                    # )
                     with rasterio.open(href) as opened_asset:
                         shape = opened_asset.shape
                         transform = opened_asset.transform
                         crs = opened_asset.crs.to_epsg()
                         print(f"success {href}")
 
-                    item.ext.projection.set_transform(transform, asset=asset)
-                    item.ext.projection.set_shape(shape, asset=asset)
+                    try:
+                        item.ext.projection.set_transform(transform, asset=asset)
+                        item.ext.projection.set_shape(shape, asset=asset)
+                        print("WORKED")
+                    except Exception:
+                        continue
 
                 except RasterioIOError as error:
 
@@ -108,5 +113,5 @@ if __name__ == "__main__":
 
     # convert(json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
-    # rasterio_test(json_landsat8)
-    unittest.main()
+    rasterio_test(json_file)
+    # unittest.main()

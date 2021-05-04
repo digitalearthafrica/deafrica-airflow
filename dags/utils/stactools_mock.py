@@ -40,6 +40,8 @@ def transform_stac_to_stac(
 
     if enable_proj:
 
+        item.ext.enable("projection")
+
         shape = None
         transform = None
         crs = None
@@ -68,7 +70,6 @@ def transform_stac_to_stac(
                 asset.media_type = MediaType.COG
 
         # Now we have the info, we can make the fields
-        item.ext.enable("projection")
         item.ext.projection.epsg = crs
 
     # Remove .TIF from asset names
