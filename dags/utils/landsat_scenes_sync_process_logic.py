@@ -32,7 +32,7 @@ from utils.aws_utils import S3, SQS, SNS
 
 # TODO remove that and uncomment stactools import once changes are done in the library
 from utils.stactools_mock import transform_stac_to_stac
-from utils.sync_utils import time_process
+from utils.sync_utils import time_process, find_s3_path_and_file_name_from_item
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 
@@ -42,9 +42,10 @@ class ScenesSyncProcess:
     Sync scenes from USGS to Africa
     """
 
-    def __init__(self, conn_id, logger_name: str = None):
+    def __init__(self, conn_id, logger_name: str = ""):
         self.s3 = S3(conn_id=conn_id)
         self.sns = SNS(conn_id=conn_id)
+        self.logger_name = logger_name
 
     def replace_links(self, item: Item):
         """
@@ -60,6 +61,11 @@ class ScenesSyncProcess:
             else None
         )
 
+        # Add Self Link point to stac 1.0
+        path_and_name = find_s3_path_and_file_name_from_item(
+            item=item, start_url=USGS_DATA_URL
+        )
+
         # Remove all Links
         item.clear_links()
 
@@ -70,22 +76,12 @@ class ScenesSyncProcess:
         )
         item.add_link(derived_from)
 
-        # Add Self Link point to stac 1.0
-        path_and_name = self.find_s3_path_and_file_name_from_item(
-            item=item, start_url=USGS_INDEX_URL
-        )
-
-        if (
-            path_and_name
-            and path_and_name.get("path")
-            and path_and_name.get("file_name")
-        ):
-            file_name = f"{path_and_name['file_name']}_stac.json"
-            self_path = f"{path_and_name['path']}/{file_name}"
-
-            self_link = Link(rel="self", target=f"{AFRICA_S3_BUCKET_PATH}{self_path}")
+        if path_and_name and path_and_name.get("path"):
+            self_link = Link(
+                rel="self", target=f"{AFRICA_S3_BUCKET_PATH}{path_and_name['path']}"
+            )
             item.add_link(self_link)
-            logging.info(f"Self link created {self_link}")
+            logging.info(f"{self.logger_name} - Self link created {self_link}")
         else:
             raise Exception("There was a issue creating SELF link")
 
@@ -94,7 +90,9 @@ class ScenesSyncProcess:
             rel="product_overview",
             target=f'{AFRICA_S3_BUCKET_PATH}{path_and_name["path"]}',
         )
-        logging.info(f"Product Overview link created {product_overview_link}")
+        logging.info(
+            f"{self.logger_name} - Product Overview link created {product_overview_link}"
+        )
         item.add_link(product_overview_link)
 
     def replace_asset_links(self, item: Item):
@@ -150,178 +148,6 @@ class ScenesSyncProcess:
             }
         )
 
-    def find_s3_path_and_file_name_from_item(self, item: Item, start_url: str):
-        """
-        Function to from the href URL within the index in the list of links,
-        replace protocol and domain returning just the path, in addition this function completes the file's name
-        and adds the extension json
-
-        :param start_url: (str) URL that will be removed from the href
-        :param item:(Pystac Item) Pystac Item
-        :return: (String) full path to the json item
-        """
-
-        assets = item.get_assets()
-        asset = assets.get("index")
-        if asset and hasattr(asset, "href"):
-
-            logging.debug(f"asset.href {asset.href}")
-
-            file_name = asset.href.split("/")[-1]
-            asset_s3_path = asset.href.replace(start_url, "")
-
-            return {"path": asset_s3_path, "file_name": file_name}
-
-    def check_assets_item(self, item: Item):
-        """
-        Function to check assets from a given Item in USGS S3 bucket
-        :param item:
-        :return:
-        """
-
-        # Get all Item assets despite index
-        assets = [
-            asset.href.replace(USGS_DATA_URL, "")
-            for key, asset in item.get_assets().items()
-            if hasattr(asset, "href")
-            # Ignores the index key
-            and key != "index"
-        ]
-
-        folder_path = "/".join(assets[0].split("/")[:-1])
-
-        logging.info(f"Scene S3 folder path {folder_path}")
-
-        resp = self.s3.list_objects(
-            bucket_name=USGS_S3_BUCKET_NAME,
-            region=USGS_AWS_REGION,
-            prefix=folder_path,
-            request_payer="requester",
-        )
-
-        bucket_content = set(content["Key"] for content in resp["Contents"])
-
-        difference = set(assets).difference(bucket_content)
-
-        if difference:
-            raise Exception(f"There are missing assets {difference}")
-
-        logging.info("All assets present")
-
-        return not difference
-
-    def retrieve_sr_and_st_update_and_convert_to_item(self, stac_paths_obj: dict):
-        """
-        Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the ST and SR assets and
-        return SR_ITEM and ST_ITEM respectively
-        :param stac_paths_obj:(dict) dict with the path for metadata (SR, ST, ML)
-        :return:(dict) Return SR and ST stactools Items in a dict
-        """
-
-        def retrieve_file(path: str):
-            if path:
-                return self.s3.get_s3_contents_and_attributes(
-                    bucket_name=USGS_S3_BUCKET_NAME,
-                    key=path,
-                    params={"RequestPayer": "requester"},
-                    region=USGS_AWS_REGION,
-                )
-
-        sr_path = stac_paths_obj.get("SR")
-        st_path = stac_paths_obj.get("ST")
-        mtl_path = stac_paths_obj.get("MTL")
-
-        # Retrieve SR
-        logging.debug(f"Accessing SR file {sr_path}")
-        response = retrieve_file(sr_path)
-        sr_dict = json.loads(response) if response else None
-
-        # Retrieve ST
-        logging.debug(f"Accessing ST file {st_path}")
-        response = retrieve_file(st_path)
-        st_dict = json.loads(response) if response else None
-
-        logging.info(f"SR Stac version {sr_dict['stac_version']}")
-
-        logging.info(
-            f"ST Stac version {st_dict['stac_version']}"
-            if st_dict
-            else f"ST Stac not found {st_path}"
-        )
-
-        # Update datetime if stac 0.7
-        if "1.0.0" not in sr_dict["stac_version"]:
-            logging.debug(f"Accessing MTL file {mtl_path}")
-            response = retrieve_file(mtl_path)
-            mlt_dict = json.loads(response) if response else None
-
-            if not mlt_dict:
-                logging.error(f"MLT.json not found on {mtl_path}")
-                raise Exception(f"MLT.json issues {mtl_path}")
-            elif (
-                not mlt_dict.get("LANDSAT_METADATA_FILE")
-                or not mlt_dict["LANDSAT_METADATA_FILE"].get("IMAGE_ATTRIBUTES")
-                or not mlt_dict["LANDSAT_METADATA_FILE"]["IMAGE_ATTRIBUTES"].get(
-                    "SCENE_CENTER_TIME"
-                )
-            ):
-                logging.error("SCENE_CENTER_TIME not found on MLT file")
-                raise Exception("SCENE_CENTER_TIME not found on MLT file")
-
-            scene_center_time = mlt_dict["LANDSAT_METADATA_FILE"]["IMAGE_ATTRIBUTES"][
-                "SCENE_CENTER_TIME"
-            ]
-
-            if not sr_dict.get("properties") or not sr_dict["properties"].get(
-                "datetime"
-            ):
-                logging.error(f"SR property datetime is missing {sr_dict}")
-                raise Exception(f"SR property datetime is missing {sr_dict}")
-
-            scene_date = sr_dict["properties"]["datetime"]
-            sr_dict["properties"]["datetime"] = f"{scene_date}T{scene_center_time}"
-
-            if st_dict and "1.0.0" not in st_dict.get("stac_version"):
-                if not st_dict.get("properties") or not st_dict["properties"].get(
-                    "datetime"
-                ):
-                    st_dict["properties"]["datetime"] = sr_dict["properties"][
-                        "datetime"
-                    ]
-                else:
-                    scene_date = st_dict["properties"]["datetime"]
-                    st_dict["properties"][
-                        "datetime"
-                    ] = f"{scene_date}T{scene_center_time}"
-
-        sr_item = Item.from_dict(sr_dict)
-
-        st_item = None
-        if st_dict:
-            st_item = Item.from_dict(st_dict)
-            if not st_item.assets.get("ST_B10.TIF") and not st_item.assets.get(
-                "ST_B6.TIF"
-            ):
-                logging.error(
-                    f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}"
-                )
-                # st_item = None
-                raise Exception(
-                    f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}"
-                )
-            # Check assets in S3
-            self.check_assets_item(st_item)
-
-        # If we can load the blue band, use it to add proj information
-        if not sr_item.assets.get("SR_B2.TIF"):
-            logging.error(f"Asset SR_B2.TIF is missing in {sr_item}")
-            raise Exception(f"Asset SR_B2.TIF is missing in {sr_item}")
-
-        # Check assets in S3
-        self.check_assets_item(sr_item)
-
-        return {"SR": sr_item, "ST": st_item}
-
     def retrieve_asset_s3_path_from_item(self, item: Item):
         """
         Function to change the asset URL into an S3 to be copied straight from the bucket
@@ -339,7 +165,9 @@ class ScenesSyncProcess:
                 and USGS_DATA_URL in asset.href
             ]
 
-        logging.error(f"WARNING No assets to be copied in the Item ({item.id})")
+        logging.error(
+            f"{self.logger_name} - WARNING No assets to be copied in the Item ({item.id})"
+        )
 
     def filter_just_missing_assets(self, asset_paths: list):
         """
@@ -350,7 +178,7 @@ class ScenesSyncProcess:
         # Limit number of threads
         num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-            logging.info("FILTERING MISSING ASSETS")
+            logging.info("{self.logger_name} - FILTERING MISSING ASSETS")
 
             tasks = [
                 executor.submit(
@@ -365,14 +193,11 @@ class ScenesSyncProcess:
                 future.result() for future in as_completed(tasks) if future.result()
             ]
 
-    def transfer_data_from_usgs_to_africa(
-        self, asset_address_paths: list, stac_type: str
-    ) -> int:
+    def transfer_data_from_usgs_to_africa(self, asset_address_paths: list) -> int:
         """
         Function to transfer data from USGS' S3 to Africa's S3
 
         :param asset_address_paths:(list) Big dicts with the asset id and links
-        :param stac_type:(str) type of stac, ST or SR, which provided the assets
         :return: (int) number of transferred assets
         """
 
@@ -380,14 +205,16 @@ class ScenesSyncProcess:
         num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
-                f"{stac_type}_log - Transferring {num_of_threads} assets simultaneously (Python threads) "
+                f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously (Python threads) "
                 f"from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
             missing_assets = self.filter_just_missing_assets(asset_address_paths)
 
-            logging.info(f"{stac_type}_log - Copying missing assets {missing_assets}")
+            logging.info(
+                f"{self.logger_name} - Copying missing assets {missing_assets}"
+            )
 
             task = [
                 executor.submit(
@@ -438,6 +265,9 @@ class ScenesSyncProcess:
             )
 
             if not returned.properties.get("proj:epsg"):
+                logging.error(
+                    f"{self.logger_name} - There was an issue converting stac. <proj:epsg> property is required"
+                )
                 raise Exception(
                     "There was an issue converting stac. <proj:epsg> property is required"
                 )
@@ -455,7 +285,7 @@ class ScenesSyncProcess:
             AFRICA_S3_BUCKET_PATH, ""
         )
 
-        logging.info(f"destination {destination_key}")
+        logging.info(f"{self.logger_name} - destination {destination_key}")
 
         self.s3.save_obj_to_s3(
             file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
@@ -463,26 +293,177 @@ class ScenesSyncProcess:
             destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
         )
 
-    def check_already_copied(self, item) -> bool:
-        """
-        Check if the item was already copied based on the <scene>_stac.json
-        :param item:
-        :return: (bool)
-        """
 
-        path_and_file_name = self.find_s3_path_and_file_name_from_item(
-            item=item, start_url=USGS_INDEX_URL
-        )
+def check_assets_item(conn_id, item: Item):
+    """
+    Function to check assets from a given Item in USGS S3 bucket
+    :param conn_id:
+    :param item:
+    :return:
+    """
 
-        file_name = f"{path_and_file_name['file_name']}_stac.json"
-        key = f"{path_and_file_name['path']}/{file_name}"
+    # Get all Item assets despite index
+    assets = [
+        asset.href.replace(USGS_DATA_URL, "")
+        for key, asset in item.get_assets().items()
+        if hasattr(asset, "href")
+        # Ignores the index key
+        and key != "index"
+    ]
 
-        logging.info(f"Checking for {key}")
+    folder_path = "/".join(assets[0].split("/")[:-1])
 
-        # If not exist return the path, if exist return None
-        exist = self.s3.key_not_existent(LANDSAT_SYNC_S3_BUCKET_NAME, key)
+    logging.info(f"Scene S3 folder path {folder_path}")
 
-        return not bool(exist)
+    s3 = S3(conn_id=conn_id)
+
+    resp = s3.list_objects(
+        bucket_name=USGS_S3_BUCKET_NAME,
+        region=USGS_AWS_REGION,
+        prefix=folder_path,
+        request_payer="requester",
+    )
+
+    bucket_content = set(content["Key"] for content in resp["Contents"])
+
+    difference = set(assets).difference(bucket_content)
+
+    if difference:
+        raise Exception(f"There are missing assets {difference}")
+
+    logging.info(f"All assets present")
+
+    return not difference
+
+
+def check_already_copied(conn_id, item: Item) -> bool:
+    """
+    Check if the item was already copied based on the <scene>
+
+    :param conn_id:
+    :param item:
+    :return: (bool)
+    """
+
+    path_and_file_name = find_s3_path_and_file_name_from_item(
+        item=item, start_url=USGS_DATA_URL
+    )
+
+    logging.info(f"Checking for {path_and_file_name['path']}")
+
+    # If not exist return the path, if exist return None
+    s3 = S3(conn_id=conn_id)
+    exist = s3.key_not_existent(LANDSAT_SYNC_S3_BUCKET_NAME, path_and_file_name["path"])
+
+    return not bool(exist)
+
+
+def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict):
+    """
+    Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the ST and SR assets and
+    return SR_ITEM and ST_ITEM respectively
+
+    :param conn_id:
+    :param stac_paths_obj:(dict) dict with the path for metadata (SR, ST, ML)
+    :return:(dict) Return SR and ST stactools Items in a dict
+    """
+
+    def retrieve_file(path: str):
+        if path:
+            s3 = S3(conn_id=conn_id)
+            return s3.get_s3_contents_and_attributes(
+                bucket_name=USGS_S3_BUCKET_NAME,
+                key=path,
+                params={"RequestPayer": "requester"},
+                region=USGS_AWS_REGION,
+            )
+
+    sr_path = stac_paths_obj.get("SR")
+    st_path = stac_paths_obj.get("ST")
+    mtl_path = stac_paths_obj.get("MTL")
+
+    # Retrieve SR
+    logging.debug(f"Accessing SR file {sr_path}")
+    response = retrieve_file(sr_path)
+    sr_dict = json.loads(response) if response else None
+
+    # Retrieve ST
+    logging.debug(f"Accessing ST file {st_path}")
+    response = retrieve_file(st_path)
+    st_dict = json.loads(response) if response else None
+
+    logging.info(f"SR Stac version {sr_dict['stac_version']}")
+
+    logging.info(
+        f"ST Stac version {st_dict['stac_version']}"
+        if st_dict
+        else f"ST Stac not found {st_path}"
+    )
+
+    # Update datetime if stac 0.7
+    if "1.0.0" not in sr_dict["stac_version"]:
+
+        logging.debug(f"Accessing MTL file {mtl_path}")
+
+        response = retrieve_file(mtl_path)
+        mlt_dict = json.loads(response) if response else None
+
+        if not mlt_dict:
+
+            logging.error(f"MLT.json not found on {mtl_path}")
+            raise Exception(f"MLT.json issues {mtl_path}")
+
+        elif (
+            not mlt_dict.get("LANDSAT_METADATA_FILE")
+            or not mlt_dict["LANDSAT_METADATA_FILE"].get("IMAGE_ATTRIBUTES")
+            or not mlt_dict["LANDSAT_METADATA_FILE"]["IMAGE_ATTRIBUTES"].get(
+                "SCENE_CENTER_TIME"
+            )
+        ):
+            logging.error(f"SCENE_CENTER_TIME not found on MLT file")
+            raise Exception("SCENE_CENTER_TIME not found on MLT file")
+
+        scene_center_time = mlt_dict["LANDSAT_METADATA_FILE"]["IMAGE_ATTRIBUTES"][
+            "SCENE_CENTER_TIME"
+        ]
+
+        if not sr_dict.get("properties") or not sr_dict["properties"].get("datetime"):
+            logging.error(f"SR property datetime is missing {sr_dict}")
+            raise Exception(f"SR property datetime is missing {sr_dict}")
+
+        scene_date = sr_dict["properties"]["datetime"]
+        sr_dict["properties"]["datetime"] = f"{scene_date}T{scene_center_time}"
+
+        if st_dict and "1.0.0" not in st_dict.get("stac_version"):
+            if not st_dict.get("properties") or not st_dict["properties"].get(
+                "datetime"
+            ):
+                st_dict["properties"]["datetime"] = sr_dict["properties"]["datetime"]
+            else:
+                scene_date = st_dict["properties"]["datetime"]
+                st_dict["properties"]["datetime"] = f"{scene_date}T{scene_center_time}"
+
+    sr_item = Item.from_dict(sr_dict)
+
+    st_item = None
+    if st_dict:
+        st_item = Item.from_dict(st_dict)
+        if not st_item.assets.get("ST_B10.TIF") and not st_item.assets.get("ST_B6.TIF"):
+            logging.error(f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}")
+            # st_item = None
+            raise Exception(f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}")
+        # Check assets in S3
+        check_assets_item(conn_id=conn_id, item=st_item)
+
+    # If we can load the blue band, use it to add proj information
+    if not sr_item.assets.get("SR_B2.TIF"):
+        logging.error(f"Asset SR_B2.TIF is missing in {sr_item}")
+        raise Exception(f"Asset SR_B2.TIF is missing in {sr_item}")
+
+    # Check assets in S3
+    check_assets_item(conn_id=conn_id, item=sr_item)
+
+    return {"SR": sr_item, "ST": st_item}
 
 
 def get_messages(
@@ -576,7 +557,7 @@ def process_item(stac_type: str, item: Item):
         f"{logger_name} - Start process to transfer data from USGS S3 to Africa S3"
     )
     transferred_items = scenes_sync.transfer_data_from_usgs_to_africa(
-        asset_addresses_paths, stac_type
+        asset_addresses_paths
     )
     logger.info(
         f"{logger_name} - {transferred_items} new files were transferred from USGS to AFRICA"
@@ -622,9 +603,6 @@ def process():
                 start_per_msg = time.time()
 
                 logging.info("Processing Message")
-
-                scenes_sync = ScenesSyncProcess(conn_id=SYNC_LANDSAT_CONNECTION_ID)
-
                 logging.info(f"Message received {message.body}")
                 logging.info(
                     f"Message Paths {[stac_paths_obj for scene_id, stac_paths_obj in json.loads(message.body).items()]}"
@@ -636,21 +614,19 @@ def process():
                         "Retrieving SR and ST metadata merging and converting to  to pystac item"
                     )
 
-                    sr_st_item_dict = (
-                        scenes_sync.retrieve_sr_and_st_update_and_convert_to_item(
-                            stac_paths_obj=stac_paths_obj
-                        )
+                    sr_st_item_dict = retrieve_sr_and_st_update_and_convert_to_item(
+                        conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                        stac_paths_obj=stac_paths_obj,
                     )
 
                 logging.info("Checking if stac was already processed")
-                already_processed = scenes_sync.check_already_copied(
-                    item=sr_st_item_dict["SR"]
-                )
-                logging.info(
-                    f"Stac {'processed' if already_processed else 'NOT processed'}!"
+                already_processed = check_already_copied(
+                    conn_id=SYNC_LANDSAT_CONNECTION_ID, item=sr_st_item_dict["SR"]
                 )
 
                 if not already_processed:
+                    logging.info(f"Stac NOT processed!")
+
                     # processing SR and ST in parallel
                     with ThreadPoolExecutor(max_workers=2) as executor:
                         logging.info("Start Processing SR and ST")
@@ -668,6 +644,7 @@ def process():
                         ]
                         logging.info("Finished processing SR and ST")
 
+                logging.info(f"Stac processed!")
                 logging.info(f"Deleting messages")
                 message.delete()
                 logging.info("Messages deleted")
