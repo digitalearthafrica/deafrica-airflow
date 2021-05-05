@@ -42,8 +42,7 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
     schedule_interval="@daily",
-    catchup=False,
-    # catchup=True,
+    catchup=True,
     tags=[
         "Scene",
     ],
