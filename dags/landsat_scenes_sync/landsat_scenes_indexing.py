@@ -24,7 +24,7 @@ DEFAULT_ARGS = {
     "start_date": datetime(2021, 3, 29),
     "depends_on_past": False,
     "catchup": False,
-    "version": "0.3",
+    "version": "0.4",
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_DATABASE": DB_DATABASE,
