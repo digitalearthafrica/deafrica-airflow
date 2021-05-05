@@ -32,16 +32,12 @@ def compare(landsat5, landsat7, landsat8):
     print(f"Assets that are in 7 and 5 and 8 {compare_5_7_8}")
 
 
-def rasterio_test(json_path):
-
-    print(json_path)
-    item = convert(json_path=json_path)
+def rasterio_test(item: Item):
 
     item.ext.enable("projection")
 
     with rasterio.Env(
         aws_unsigned=True,
-        # CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
     ):
         for name, asset in item.assets.items():
             if "geotiff" in asset.media_type:
@@ -59,42 +55,59 @@ def rasterio_test(json_path):
                         crs = opened_asset.crs.to_epsg()
                         print(f"success {href}")
 
-                    try:
-                        item.ext.projection.set_transform(transform, asset=asset)
-                        item.ext.projection.set_shape(shape, asset=asset)
-                        print("WORKED")
-                    except Exception:
-                        continue
+                    item.ext.projection.set_transform(transform, asset=asset)
+                    item.ext.projection.set_shape(shape, asset=asset)
 
                 except RasterioIOError as error:
-
                     # print(f"Failed {href}")
                     # print(f"error {error}")
                     # print(RasterioIOError == type(error))
                     raise error
                     # raise Exception('test')
                     # continue
+    return item
 
 
 class class_test(unittest.TestCase):
-    def test_upper(self):
-        self.assertEqual("foo".upper(), "FOO")
-
-    def test_rasterio(self):
+    def test_replace_extensions(self):
         json_landsat82 = os.path.join(
             "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
         )
-        with self.assertRaises(RasterioIOError):
-            rasterio_test(json_landsat82)
+        item = convert(json_path=json_landsat82)
+        print(item.stac_extensions)
+        item.stac_extensions = list(
+            filter(
+                lambda x: ("https://landsat.usgs.gov" not in x), item.stac_extensions
+            )
+        )
+        print(item.stac_extensions)
 
-        # try:
-        #     rasterio_test(json_landsat82)
-        #
-        # except RasterioIOError:
-        #     self.assertTrue(True, 'It was expected a RasterioIOError')
-        #
-        # except Exception as e:
-        #     self.assertTrue(False, 'It was expected a RasterioIOError')
+    # def test_rasterio(self):
+    #     json_landsat82 = os.path.join(
+    #         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+    #     )
+    #     with self.assertRaises(RasterioIOError):
+    #         rasterio_test(
+    #             convert(json_path=json_landsat82)
+    #         )
+    #
+    # def test_transform_static_stac_missing_asset_b2_b10(self):
+    #     """It has to be able to gather the right information from other geotiff files"""
+    #
+    #     json_landsat82 = os.path.join(
+    #         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+    #     )
+    #
+    #     item = convert(json_path=json_landsat82)
+    #
+    #     if item.assets.get("SR_B2.TIF"):
+    #         item.assets.pop("SR_B2.TIF")
+    #
+    #     if item.assets.get("ST_B10.TIF"):
+    #         item.assets.pop("ST_B10.TIF")
+    #
+    #     item = rasterio_test(item=item)
+    #     item.validate()
 
 
 if __name__ == "__main__":
@@ -113,5 +126,5 @@ if __name__ == "__main__":
 
     # convert(json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
-    rasterio_test(json_file)
-    # unittest.main()
+    # rasterio_test(json_file)
+    unittest.main()

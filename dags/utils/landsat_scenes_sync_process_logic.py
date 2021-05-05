@@ -47,6 +47,23 @@ class ScenesSyncProcess:
         self.sns = SNS(conn_id=conn_id)
         self.logger_name = logger_name
 
+    def remove_usgs_extension(self, item: Item):
+        """
+        Function to remove USGS schema.json among the Item extensions
+
+        :param item: (Pystac Item) Pystac Item
+        :return: (Pystac Item) Pystac Item
+        """
+        extensions = list(
+            filter(
+                lambda x: ("https://landsat.usgs.gov" not in x), item.stac_extensions
+            )
+        )
+        item.stac_extensions.clear()
+        item.stac_extensions.extend(extensions)
+
+        return item
+
     def replace_links(self, item: Item):
         """
         Function to replace href URL for Africa's S3 links
@@ -530,13 +547,19 @@ def process_item(stac_type: str, item: Item):
 
     logger = logging.getLogger(logger_name)
 
-    logger.info(f"{logger_name} - Processing Item collection {item.collection_id}")
+    logger.info(f"{logger_name} - Processing Item {item.to_dict()}")
 
     sns_topic = SNS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
 
     logger.info(f"{logger_name} - Start process to replace links for {stac_type}")
     scenes_sync.replace_links(item=item)
     logger.info(f"{logger_name} - Links Replaced for {stac_type}")
+
+    logger.info(
+        f"{logger_name} - Start process of removing USGS extension for {stac_type}"
+    )
+    scenes_sync.remove_usgs_extension(item=item)
+    logger.info(f"{logger_name} - USGS extension removed for {stac_type}")
 
     logger.info(
         f"{logger_name} - Start process to store all S3 asset href witch will be retrieved from USGS"
