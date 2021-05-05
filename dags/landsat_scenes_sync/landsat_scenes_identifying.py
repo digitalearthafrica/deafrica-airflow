@@ -31,9 +31,8 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 5, 4),
-    # "start_date": datetime(2020, 6, 20),
-    "version": "0.7.3",
+    "start_date": datetime(2020, 11, 1),
+    "version": "0.10",
 }
 # [END default_args]
 

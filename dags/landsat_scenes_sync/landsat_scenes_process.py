@@ -38,11 +38,10 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 5, 4),
+    "start_date": datetime(2020, 11, 1),
     "catchup": True,
-    # "limit_of_processes": 30,
-    "limit_of_processes": 1,
-    "version": "0.8",
+    "limit_of_processes": 30,
+    "version": "0.10",
 }
 # [END default_args]
 
@@ -62,8 +61,8 @@ dag = DAG(
     "landsat_scenes_processing",
     default_args=DEFAULT_ARGS,
     description="Process Landsat Queue Messages",
-    # concurrency=CONCURRENCY,
-    # max_active_runs=MAX_ACTIVE_RUNS,
+    concurrency=CONCURRENCY,
+    max_active_runs=MAX_ACTIVE_RUNS,
     schedule_interval="0 */12 * * *",
     tags=["Scene"],
 )
