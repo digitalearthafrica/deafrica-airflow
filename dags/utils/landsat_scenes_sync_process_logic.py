@@ -133,7 +133,9 @@ class ScenesSyncProcess:
             if asset_href:
                 asset.href = asset_href
 
-    def add_odc_product_and_odc_region_code_properties(self, item: Item):
+    def add_odc_product_and_odc_region_code_properties(
+        self, item: Item, stac_type: str
+    ):
         """
         Function to add Africa's custom properties odc:product and odc:region_code
         :param item: (Pystac Item) Pystac Item
@@ -142,17 +144,17 @@ class ScenesSyncProcess:
 
         properties = item.properties
 
-        sat = properties.get("eo:platform", "")
+        sat = properties.get("eo:platform", None)
 
         if sat == "LANDSAT_8":
-            value = "ls8_c2l2"
+            value = f"ls8_{stac_type}"
         elif sat == "LANDSAT_7":
-            value = "ls7_c2l2"
+            value = f"ls7_{stac_type}"
         elif sat == "LANDSAT_5":
-            value = "ls5_c2l2"
+            value = f"ls5_{stac_type}"
         else:
             raise Exception(
-                f'The sat is {"{0} that is not supported for this process".format(sat) if sat else "not informed"}'
+                f'The sat {f"{sat} does not supported for this process" if sat else "was not informed"}'
             )
 
         item.properties.update(
@@ -539,27 +541,25 @@ def process_item(stac_type: str, item: Item):
     :return: None
     """
 
-    logger_name = f"{stac_type}_log"
+    logger_name = f"{item.id}_{stac_type}_log"
 
     scenes_sync = ScenesSyncProcess(
         conn_id=SYNC_LANDSAT_CONNECTION_ID, logger_name=logger_name
     )
 
+    sns_topic = SNS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+
     logger = logging.getLogger(logger_name)
 
     logger.info(f"{logger_name} - Processing Item {item.to_dict()}")
 
-    sns_topic = SNS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
-
-    logger.info(f"{logger_name} - Start process to replace links for {stac_type}")
+    logger.info(f"{logger_name} - Start process to replace links")
     scenes_sync.replace_links(item=item)
-    logger.info(f"{logger_name} - Links Replaced for {stac_type}")
+    logger.info(f"{logger_name} - Links Replaced")
 
-    logger.info(
-        f"{logger_name} - Start process of removing USGS extension for {stac_type}"
-    )
+    logger.info(f"{logger_name} - Start process of removing USGS extension")
     scenes_sync.remove_usgs_extension(item=item)
-    logger.info(f"{logger_name} - USGS extension removed for {stac_type}")
+    logger.info(f"{logger_name} - USGS extension removed")
 
     logger.info(
         f"{logger_name} - Start process to store all S3 asset href witch will be retrieved from USGS"
@@ -572,7 +572,9 @@ def process_item(stac_type: str, item: Item):
     logger.info(f"{logger_name} - Assets links replaced")
 
     logger.info(f"{logger_name} - Start process to add custom property odc:product")
-    scenes_sync.add_odc_product_and_odc_region_code_properties(item=item)
+    scenes_sync.add_odc_product_and_odc_region_code_properties(
+        item=item, stac_type=stac_type.lower()
+    )
     logger.info(f"{logger_name} - Custom property odc:product added")
 
     # Copy files from USGS' S3 and store into Africa's S3

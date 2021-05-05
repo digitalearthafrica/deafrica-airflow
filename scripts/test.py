@@ -11,6 +11,11 @@ from rasterio import RasterioIOError
 def convert(json_path: str):
     try:
         with open(json_path) as f:
+            dict_json = json.load(f)
+
+            if not item.properties or not item.properties.get("odc:product"):
+                raise Exception("Property odc:product is required")
+
             item = Item.from_dict(json.load(f))
             print(item)
             print(item.to_dict())
@@ -33,7 +38,6 @@ def compare(landsat5, landsat7, landsat8):
 
 
 def rasterio_test(item: Item):
-
     item.ext.enable("projection")
 
     with rasterio.Env(
@@ -75,6 +79,7 @@ class class_test(unittest.TestCase):
         )
         item = convert(json_path=json_landsat82)
         print(item.stac_extensions)
+
         item.stac_extensions = list(
             filter(
                 lambda x: ("https://landsat.usgs.gov" not in x), item.stac_extensions
