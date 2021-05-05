@@ -93,7 +93,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             INDEX_LANDSAT_CONNECTION_SQS_QUEUE,
-            "ls8_c2l2 ls7_c2l2 ls5_c2l2",
+            "ls5_sr ls5_st ls7_sr ls7_st ls8_sr ls8_st",
             "--update-if-exists",
             "--allow-unsafe",
         ],
