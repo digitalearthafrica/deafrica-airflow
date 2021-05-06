@@ -1,11 +1,59 @@
 """Just tests, must be deleted"""
+import datetime
 import json
 import os
 import unittest
+from pathlib import Path
+from urllib.parse import urlparse
 
-from pystac import Item
 import rasterio
+import requests
+from pystac import Item
 from rasterio import RasterioIOError
+
+from utils.sync_utils import read_big_csv_files_from_gzip, read_csv_from_gzip
+
+
+def count_scenes():
+
+    file_path = Path(
+        os.path.join("C:/Users/cario/Downloads/", "LANDSAT_OT_C2_L2.csv.gz")
+    )
+    url = urlparse(
+        f"{'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'}{'LANDSAT_OT_C2_L2.csv.gz'}"
+    )
+    downloaded = requests.get(url.geturl(), stream=True)
+    file_path.write_bytes(downloaded.content)
+
+    africa_pathrows = read_csv_from_gzip(
+        file_path="https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-usgs-pathrows.csv.gz"
+    )
+
+    count = 0
+    for row in read_big_csv_files_from_gzip(file_path):
+        if (
+            # Filter to skip all LANDSAT_4
+            row.get("Satellite")
+            and row["Satellite"] != "LANDSAT_4"
+            # Filter to get just day
+            and (
+                row.get("Day/Night Indicator")
+                and row["Day/Night Indicator"].upper() == "DAY"
+            )
+            # Filter to get just from Africa
+            and (
+                row.get("WRS Path")
+                and row.get("WRS Row")
+                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+            )
+        ):
+            count += 1
+    print(f"Number of scenes {count}")
+
+    sec_transfer = 90 * count
+    transfer_time = datetime.timedelta(seconds=sec_transfer)
+
+    print(f"Time to transfer {str(transfer_time)}")
 
 
 def convert(json_path: str):
@@ -53,6 +101,10 @@ def rasterio_test(item: Item):
                         "https://landsatlook.usgs.gov/data/",
                         "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
                     )
+                    # ).replace(
+                    #     "https://landsatlook.usgs.gov/data/",
+                    #     "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
+                    # )
                     with rasterio.open(href) as opened_asset:
                         shape = opened_asset.shape
                         transform = opened_asset.transform
@@ -73,6 +125,7 @@ def rasterio_test(item: Item):
 
 
 class class_test(unittest.TestCase):
+    @unittest.skip
     def test_replace_extensions(self):
         json_landsat82 = os.path.join(
             "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
@@ -87,32 +140,31 @@ class class_test(unittest.TestCase):
         )
         print(item.stac_extensions)
 
-    # def test_rasterio(self):
-    #     json_landsat82 = os.path.join(
-    #         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
-    #     )
-    #     with self.assertRaises(RasterioIOError):
-    #         rasterio_test(
-    #             convert(json_path=json_landsat82)
-    #         )
-    #
-    # def test_transform_static_stac_missing_asset_b2_b10(self):
-    #     """It has to be able to gather the right information from other geotiff files"""
-    #
-    #     json_landsat82 = os.path.join(
-    #         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
-    #     )
-    #
-    #     item = convert(json_path=json_landsat82)
-    #
-    #     if item.assets.get("SR_B2.TIF"):
-    #         item.assets.pop("SR_B2.TIF")
-    #
-    #     if item.assets.get("ST_B10.TIF"):
-    #         item.assets.pop("ST_B10.TIF")
-    #
-    #     item = rasterio_test(item=item)
-    #     item.validate()
+    def test_rasterio(self):
+        json_landsat82 = os.path.join(
+            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+        )
+        with self.assertRaises(RasterioIOError):
+            rasterio_test(convert(json_path=json_landsat82))
+
+    @unittest.skip
+    def test_transform_static_stac_missing_asset_b2_b10(self):
+        """It has to be able to gather the right information from other geotiff files"""
+
+        json_landsat82 = os.path.join(
+            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+        )
+
+        item = convert(json_path=json_landsat82)
+
+        if item.assets.get("SR_B2.TIF"):
+            item.assets.pop("SR_B2.TIF")
+
+        if item.assets.get("ST_B10.TIF"):
+            item.assets.pop("ST_B10.TIF")
+
+        item = rasterio_test(item=item)
+        item.validate()
 
 
 if __name__ == "__main__":
@@ -132,4 +184,5 @@ if __name__ == "__main__":
     # convert(json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
     # rasterio_test(json_file)
-    unittest.main()
+    # unittest.main()
+    # count_scenes()
