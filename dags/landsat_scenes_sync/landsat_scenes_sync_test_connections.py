@@ -18,12 +18,16 @@ from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.sqs_queues import (
+    SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+    SYNC_LANDSAT_SQS_QUEUE_URL,
+)
 from landsat_scenes_sync.variables import (
     AWS_DEFAULT_REGION,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
 )
-from utils.aws_utils import S3
+from utils.aws_utils import S3, SQS
 
 # [END import_module]
 # [START default_args]
@@ -146,6 +150,17 @@ def check_key_on_s3(conn_id):
         logging.error(e)
 
 
+def get_queue_attributes_test(conn_id):
+    """Test attributes"""
+    sqs = SQS(conn_id=conn_id, region=AWS_DEFAULT_REGION)
+
+    t = sqs.get_queue_attributes(
+        queue_name=SYNC_LANDSAT_SQS_QUEUE_URL,
+        region=AWS_DEFAULT_REGION,
+        attributes=["ApproximateNumberOfMessages"],
+    )
+
+
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
@@ -180,7 +195,7 @@ with dag:
     processes = [
         PythonOperator(
             task_id="TEST-Check_key",
-            python_callable=check_key_on_s3,
+            python_callable=get_queue_attributes_test,
             op_kwargs=dict(conn_id=SYNC_LANDSAT_CONNECTION_ID),
         )
     ]

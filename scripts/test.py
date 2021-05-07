@@ -181,6 +181,7 @@ if __name__ == "__main__":
         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
     )
 
+    get_queue_attributes_test()
     # convert(json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
     # rasterio_test(json_file)

@@ -488,7 +488,6 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 def get_messages(
     limit: int = None,
     visibility_timeout: int = 600,  # 10 minutes, time that the message won't be available in the queue
-    message_attributes: Iterable[str] = ["All"],
 ):
     """
      Function to read messages from a queue resource and return a generator.
@@ -503,17 +502,14 @@ def get_messages(
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
-    queue = sqs_queue.get_queue(
-        queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    )
 
     count = 0
     while True:
-        messages = queue.receive_messages(
-            VisibilityTimeout=visibility_timeout,
-            MaxNumberOfMessages=1,
-            WaitTimeSeconds=10,
-            MessageAttributeNames=message_attributes,
+        messages = sqs_queue.receive_messages(
+            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+            visibility_timeout=visibility_timeout,
+            max_number_messages=1,
+            wait_time_seconds=10,
         )
 
         logging.info(f"Messages {messages}")
@@ -685,7 +681,8 @@ def process():
                 traceback.print_exc()
 
             logging.info(
-                "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+                "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-"
+                "*-*-*-*-*-*-*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
             )
 
         logging.info(f"Total execution {time_process(start=start)}")

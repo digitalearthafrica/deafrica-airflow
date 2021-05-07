@@ -2,6 +2,7 @@
 AWS wrap using Airflow hooks
 """
 import logging
+from typing import Iterable
 
 import boto3
 from airflow import AirflowException
@@ -290,8 +291,8 @@ class SQS:
     """
 
     def __init__(self, conn_id, region):
-        sqs_hook_conn = SQSHook(aws_conn_id=conn_id)
-        self.sqs_hook = sqs_hook_conn.get_resource_type(
+        self.sqs_hook_conn = SQSHook(aws_conn_id=conn_id)
+        self.sqs_hook = self.sqs_hook_conn.get_resource_type(
             resource_type="sqs", region_name=region
         )
 
@@ -306,13 +307,98 @@ class SQS:
         queue = self.sqs_hook.get_queue_by_name(QueueName=queue_name)
         return queue.send_messages(Entries=messages)
 
-    def get_queue(self, queue_name: str):
+    def get_queue_client(self, region: str):
         """
         Function to connect to the right queue and return an instance of that
         :return: instance of a QUEUE
         """
 
-        return self.sqs_hook.get_queue_by_name(QueueName=queue_name)
+        return self.sqs_hook_conn.get_client_type(client_type="sqs", region_name=region)
+
+    def receive_messages(
+        self,
+        queue_name: str,
+        visibility_timeout: int = 600,
+        max_number_messages: int = 1,
+        wait_time_seconds: int = 10,
+        message_attribute_names: Iterable[str] = ["All"],
+    ) -> list:
+        """
+        Function to retrieve messages from a SQS queue
+        :param queue_name:(str) queue name
+        :param visibility_timeout:(int) how long the message will be unavailable
+        :param max_number_messages:(int) Number of messages retrieved
+        :param wait_time_seconds:(int)
+        :param message_attribute_names:(list) list of attributes
+        :return:(list) list of messages
+        """
+
+        queue = self.sqs_hook.get_queue_by_name(QueueName=queue_name)
+
+        return queue.receive_messages(
+            VisibilityTimeout=visibility_timeout,
+            MaxNumberOfMessages=max_number_messages,
+            WaitTimeSeconds=wait_time_seconds,
+            MessageAttributeNames=message_attribute_names,
+        )
+
+    def get_queue_attributes(
+        self, queue_name: str, region: str, attributes: list
+    ) -> dict:
+        """
+        Function to connect to the right queue and return an instance of that
+        :param region:
+        :param queue_name:(str) AWS SQS queue name
+        :param attributes:(list) ['All' | 'Policy' | 'VisibilityTimeout' | 'MaximumMessageSize' |
+                                  'MessageRetentionPeriod' | 'ApproximateNumberOfMessages' |
+                                  'ApproximateNumberOfMessagesNotVisible' | 'CreatedTimestamp' |
+                                  'LastModifiedTimestamp' | 'QueueArn' |
+                                  'ApproximateNumberOfMessagesDelayed' | 'DelaySeconds' |
+                                  'ReceiveMessageWaitTimeSeconds' | 'RedrivePolicy' |
+                                  'FifoQueue' | 'ContentBasedDeduplication' | 'KmsMasterKeyId' |
+                                  'KmsDataKeyReusePeriodSeconds' | 'DeduplicationScope' |
+                                  'FifoThroughputLimit']
+        :return:
+        """
+
+        options = [
+            "All",
+            "Policy",
+            "VisibilityTimeout",
+            "MaximumMessageSize",
+            "MessageRetentionPeriod",
+            "ApproximateNumberOfMessages",
+            "ApproximateNumberOfMessagesNotVisible",
+            "CreatedTimestamp",
+            "LastModifiedTimestamp",
+            "QueueArn",
+            "ApproximateNumberOfMessagesDelayed",
+            "DelaySeconds",
+            "ReceiveMessageWaitTimeSeconds",
+            "RedrivePolicy",
+            "FifoQueue",
+            "ContentBasedDeduplication",
+            "KmsMasterKeyId",
+            "KmsDataKeyReusePeriodSeconds",
+            "DeduplicationScope",
+            "FifoThroughputLimit",
+        ]
+
+        difference = set(attributes).difference(set(options))
+
+        if difference:
+            raise ValueError(
+                f"These attributes are not valid {difference}. "
+                f"These are the valid attributes {options}"
+            )
+
+        returned = self.get_queue_client(region=region).get_queue_attributes(
+            QueueUrl=queue_name, AttributeNames=attributes
+        )
+        if not returned.get("Attributes"):
+            raise Exception(f"Error requesting {queue_name} - {returned}")
+
+        return returned["Attributes"]
 
 
 class SNS:

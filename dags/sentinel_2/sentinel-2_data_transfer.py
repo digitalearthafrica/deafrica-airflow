@@ -43,21 +43,20 @@ default_args = {
 
 
 def get_messages(
-    queue,
     limit: int = None,
     visibility_timeout: int = 60,
-    message_attributes: Iterable[str] = ["All"],
 ):
     """
     Get messages from a queue resource.
     """
+    sqs_queue = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
     count = 0
     while True:
-        messages = queue.receive_messages(
-            VisibilityTimeout=visibility_timeout,
-            MaxNumberOfMessages=1,
-            WaitTimeSeconds=10,
-            MessageAttributeNames=message_attributes,
+        messages = sqs_queue.receive_messages(
+            queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE,
+            visibility_timeout=visibility_timeout,
+            max_number_messages=1,
+            wait_time_seconds=10,
         )
         if len(messages) == 0 or (limit and count >= limit):
             break
@@ -250,9 +249,7 @@ def copy_s3_objects(ti, **kwargs):
 
     logging.info(f"Connecting to AWS SQS {SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE}")
     logging.info(f"Conn_id Name {S2_US_CONN_ID}")
-    sqs = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
-    queue = sqs.get_queue(queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
-    messages = get_messages(queue, limit=20, visibility_timeout=600)
+    messages = get_messages(limit=20, visibility_timeout=600)
 
     logging.info("Reading Africa's visible tiles")
     valid_tile_ids = read_csv_from_gzip(file_path=AFRICA_TILES)

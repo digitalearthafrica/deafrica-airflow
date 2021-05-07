@@ -110,7 +110,7 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Compare string of dates to ensure that Airflow will process the right date
-            and (row["Date Product Generated L2"] == production_date)
+            # and (row["Date Product Generated L2"] == production_date)
             # Filter to get just from Africa
             and (
                 row.get("WRS Path")
@@ -223,10 +223,8 @@ def identifying_data(file_name: str, date_to_process: str):
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
             # TODO remove limitation when in PROD
-            # path_list = retrieve_list_of_files(
-            #     scene_list=[s for s in scene_list][0:100]
-            # )
-            path_list = retrieve_list_of_files(scene_list=scene_list)
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:10])
+            # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
             messages_sent = publish_messages(path_list=path_list)
