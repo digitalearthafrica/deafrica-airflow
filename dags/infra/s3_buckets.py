@@ -22,7 +22,7 @@ SENTINEL_2_SERVICES_BUCKET = Variable.get(
 )
 
 SENTINEL_2_SYNC_BUCKET_NAME = Variable.get(
-    "sentinel_2_bucket_name", "deafrica-sentinel-2-dev-sync"
+    "sentinel_2_bucket_name", "deafrica-sentinel-2"
 )
 
 SENTINEL_COGS_BUCKET = Variable.get("sentinel_cogs", "sentinel-cogs")
