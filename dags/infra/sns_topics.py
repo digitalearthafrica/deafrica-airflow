@@ -8,7 +8,7 @@ LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
     "arn:aws:sqs:af-south-1:565417506782:deafrica-prod-af-eks-index-landsat-scene",
 )
 
-SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN = Variable.get(
+SENTINEL_2_SYNC_TOPIC_ARN = Variable.get(
     "sync_sentinel_2_topic_arn",
     "arn:aws:sns:af-south-1:543785577597:deafrica-sentinel-2-scene-topic",
 )

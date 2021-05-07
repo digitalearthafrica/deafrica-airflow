@@ -16,7 +16,7 @@ from pystac import Item, Link
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
-from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
@@ -499,7 +499,7 @@ def get_messages(
     :return: Generator
     """
 
-    logging.info(f"Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
+    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_QUEUE}")
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
@@ -507,7 +507,7 @@ def get_messages(
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+            queue_name=LANDSAT_SYNC_SQS_QUEUE,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
