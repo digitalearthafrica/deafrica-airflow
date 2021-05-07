@@ -27,7 +27,7 @@ from infra.s3_buckets import (
     SENTINEL_2_SYNC_BUCKET_NAME,
     SENTINEL_2_INVENTORY_UTILS_BUCKET,
 )
-from infra.sns_topics import SENTINEL_2_SYNC_SNS_TOPIC_ARN
+from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
 from infra.sqs_queues import SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
@@ -46,21 +46,20 @@ default_args = {
 
 
 def get_messages(
-    queue,
     limit: int = None,
     visibility_timeout: int = 60,
-    message_attributes: Iterable[str] = ["All"],
 ):
     """
     Get messages from a queue resource.
     """
+    sqs_queue = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
     count = 0
     while True:
-        messages = queue.receive_messages(
-            VisibilityTimeout=visibility_timeout,
-            MaxNumberOfMessages=1,
-            WaitTimeSeconds=10,
-            MessageAttributeNames=message_attributes,
+        messages = sqs_queue.receive_messages(
+            queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE,
+            visibility_timeout=visibility_timeout,
+            max_number_messages=1,
+            wait_time_seconds=10,
         )
         if len(messages) == 0 or (limit and count >= limit):
             break
@@ -125,7 +124,7 @@ def publish_to_sns(updated_stac: Item, attributes):
     sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
     sns_hook.publish_to_target(
-        target_arn=SENTINEL_2_SYNC_SNS_TOPIC_ARN,
+        target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
         message=json.dumps(updated_stac.to_dict()),
         message_attributes=attributes,
     )
@@ -253,9 +252,7 @@ def copy_s3_objects(ti, **kwargs):
 
     logging.info(f"Connecting to AWS SQS {SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE}")
     logging.info(f"Conn_id Name {S2_US_CONN_ID}")
-    sqs = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
-    queue = sqs.get_queue(queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
-    messages = get_messages(queue, limit=20, visibility_timeout=600)
+    messages = get_messages(limit=20, visibility_timeout=600)
 
     logging.info("Reading Africa's visible tiles")
     valid_tile_ids = read_csv_from_gzip(file_path=AFRICA_TILES)

@@ -8,7 +8,6 @@ import os
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Iterable
 
 from pystac import Item, Link
 
@@ -33,6 +32,8 @@ from utils.aws_utils import S3, SQS, SNS
 # TODO remove that and uncomment stactools import once changes are done in the library
 from utils.stactools_mock import transform_stac_to_stac
 from utils.sync_utils import time_process, find_s3_path_and_file_name_from_item
+
+# from stactools.landsat.utils import transform_stac_to_stac
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 
@@ -488,7 +489,6 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 def get_messages(
     limit: int = None,
     visibility_timeout: int = 600,  # 10 minutes, time that the message won't be available in the queue
-    message_attributes: Iterable[str] = ["All"],
 ):
     """
      Function to read messages from a queue resource and return a generator.
@@ -503,17 +503,14 @@ def get_messages(
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
-    queue = sqs_queue.get_queue(
-        queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
-    )
 
     count = 0
     while True:
-        messages = queue.receive_messages(
-            VisibilityTimeout=visibility_timeout,
-            MaxNumberOfMessages=1,
-            WaitTimeSeconds=10,
-            MessageAttributeNames=message_attributes,
+        messages = sqs_queue.receive_messages(
+            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+            visibility_timeout=visibility_timeout,
+            max_number_messages=1,
+            wait_time_seconds=10,
         )
 
         logging.info(f"Messages {messages}")
@@ -562,7 +559,8 @@ def process_item(stac_type: str, item: Item):
     logger.info(f"{logger_name} - USGS extension removed")
 
     logger.info(
-        f"{logger_name} - Start process to store all S3 asset href witch will be retrieved from USGS"
+        f"{logger_name} - Start process to store all S3 asset href "
+        f"witch will be retrieved from USGS"
     )
     asset_addresses_paths = scenes_sync.retrieve_asset_s3_path_from_item(item)
     logger.info(f"{logger_name} - S3 asset hrefs stored")
@@ -685,7 +683,8 @@ def process():
                 traceback.print_exc()
 
             logging.info(
-                "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
+                "*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-"
+                "*-*-*-*-*-*-*-*-*-*-*-**-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*"
             )
 
         logging.info(f"Total execution {time_process(start=start)}")
