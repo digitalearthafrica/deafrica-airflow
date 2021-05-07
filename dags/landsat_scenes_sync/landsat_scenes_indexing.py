@@ -24,7 +24,7 @@ DEFAULT_ARGS = {
     "start_date": datetime(2021, 3, 29),
     "depends_on_past": False,
     "catchup": False,
-    "version": "0.3",
+    "version": "0.10",
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_DATABASE": DB_DATABASE,
@@ -93,7 +93,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             LANDSAT_INDEX_SQS_QUEUE,
-            "ls8_c2l2 ls7_c2l2 ls5_c2l2",
+            "ls5_sr ls5_st ls7_sr ls7_st ls8_sr ls8_st",
             "--update-if-exists",
             "--allow-unsafe",
         ],

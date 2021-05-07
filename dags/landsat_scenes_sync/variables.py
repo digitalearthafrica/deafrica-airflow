@@ -18,6 +18,8 @@ USGS_DATA_URL = f"{USGS_BASE_URL}data/"
 
 USGS_S3_BUCKET_NAME = "usgs-landsat"
 
+USGS_S3_BUCKET_PATH = f"s3://{USGS_S3_BUCKET_NAME}/"
+
 USGS_AWS_REGION = "us-west-2"
 
 BASE_BULK_CSV_URL = (

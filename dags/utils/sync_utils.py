@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import requests
+from pystac import Item
 
 
 def test_http_return(returned):
@@ -99,10 +100,10 @@ def read_big_csv_files_from_gzip(file_path: Path):
 
 def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = True):
     """
-    Function to check if a specific file is already downloaded based on its size, if not downloaded,
-    it will download the file from the informed server.
-    The file will be saved in the local machine/container under the /tmp/ folder, so the OS will delete that accordingly
-    with its pre-defined configurations.
+    Function to check if a specific file is already downloaded based on its size,
+    if not downloaded, it will download the file from the informed server.
+    The file will be saved in the local machine/container under the /tmp/ folder,
+    so the OS will delete that accordingly with its pre-defined configurations.
     Warning: The server shall have enough free storage.
 
     :param url:(String) URL path for the file server
@@ -141,6 +142,26 @@ def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = Tr
 
     logging.info(f"{file_name} Downloaded!")
     return file_path
+
+
+def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
+    """
+    Function to from the href URL within the index in the list of links,
+    replace protocol and domain returning just the path, in addition this function
+    completes the file's name and adds the extension json.
+
+    :param start_url: (str) URL that will be removed from the href
+    :param item:(Pystac Item) Pystac Item
+    :return: (dict) {'path': <full path to the json item>, 'file_name', <stac_file_name>}
+    """
+
+    self_link = item.get_single_link("self")
+
+    if self_link:
+        file_name = self_link.get_href().split("/")[-1]
+        asset_s3_path = self_link.get_href().replace(start_url, "")
+
+        return {"path": asset_s3_path, "file_name": file_name}
 
 
 def time_process(start: float):
