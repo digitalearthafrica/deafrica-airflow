@@ -1,12 +1,20 @@
+"""
+AWS wrap using Airflow hooks
+"""
 import logging
 
 import boto3
+from airflow import AirflowException
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 
 
 class S3:
+    """
+    Class for AWS S3 bucket
+    """
+
     def __init__(self, conn_id):
         self.s3_hook = S3Hook(aws_conn_id=conn_id)
 
@@ -14,8 +22,18 @@ class S3:
         self,
         region: str = "af-south-1",
     ):
-
+        """
+        function to return a bucket client
+        :param region: AWS Region
+        :return:
+        """
         cred = self.s3_hook.get_session().get_credentials()
+
+        if not cred:
+            raise AirflowException(
+                "Credential not found, please ensure you have the right one configured "
+                "on Airflow connections"
+            )
 
         session = boto3.session.Session()
 
@@ -27,7 +45,11 @@ class S3:
         )
 
     def check_s3_copy_return(self, returned: dict):
-
+        """
+        Function to check if the copy is valid
+        :param returned:
+        :return:
+        """
         if (
             returned.get("ResponseMetadata")
             and returned["ResponseMetadata"].get("HTTPStatusCode") == 200
@@ -72,6 +94,14 @@ class S3:
         destination_bucket: str,
         acl: str = "bucket-owner-full-control",
     ):
+        """
+        Function to save obj strem into a S3 bucket
+        :param file: (bytes) Stream file
+        :param destination_key: (str) destination key
+        :param destination_bucket: (str) destination bucket name
+        :param acl: (str) permissions
+        :return: None
+        """
         self.s3_hook.load_bytes(
             bytes_data=file,
             key=destination_key,
@@ -194,7 +224,14 @@ class S3:
         return key if not exist else ""
 
     def get_object(self, bucket_name, key, region, request_payer: str = ""):
-
+        """
+        Function to retrieve an object from an AWS S# bucket according to the key sent
+        :param bucket_name:(str) bucket name
+        :param key: (str) path to the file
+        :param region: (str) AWS region
+        :param request_payer:(str)
+        :return:
+        """
         # logging.info(f'get_object {bucket_name} {key} {region} {request_payer}')
 
         bucket_client = self.get_bucket_client(region=region)
@@ -202,21 +239,36 @@ class S3:
             Bucket=bucket_name, Key=key, RequestPayer=request_payer
         )
 
-    def put_object(self, bucket_name, key, region, body: str = ""):
-
+    def put_object(self, bucket_name: str, key: str, region: str, body: str = ""):
+        """
+        Function to upload an object to an AWS S3 bucket
+        :param bucket_name: (str) bucket name
+        :param key: (str) path to the file
+        :param region: (str) AWS region
+        :param body: (str) body
+        :return:
+        """
         bucket_client = self.get_bucket_client(region=region)
 
         return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body)
 
     def list_objects(
         self,
-        bucket_name,
-        region,
+        bucket_name: str,
+        region: str,
         prefix: str = None,
         request_payer: str = None,
         continuation_token: str = None,
     ):
-
+        """
+        List objects into an AWS S3 Bucket
+        :param bucket_name: (str)
+        :param region: (str)
+        :param prefix: (str)
+        :param request_payer: (str)
+        :param continuation_token: (str)
+        :return: (dict)
+        """
         bucket_client = self.get_bucket_client(region=region)
 
         kwargs = {"Bucket": bucket_name}
@@ -230,15 +282,14 @@ class S3:
         if continuation_token:
             kwargs.update({"ContinuationToken": continuation_token})
 
-        returned = bucket_client.list_objects_v2(**kwargs)
-
-        if returned.get("Contents"):
-            return returned["Contents"]
-        else:
-            return []
+        return bucket_client.list_objects_v2(**kwargs)
 
 
 class SQS:
+    """
+    Class to wrap AWS SQS queues' calls
+    """
+
     def __init__(self, conn_id, region):
         sqs_hook_conn = SQSHook(aws_conn_id=conn_id)
         self.sqs_hook = sqs_hook_conn.get_resource_type(
@@ -266,12 +317,16 @@ class SQS:
 
 
 class SNS:
+    """
+    Class to wrap AWS SNS topics' calls
+    """
+
     def __init__(self, conn_id):
         self.sns_hook = AwsSnsHook(aws_conn_id=conn_id)
 
     def check_publish_return_return(self, returned: dict):
         """
-
+        Check if the return is valid
         :param returned:
         :return:
         """

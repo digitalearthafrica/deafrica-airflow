@@ -147,25 +147,35 @@ def retrieve_list_of_files(scene_list):
             )
         )
         logging.info(f"folder_link {folder_link}")
-        list_obj_folder = s3.list_objects(
+        response = s3.list_objects(
             bucket_name=USGS_S3_BUCKET_NAME,
             region=USGS_AWS_REGION,
             prefix=folder_link,
             request_payer="requester",
         )
 
-        sr_st_files = [
-            obj["Key"]
-            for obj in list_obj_folder
-            if "_ST_stac.json" in obj["Key"] or "_SR_stac.json" in obj["Key"]
-        ]
-
-        if not sr_st_files:
+        if not response.get("Contents"):
             raise Exception(
-                f'Neither SR nor ST file was found for {scene["Display ID"]}'
+                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
             )
 
-        return {scene["Display ID"]: sr_st_files}
+        mtl_sr_st_files = {}
+        for obj in response["Contents"]:
+            if "_ST_stac.json" in obj["Key"]:
+                mtl_sr_st_files.update({"ST": obj["Key"]})
+
+            elif "_SR_stac.json" in obj["Key"]:
+                mtl_sr_st_files.update({"SR": obj["Key"]})
+
+            elif "_MTL.json" in obj["Key"]:
+                mtl_sr_st_files.update({"MTL": obj["Key"]})
+
+        if not mtl_sr_st_files:
+            raise Exception(
+                f'Neither SR nor ST file were found for {scene["Display ID"]}'
+            )
+
+        return {scene["Display ID"]: mtl_sr_st_files}
 
     # Limit number of threads
     num_of_threads = 50
@@ -188,7 +198,7 @@ def retrieve_list_of_files(scene_list):
             yield future.result()
 
 
-def sync_data(file_name: str, date_to_process: str):
+def identifying_data(file_name: str, date_to_process: str):
     """
     Function to initiate the bulk CSV process
     Warning: Main URL hardcoded, please check for changes in case of the download fails
@@ -200,7 +210,7 @@ def sync_data(file_name: str, date_to_process: str):
     try:
         start_timer = time.time()
 
-        logging.info(f"Starting Syncing scenes for {date_to_process}")
+        logging.info(f"Starting Syncing scenes for {date_to_process} changed")
 
         # Download GZIP file
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
@@ -212,7 +222,6 @@ def sync_data(file_name: str, date_to_process: str):
 
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
-            # path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:50])
             path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
