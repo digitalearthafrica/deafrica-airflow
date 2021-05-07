@@ -13,19 +13,20 @@ from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     BASE_BULK_CSV_URL,
-    USGS_API_INDIVIDUAL_ITEM_URL,
+    USGS_S3_BUCKET_NAME,
+    USGS_AWS_REGION,
 )
-from utils.aws_utils import SQS
+from utils.aws_utils import SQS, S3
 from utils.sync_utils import (
-    request_url,
     time_process,
     read_csv_from_gzip,
     download_file_to_tmp,
     read_big_csv_files_from_gzip,
+    convert_str_to_date,
 )
 
 
-def publish_messages(datasets):
+def publish_messages(path_list):
     """
     Publish messages
     param message: list of messages
@@ -46,11 +47,16 @@ def publish_messages(datasets):
 
     count = 0
     messages = []
-    for dataset in datasets:
+    flag = False
+    for obj in path_list:
+        if not flag:
+            logging.info("sending messages")
+            flag = True
         message = {
             "Id": str(count),
-            "MessageBody": json.dumps(dataset),
+            "MessageBody": json.dumps(obj),
         }
+
         messages.append(message)
 
         count += 1
@@ -65,56 +71,6 @@ def publish_messages(datasets):
 
     logging.info(f"{count} messages sent successfully :)")
     return count
-
-
-def request_usgs_api(url: str):
-    """
-    Function to handle exceptions from request_url
-    :param url: (str) url to be requested
-    :return: API return from request_url function
-    """ ""
-    try:
-        response = request_url(url=url)
-        if response.get("stac_version"):
-            if response["stac_version"] == "1.0.0-beta.2":
-                return response
-            else:
-                logging.info(f"stac_version {response.get('stac_version')}")
-
-    except Exception as error:
-        # If the request return an error, just log and keep going
-        logging.error(f"Error requesting API: {error}")
-    return None
-
-
-def retrieve_stac_from_api(display_ids):
-    """
-    Function to create Python threads which will request the API simultaneously
-
-    :param display_ids: (list) id list from the bulk CSV file
-    :return:
-    """
-
-    # Limit number of threads
-    num_of_threads = 50
-    with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-        log = False
-        tasks = []
-        for display_id in display_ids:
-            if not log:
-                logging.info(f"Requesting USGS API")
-                logging.info(
-                    f"Requesting URL {USGS_API_INDIVIDUAL_ITEM_URL} adding the display id by the end of the url"
-                )
-            tasks.append(
-                executor.submit(
-                    request_usgs_api, f"{USGS_API_INDIVIDUAL_ITEM_URL}/{display_id}"
-                )
-            )
-
-        for future in as_completed(tasks):
-            if future.result():
-                yield future.result()
 
 
 def filter_africa_location_from_gzip_file(file_path: Path, production_date: str):
@@ -162,10 +118,87 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
                 and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
             )
         ):
-            yield row["Display ID"]
+            yield row
 
 
-def sync_data(file_name: str, date_to_process: str):
+def retrieve_list_of_files(scene_list):
+    """
+    Function to buils list of assets from USGS S3
+    :param scene_list: Scene list from the bulk file
+    :return: list of objects [{<display_id>: [<list_assets>]}]
+    """
+    # Eg. collection02/level-2/standard/etm/2021/196/046/LE07_L2SP_196046_20210101_20210127_02_T1/
+
+    s3 = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+
+    def build_asset_list(scene):
+        year_acquired = convert_str_to_date(scene["Date Acquired"]).year
+        # USGS changes - for _ when generates the CSV bulk file
+        identifier = scene["Sensor Identifier"].lower().replace("_", "-")
+
+        folder_link = (
+            "collection02/level-2/standard/{identifier}/{year_acquired}/"
+            "{target_path}/{target_row}/{display_id}/".format(
+                identifier=identifier,
+                year_acquired=year_acquired,
+                target_path=scene["WRS Path"],
+                target_row=scene["WRS Row"],
+                display_id=scene["Display ID"],
+            )
+        )
+        logging.info(f"folder_link {folder_link}")
+        response = s3.list_objects(
+            bucket_name=USGS_S3_BUCKET_NAME,
+            region=USGS_AWS_REGION,
+            prefix=folder_link,
+            request_payer="requester",
+        )
+
+        if not response.get("Contents"):
+            raise Exception(
+                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
+            )
+
+        mtl_sr_st_files = {}
+        for obj in response["Contents"]:
+            if "_ST_stac.json" in obj["Key"]:
+                mtl_sr_st_files.update({"ST": obj["Key"]})
+
+            elif "_SR_stac.json" in obj["Key"]:
+                mtl_sr_st_files.update({"SR": obj["Key"]})
+
+            elif "_MTL.json" in obj["Key"]:
+                mtl_sr_st_files.update({"MTL": obj["Key"]})
+
+        if not mtl_sr_st_files:
+            raise Exception(
+                f'Neither SR nor ST file were found for {scene["Display ID"]}'
+            )
+
+        return {scene["Display ID"]: mtl_sr_st_files}
+
+    # Limit number of threads
+    num_of_threads = 50
+    with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
+        logging.info("Retrieving asset list from USGS S3")
+
+        tasks = [
+            executor.submit(
+                build_asset_list,
+                scene,
+            )
+            for scene in scene_list
+        ]
+
+        flag = False
+        for future in as_completed(tasks):
+            if not flag:
+                logging.info("Consulting S3")
+                flag = True
+            yield future.result()
+
+
+def identifying_data(file_name: str, date_to_process: str):
     """
     Function to initiate the bulk CSV process
     Warning: Main URL hardcoded, please check for changes in case of the download fails
@@ -177,24 +210,25 @@ def sync_data(file_name: str, date_to_process: str):
     try:
         start_timer = time.time()
 
-        logging.info(f"Starting Syncing scenes for {date_to_process}")
+        logging.info(f"Starting Syncing scenes for {date_to_process} changed")
 
         # Download GZIP file
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
         # Read file and retrieve the Display ids
-        display_id_list = filter_africa_location_from_gzip_file(
+        scene_list = filter_africa_location_from_gzip_file(
             file_path=file_path, production_date=date_to_process
         )
 
-        if display_id_list:
-            # request the API through the display id and send the information to the queue
-            stac_list = retrieve_stac_from_api(display_ids=display_id_list)
+        if scene_list:
+            # request USGS S3 bucket and retrieve list of assets' path
+            # TODO remove limitation when in PROD
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:8])
+            # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
-            messages_sent = publish_messages(datasets=stac_list)
+            messages_sent = publish_messages(path_list=path_list)
             logging.info(f"Messages sent {messages_sent}")
-            # logging.info(f"Messages sent {len([s for s in stac_list])}")
 
         else:
             logging.info(

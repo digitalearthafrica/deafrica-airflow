@@ -16,18 +16,14 @@ from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-# [END import_module]
-
-
-# [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
-from landsat_scenes_sync.variables import (
-    AWS_DEFAULT_REGION,
-    USGS_S3_BUCKET_NAME,
-    USGS_AWS_REGION,
-)
-from utils.aws_utils import S3
+from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
+from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
+from utils.aws_utils import SQS
+
+# [END import_module]
+# [START default_args]
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
@@ -125,6 +121,11 @@ def copy_s3_to_s3_boto3(
 
 
 def check_key_on_s3(conn_id):
+    """
+    Check communication
+    :param conn_id:
+    :return:
+    """
     try:
         bucket = S3Hook(aws_conn_id=conn_id)
 
@@ -141,6 +142,17 @@ def check_key_on_s3(conn_id):
         logging.info(f"The key exist {not_exist2}")
     except Exception as e:
         logging.error(e)
+
+
+def get_queue_attributes_test(conn_id):
+    """Test attributes"""
+    sqs = SQS(conn_id=conn_id, region=AWS_DEFAULT_REGION)
+
+    t = sqs.get_queue_attributes(
+        queue_name=LANDSAT_SYNC_SQS_QUEUE,
+        region=AWS_DEFAULT_REGION,
+        attributes=["ApproximateNumberOfMessages"],
+    )
 
 
 with dag:
@@ -177,7 +189,7 @@ with dag:
     processes = [
         PythonOperator(
             task_id="TEST-Check_key",
-            python_callable=check_key_on_s3,
+            python_callable=get_queue_attributes_test,
             op_kwargs=dict(conn_id=SYNC_LANDSAT_CONNECTION_ID),
         )
     ]
