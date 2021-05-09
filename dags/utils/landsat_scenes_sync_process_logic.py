@@ -1,6 +1,7 @@
 """
     Script to read from SQS landsat Africa queue, process messages, save a stac 1.0 and
-    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS to be indexed by Datacube
+    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS
+    to be indexed by Datacube
 """
 import json
 import logging
@@ -155,15 +156,15 @@ class ScenesSyncProcess:
             value = f"ls5_{stac_type}"
         else:
             raise Exception(
-                f'The sat {f"{sat} does not supported for this process" if sat else "was not informed"}'
+                f'{f"{sat} not supported" if sat else "SAT was not informed"}'
             )
 
         item.properties.update(
             {
                 "odc:product": value,
-                "odc:region_code": "{path:03d}{row:03d}".format(
-                    path=int(item.properties["landsat:wrs_path"]),
-                    row=int(item.properties["landsat:wrs_row"]),
+                "odc:region_code": "{path}{row}".format(
+                    path=item.properties["landsat:wrs_path"].zfill(3),
+                    row=item.properties["landsat:wrs_row"].zfill(3),
                 ),
             }
         )
@@ -225,8 +226,8 @@ class ScenesSyncProcess:
         num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
-                f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously (Python threads) "
-                f"from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
+                f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously "
+                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
@@ -272,7 +273,8 @@ class ScenesSyncProcess:
             CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
         ):
             # TODO Remove the Links below once Stactools library is updated.
-            #  The new Stactools does not need self link or source link if they are already present within the item
+            #  The new Stactools does not need self link or source link if they are already
+            #  present within the item
             # self_link = item.get_single_link("self")
             # self_target = self_link.target
             # source_link = item.get_single_link("derived_from")
@@ -286,7 +288,8 @@ class ScenesSyncProcess:
 
             if not returned.properties.get("proj:epsg"):
                 logging.error(
-                    f"{self.logger_name} - There was an issue converting stac. <proj:epsg> property is required"
+                    f"{self.logger_name} - There was an issue converting stac. <proj:epsg> "
+                    f"property is required"
                 )
                 raise Exception(
                     "There was an issue converting stac. <proj:epsg> property is required"
@@ -380,7 +383,8 @@ def check_already_copied(conn_id, item: Item) -> bool:
 
 def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict):
     """
-    Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the ST and SR assets and
+    Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the
+    ST and SR assets and
     return SR_ITEM and ST_ITEM respectively
 
     :param conn_id:
@@ -488,14 +492,14 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 
 def get_messages(
     limit: int = None,
-    visibility_timeout: int = 600,  # 10 minutes, time that the message won't be available in the queue
+    visibility_timeout: int = 600,  # 10 minutes
 ):
     """
      Function to read messages from a queue resource and return a generator.
 
     :param message_attributes:
     :param visibility_timeout: (int) Defaulted to 60
-    :param limit:(int) Must be between 1 and 10, if provided. If not informed will read till there are nothing left
+    :param limit:(int) Must be between 1 and 10, if provided.
     :return: Generator
     """
 
@@ -627,9 +631,11 @@ def process():
 
                 logging.info("Processing Message")
                 logging.info(f"Message received {message.body}")
-                logging.info(
-                    f"Message Paths {[stac_paths_obj for scene_id, stac_paths_obj in json.loads(message.body).items()]}"
-                )
+                paths = [
+                    stac_paths_obj
+                    for scene_id, stac_paths_obj in json.loads(message.body).items()
+                ]
+                logging.info(f"Message Paths {paths}")
 
                 sr_st_item_dict = None
                 for scene_id, stac_paths_obj in json.loads(message.body).items():
