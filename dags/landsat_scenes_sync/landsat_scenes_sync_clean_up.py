@@ -12,15 +12,14 @@ from airflow import DAG
 # Operators; we need this to operate!
 from airflow.operators.python_operator import PythonOperator
 
-# [START default_args]
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
-from landsat_scenes_sync.variables import (
-    AWS_DEFAULT_REGION,
-)
+from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import S3
 
 # [END import_module]
+
+# [START default_args]
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",

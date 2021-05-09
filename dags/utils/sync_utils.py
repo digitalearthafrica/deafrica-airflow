@@ -100,10 +100,10 @@ def read_big_csv_files_from_gzip(file_path: Path):
 
 def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = True):
     """
-    Function to check if a specific file is already downloaded based on its size, if not downloaded,
-    it will download the file from the informed server.
-    The file will be saved in the local machine/container under the /tmp/ folder, so the OS will delete that accordingly
-    with its pre-defined configurations.
+    Function to check if a specific file is already downloaded based on its size,
+    if not downloaded, it will download the file from the informed server.
+    The file will be saved in the local machine/container under the /tmp/ folder,
+    so the OS will delete that accordingly with its pre-defined configurations.
     Warning: The server shall have enough free storage.
 
     :param url:(String) URL path for the file server
@@ -147,8 +147,8 @@ def download_file_to_tmp(url: str, file_name: str, always_return_path: bool = Tr
 def find_s3_path_and_file_name_from_item(item: Item, start_url: str):
     """
     Function to from the href URL within the index in the list of links,
-    replace protocol and domain returning just the path, in addition this function completes the file's name
-    and adds the extension json
+    replace protocol and domain returning just the path, in addition this function
+    completes the file's name and adds the extension json.
 
     :param start_url: (str) URL that will be removed from the href
     :param item:(Pystac Item) Pystac Item

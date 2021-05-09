@@ -17,6 +17,7 @@ from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import (
     SYNC_LANDSAT_INVENTORY_ID,
+    SYNC_LANDSAT_CONNECTION_ID,
 )
 from infra.s3_buckets import LANDSAT_SYNC_INVENTORY_BUCKET, LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.variables import (
@@ -32,6 +33,7 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
 )
+from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
     read_csv_from_gzip,
@@ -118,7 +120,7 @@ def get_and_filter_keys(s3_bucket_client):
     for key in list_keys:
         if (
             "_stac.json" in key
-            # Filter to remove inventory folder or any other despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
+            # Filter to remove any folder despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
             and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
         ):
             yield f"{key.rsplit('/', 1)[0]}/"
@@ -248,8 +250,8 @@ def generate_buckets_diff(land_sat: str, file_name: str):
             )
 
         message = (
-            f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_S3_BUCKET_NAME} and {len(orphaned_scenes)} "
-            f"scenes no longer exist in USGS"
+            f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_S3_BUCKET_NAME} "
+            f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
         logging.info(message)
         # if len(missing_keys) > 200 or len(orphaned_keys) > 200:

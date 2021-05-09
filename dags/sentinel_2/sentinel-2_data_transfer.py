@@ -25,7 +25,7 @@ from pystac import Item, Link
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
 from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
-from infra.sqs_queues import SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE
+from infra.sqs_queues import SENTINEL_2_SYNC_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
 from utils.aws_utils import SQS
@@ -53,7 +53,7 @@ def get_messages(
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE,
+            queue_name=SENTINEL_2_SYNC_SQS_QUEUE,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
@@ -247,7 +247,7 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    logging.info(f"Connecting to AWS SQS {SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE}")
+    logging.info(f"Connecting to AWS SQS {SENTINEL_2_SYNC_SQS_QUEUE}")
     logging.info(f"Conn_id Name {S2_US_CONN_ID}")
     messages = get_messages(limit=20, visibility_timeout=600)
 
@@ -307,7 +307,7 @@ def trigger_sensor(ti, **kwargs):
 
     sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SYNC_SENTINEL_2_CONNECTION_SQS_QUEUE)
+    queue = sqs.get_queue_by_name(QueueName=SENTINEL_2_SYNC_SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
     logging.info(f"Queue size: {queue_size}")
 

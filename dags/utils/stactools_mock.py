@@ -62,8 +62,8 @@ def transform_stac_to_stac(
 
                     except RasterioIOError as io_error:
                         raise STACError(
-                            f"Failed loading geotiff, so not handling proj fields, {io_error}"
-                        )
+                            f"Failed loading geotiff, so not handling proj fields"
+                        ) from io_error
 
                 item.ext.projection.set_transform(transform, asset=asset)
                 item.ext.projection.set_shape(shape, asset=asset)

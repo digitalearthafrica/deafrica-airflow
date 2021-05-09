@@ -19,11 +19,13 @@ from utils.sync_utils import time_process
 # [END import_module]
 
 
-# maximum number of active runs for this DAG. The scheduler will not create new active DAG runs once this limit is hit.
+# maximum number of active runs for this DAG. The scheduler will not create new active
+# DAG runs once this limit is hit.
 # Defaults to core.max_active_runs_per_dag if not set
 MAX_ACTIVE_RUNS = 15
 
-# the number of task instances allowed to run concurrently across all active runs of the DAG this is set on.
+# the number of task instances allowed to run concurrently across all active runs of
+# the DAG this is set on.
 # Defaults to core.dag_concurrency if not set
 CONCURRENCY = 50 * MAX_ACTIVE_RUNS
 

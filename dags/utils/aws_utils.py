@@ -32,7 +32,8 @@ class S3:
 
         if not cred:
             raise AirflowException(
-                "Credential not found, please ensure you have the right one configured on Airflow connections"
+                "Credential not found, please ensure you have the right one configured "
+                "on Airflow connections"
             )
 
         session = boto3.session.Session()

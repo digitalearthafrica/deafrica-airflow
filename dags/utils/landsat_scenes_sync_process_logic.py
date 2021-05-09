@@ -1,6 +1,7 @@
 """
     Script to read from SQS landsat Africa queue, process messages, save a stac 1.0 and
-    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS to be indexed by Datacube
+    all content from USGS into Africa's S3 bucket and send the stac 1.0 as message to SNS
+    to be indexed by Datacube
 """
 import json
 import logging
@@ -8,7 +9,6 @@ import os
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Iterable
 
 from pystac import Item, Link
 
@@ -17,7 +17,7 @@ from pystac import Item, Link
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
-from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
@@ -33,6 +33,8 @@ from utils.aws_utils import S3, SQS, SNS
 # TODO remove that and uncomment stactools import once changes are done in the library
 from utils.stactools_mock import transform_stac_to_stac
 from utils.sync_utils import time_process, find_s3_path_and_file_name_from_item
+
+# from stactools.landsat.utils import transform_stac_to_stac
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 
@@ -154,7 +156,7 @@ class ScenesSyncProcess:
             value = f"ls5_{stac_type}"
         else:
             raise Exception(
-                f'The sat {f"{sat} does not supported for this process" if sat else "was not informed"}'
+                f'{f"{sat} does not supported for this process" if sat else "was not informed"}'
             )
 
         item.properties.update(
@@ -224,8 +226,8 @@ class ScenesSyncProcess:
         num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
-                f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously (Python threads) "
-                f"from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
+                f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously "
+                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
@@ -271,7 +273,8 @@ class ScenesSyncProcess:
             CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
         ):
             # TODO Remove the Links below once Stactools library is updated.
-            #  The new Stactools does not need self link or source link if they are already present within the item
+            #  The new Stactools does not need self link or source link if they are already
+            #  present within the item
             # self_link = item.get_single_link("self")
             # self_target = self_link.target
             # source_link = item.get_single_link("derived_from")
@@ -285,7 +288,8 @@ class ScenesSyncProcess:
 
             if not returned.properties.get("proj:epsg"):
                 logging.error(
-                    f"{self.logger_name} - There was an issue converting stac. <proj:epsg> property is required"
+                    f"{self.logger_name} - There was an issue converting stac. <proj:epsg> "
+                    f"property is required"
                 )
                 raise Exception(
                     "There was an issue converting stac. <proj:epsg> property is required"
@@ -379,7 +383,8 @@ def check_already_copied(conn_id, item: Item) -> bool:
 
 def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict):
     """
-    Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the ST and SR assets and
+    Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the
+    ST and SR assets and
     return SR_ITEM and ST_ITEM respectively
 
     :param conn_id:
@@ -487,18 +492,18 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 
 def get_messages(
     limit: int = None,
-    visibility_timeout: int = 600,  # 10 minutes, time that the message won't be available in the queue
+    visibility_timeout: int = 600,  # 10 minutes
 ):
     """
      Function to read messages from a queue resource and return a generator.
 
     :param message_attributes:
     :param visibility_timeout: (int) Defaulted to 60
-    :param limit:(int) Must be between 1 and 10, if provided. If not informed will read till there are nothing left
+    :param limit:(int) Must be between 1 and 10, if provided.
     :return: Generator
     """
 
-    logging.info(f"Connecting to AWS SQS {SYNC_LANDSAT_CONNECTION_SQS_QUEUE}")
+    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_QUEUE}")
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
@@ -506,7 +511,7 @@ def get_messages(
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+            queue_name=LANDSAT_SYNC_SQS_QUEUE,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
@@ -558,7 +563,8 @@ def process_item(stac_type: str, item: Item):
     logger.info(f"{logger_name} - USGS extension removed")
 
     logger.info(
-        f"{logger_name} - Start process to store all S3 asset href witch will be retrieved from USGS"
+        f"{logger_name} - Start process to store all S3 asset href "
+        f"witch will be retrieved from USGS"
     )
     asset_addresses_paths = scenes_sync.retrieve_asset_s3_path_from_item(item)
     logger.info(f"{logger_name} - S3 asset hrefs stored")

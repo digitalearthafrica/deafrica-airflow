@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.sqs_queues import SYNC_LANDSAT_CONNECTION_SQS_QUEUE
+from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
@@ -39,7 +39,7 @@ def publish_messages(path_list):
             )
 
             sqs_queue.publish_to_sqs_queue(
-                queue_name=SYNC_LANDSAT_CONNECTION_SQS_QUEUE,
+                queue_name=LANDSAT_SYNC_SQS_QUEUE,
                 messages=messages_to_send,
             )
         except Exception as error:
@@ -75,13 +75,14 @@ def publish_messages(path_list):
 
 def filter_africa_location_from_gzip_file(file_path: Path, production_date: str):
     """
-    Function to filter just the Africa location based on the WRS Path and WRS Row. All allowed positions are
-    informed through the global variable ALLOWED_PATHROWS which is created when this script file is loaded.
+    Function to filter just the Africa location based on the WRS Path and WRS Row.
+    All allowed positions are informed through the global variable ALLOWED_PATHROWS which is
+    created when this script file is loaded.
     The function also applies filters to skip LANDSAT_4 and Night shots.
     Warning: This function requires high performance from the CPU.
 
     :param file_path: (Path) Downloaded GZIP file path
-    :param production_date: (String) Filter for L2 Product Generation Date ("YYYY/MM/DD" or "YYYY-MM-DD")
+    :param production_date: (String) Filter for L2 Product Generation Date
     :return: (List) List of Display ids which will be used to retrieve the data from the API.
     """
     # It'll compare strings so it must have the same format
@@ -91,15 +92,9 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     # Variable that ensure the log is going to show at the right time
-    log = False
+    logging.info("Start Filtering Scenes by Africa location, Just day scenes and date")
+    logging.info(f"Unzipping and filtering file according to Africa Pathrows")
     for row in read_big_csv_files_from_gzip(file_path):
-        if not log:
-            logging.info(
-                "Start Filtering Scenes by Africa location, Just day scenes and date"
-            )
-            logging.info(f"Unzipping and filtering file according to Africa Pathrows")
-            log = True
-
         if (
             # Filter to skip all LANDSAT_4
             row.get("Satellite")
@@ -115,7 +110,8 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
             and (
                 row.get("WRS Path")
                 and row.get("WRS Row")
-                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+                and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                in africa_pathrows
             )
         ):
             yield row
@@ -141,8 +137,8 @@ def retrieve_list_of_files(scene_list):
             "{target_path}/{target_row}/{display_id}/".format(
                 identifier=identifier,
                 year_acquired=year_acquired,
-                target_path=scene["WRS Path"],
-                target_row=scene["WRS Row"],
+                target_path=scene["WRS Path"].zfill(3),
+                target_row=scene["WRS Row"].zfill(3),
                 display_id=scene["Display ID"],
             )
         )
@@ -223,7 +219,8 @@ def identifying_data(file_name: str, date_to_process: str):
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
             # TODO remove limitation when in PROD
-            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:10])
+            logging.info("retrieve_list_of_files")
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:8])
             # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
