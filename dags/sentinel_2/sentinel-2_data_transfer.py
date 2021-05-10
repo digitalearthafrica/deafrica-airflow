@@ -21,11 +21,13 @@ from airflow.operators.python_operator import (
     BranchPythonOperator,
 )
 from pystac import Item, Link
-
 from infra.connections import CONN_SENTINEL_2_SYNC
-from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
-from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
-from infra.sqs_queues import SENTINEL_2_SYNC_SQS_QUEUE
+from infra.sns_topics import SENTINEL_2_SYNC_SNS_ARN
+from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
+from infra.s3_buckets import (
+    SENTINEL_2_SYNC_BUCKET_NAME,
+    SENTINEL_2_INVENTORY_BUCKET_NAME,
+)
 from infra.variables import AWS_DEFAULT_REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
 from utils.aws_utils import SQS
@@ -53,7 +55,7 @@ def get_messages(
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=SENTINEL_2_SYNC_SQS_QUEUE,
+            queue_name=SENTINEL_2_SYNC_SQS_NAME,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
@@ -96,7 +98,7 @@ def correct_stac_links(stac_item: Item):
     self_link = stac_item.get_single_link("self")
     self_link.target = self_link.get_href().replace(
         SENTINEL_2_URL,
-        f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}",
+        f"s3://{SENTINEL_2_SYNC_BUCKET_NAME}",
     )
 
     stac_item.links.remove(stac_item.get_single_link("canonical"))
@@ -121,7 +123,7 @@ def publish_to_sns(updated_stac: Item, attributes):
     sns_hook = AwsSnsHook(aws_conn_id=CONN_SENTINEL_2_SYNC)
 
     sns_hook.publish_to_target(
-        target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
+        target_arn=SENTINEL_2_SYNC_SNS_ARN,
         message=json.dumps(updated_stac.to_dict()),
         message_attributes=attributes,
     )
@@ -137,7 +139,7 @@ def write_scene(src_key):
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
         source_bucket_name=SENTINEL_COGS_BUCKET,
-        dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
+        dest_bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
     )
     return True
 
@@ -216,7 +218,7 @@ def start_transfer(stac_item: Item):
             string_data=json.dumps(stac_item.to_dict()),
             key=stac_key,
             replace=True,
-            bucket_name=SENTINEL_2_SYNC_BUCKET,
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
         )
     except Exception as exc:
         raise ValueError(f"{stac_key} failed to copy")
@@ -247,8 +249,9 @@ def copy_s3_objects(ti, **kwargs):
     successful = 0
     failed = 0
 
-    logging.info(f"Connecting to AWS SQS {SENTINEL_2_SYNC_SQS_QUEUE}")
     logging.info(f"Conn_id Name {CONN_SENTINEL_2_SYNC}")
+    logging.info(f"Connecting to AWS SQS {SENTINEL_2_SYNC_SQS_NAME}")
+
     messages = get_messages(limit=20, visibility_timeout=600)
 
     logging.info("Reading Africa's visible tiles")
@@ -307,7 +310,7 @@ def trigger_sensor(ti, **kwargs):
 
     sqs_hook = SQSHook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     sqs = sqs_hook.get_resource_type("sqs")
-    queue = sqs.get_queue_by_name(QueueName=SENTINEL_2_SYNC_SQS_QUEUE)
+    queue = sqs.get_queue_by_name(QueueName=SENTINEL_2_SYNC_SQS_NAME)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))
     logging.info(f"Queue size: {queue_size}")
 

@@ -15,9 +15,9 @@ from pystac import Item, Link
 # from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import CONN_LANDSAT_SYNC
-from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
-from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
-from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
+from infra.sns_topics import LANDSAT_SYNC_SNS_ARN
+from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
@@ -204,7 +204,7 @@ class ScenesSyncProcess:
             tasks = [
                 executor.submit(
                     self.s3.key_not_existent,
-                    LANDSAT_SYNC_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_BUCKET_NAME,
                     link,
                 )
                 for link in asset_paths
@@ -227,7 +227,7 @@ class ScenesSyncProcess:
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
                 f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously "
-                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
+                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
@@ -241,7 +241,7 @@ class ScenesSyncProcess:
                 executor.submit(
                     self.s3.copy_s3_to_s3_cross_region,
                     USGS_S3_BUCKET_NAME,
-                    LANDSAT_SYNC_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_BUCKET_NAME,
                     USGS_AWS_REGION,
                     AWS_DEFAULT_REGION,
                     link,
@@ -313,7 +313,7 @@ class ScenesSyncProcess:
         self.s3.save_obj_to_s3(
             file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
             destination_key=destination_key,
-            destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
         )
 
 
@@ -376,7 +376,7 @@ def check_already_copied(conn_id, item: Item) -> bool:
 
     # If not exist return the path, if exist return None
     s3 = S3(conn_id=conn_id)
-    exist = s3.key_not_existent(LANDSAT_SYNC_S3_BUCKET_NAME, path_and_file_name["path"])
+    exist = s3.key_not_existent(LANDSAT_SYNC_BUCKET_NAME, path_and_file_name["path"])
 
     return not bool(exist)
 
@@ -503,15 +503,15 @@ def get_messages(
     :return: Generator
     """
 
-    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_QUEUE}")
     logging.info(f"Conn_id Name {CONN_LANDSAT_SYNC}")
+    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_NAME}")
 
     sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
 
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=LANDSAT_SYNC_SQS_QUEUE,
+            queue_name=LANDSAT_SYNC_SQS_NAME,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
@@ -605,10 +605,10 @@ def process_item(stac_type: str, item: Item):
     # Send to the SNS
     logging.info(f"{logger_name} - Pushing Item to the SNS {stac_1_item.to_dict()}")
     sns_topic.publish_to_sns_topic(
-        target_arn=LANDSAT_SYNC_SNS_TOPIC_ARN,
+        target_arn=LANDSAT_SYNC_SNS_ARN,
         message=json.dumps(stac_1_item.to_dict()),
     )
-    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_TOPIC_ARN}")
+    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_ARN}")
 
 
 def process():

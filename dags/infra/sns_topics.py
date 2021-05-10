@@ -3,12 +3,12 @@
 """
 from airflow.models import Variable
 
-LANDSAT_SYNC_SNS_TOPIC_ARN = Variable.get(
-    "landsat_sns_topic",
+LANDSAT_SYNC_SNS_ARN = Variable.get(
+    "landsat_sync_sns_arn",
     "arn:aws:sns:af-south-1:717690029437:deafrica-dev-eks-landsat-topic",
 )
 
-SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN = Variable.get(
-    "sync_sentinel_2_topic_arn",
+SENTINEL_2_SYNC_SNS_ARN = Variable.get(
+    "sentinel_2_sync_sns_arn",
     "arn:aws:sns:af-south-1:717690029437:sentinel-2-dev-sync-topic",
 )

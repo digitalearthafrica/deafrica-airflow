@@ -18,7 +18,7 @@ from airflow.operators.python_operator import PythonOperator
 
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 
-from infra.sqs_queues import SENTINEL_2_INDEX_SQS_QUEUE
+from infra.sqs_queues import SENTINEL_2_INDEX_SQS_NAME
 from sentinel_2.variables import AFRICA_TILES
 from subdags.subdag_ows_views import ows_update_extent_subdag
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
@@ -105,7 +105,7 @@ with dag:
             "sqs-to-dc",
             "--stac",
             f"--region-code-list-uri={AFRICA_TILES}",
-            SENTINEL_2_INDEX_SQS_QUEUE,
+            SENTINEL_2_INDEX_SQS_NAME,
             "s2_l2a",
         ],
         labels={"step": "sqs-to-rds"},
