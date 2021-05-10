@@ -99,7 +99,7 @@ def correct_stac_links(stac_item: Item):
     self_link = stac_item.get_single_link("self")
     self_link.target = self_link.get_href().replace(
         SENTINEL_2_URL,
-        f"s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}",
+        f"s3://{SENTINEL_2_SYNC_BUCKET_NAME}",
     )
 
     stac_item.links.remove(stac_item.get_single_link("canonical"))

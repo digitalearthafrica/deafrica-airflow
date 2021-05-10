@@ -12,7 +12,10 @@ from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
-from infra.s3_buckets import SENTINEL_2_INVENTORY_BUCKET_NAME
+from infra.s3_buckets import (
+    SENTINEL_2_INVENTORY_BUCKET_NAME,
+    SENTINEL_2_SYNC_BUCKET_NAME,
+)
 from infra.variables import AWS_DEFAULT_REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
 from landsat_scenes_sync.variables import MANIFEST_SUFFIX, USGS_AWS_REGION
 from sentinel_2.variables import (
@@ -126,7 +129,7 @@ def generate_buckets_diff():
     # s3_report = S3(conn_id=S2_AFRICA_CONN_ID)
     #
     # s3_report.put_object(
-    #     bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
+    #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
     #     key=key,
     #     region=AWS_DEFAULT_REGION,
     #     body="\n".join(missing_scenes),
@@ -134,13 +137,13 @@ def generate_buckets_diff():
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
-    print(f"Wrote inventory to: s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}/{key}")
+    print(f"Wrote inventory to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     if len(orphaned_keys) > 0:
         output_filename = datetime.today().isoformat() + "_orphaned.txt"
         key = REPORTING_PREFIX + output_filename
         # s3_report.put_object(
-        #     bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
+        #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
         #     key=key,
         #     region=AWS_DEFAULT_REGION,
         #     body="\n".join(orphaned_keys),
@@ -150,13 +153,11 @@ def generate_buckets_diff():
             f"orphaned_keys {orphaned_keys if len(orphaned_keys) < 100 else orphaned_keys[0:2]}"
         )
 
-        print(
-            f"Wrote orphaned scenes to: s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}/{key}"
-        )
+        print(f"Wrote orphaned scenes to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     message = (
         f"{len(missing_scenes)} scenes are missing from "
-        f"s3://{SENTINEL_2_INVENTORY_BUCKET_NAME} and {len(orphaned_keys)} "
+        f"s3://{SENTINEL_2_SYNC_BUCKET_NAME} and {len(orphaned_keys)} "
         f"scenes no longer exist in s3://sentinel-cogs"
     )
     print(message)
