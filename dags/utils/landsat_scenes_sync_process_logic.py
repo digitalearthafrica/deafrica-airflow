@@ -140,13 +140,14 @@ class ScenesSyncProcess:
     ):
         """
         Function to add Africa's custom properties odc:product and odc:region_code
+        :param stac_type:
         :param item: (Pystac Item) Pystac Item
         :return: None
         """
 
         properties = item.properties
 
-        sat = properties.get("eo:platform", None)
+        sat = properties.get("platform") or properties.get("eo:platform")
 
         if sat == "LANDSAT_8":
             value = f"ls8_{stac_type}"
@@ -542,7 +543,7 @@ def process_item(stac_type: str, item: Item):
     :return: None
     """
 
-    logger_name = f"{item.id}_{stac_type}_log"
+    logger_name = f"{item.id}_log"
 
     scenes_sync = ScenesSyncProcess(conn_id=CONN_LANDSAT_SYNC, logger_name=logger_name)
 
