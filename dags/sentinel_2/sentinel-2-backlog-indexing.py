@@ -10,7 +10,7 @@ from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
 
-from infra.s3_buckets import SENTINEL_2_INVENTORY_UTILS_BUCKET
+from infra.s3_buckets import SENTINEL_2_INVENTORY_BUCKET_NAME
 from infra.variables import (
     DB_HOSTNAME,
     SECRET_ODC_WRITER_NAME,
@@ -85,7 +85,8 @@ with DAG(
                 "s3-to-dc",
                 "--stac",
                 "--no-sign-request",
-                f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}/{SENTINEL_2_S3_COGS_FOLDER_NAME}/{utm_zone}/**/*.json",
+                f"s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}/"
+                f"{SENTINEL_2_S3_COGS_FOLDER_NAME}/{utm_zone}/**/*.json",
                 "s2_l2a",
             ],
             labels={"backlog": "s3-to-dc"},

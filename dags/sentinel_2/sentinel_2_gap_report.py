@@ -12,13 +12,14 @@ from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
-from infra.s3_buckets import (
-    SENTINEL_2_INVENTORY_UTILS_BUCKET,
-    SENTINEL_2_INVENTORY_BUCKET,
-)
+from infra.s3_buckets import SENTINEL_2_INVENTORY_BUCKET_NAME
 from infra.variables import AWS_DEFAULT_REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
 from landsat_scenes_sync.variables import MANIFEST_SUFFIX, USGS_AWS_REGION
-from sentinel_2.variables import AFRICA_TILES, REPORTING_PREFIX, SRC_BUCKET_NAME
+from sentinel_2.variables import (
+    AFRICA_TILES,
+    REPORTING_PREFIX,
+    SENTINEL_COGS_INVENTORY_BUCKET,
+)
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
 
@@ -87,10 +88,10 @@ def generate_buckets_diff():
     # Create connection to the inventory S3 bucket
     s3_inventory_source = InventoryUtils(
         conn=S2_US_CONN_ID,
-        bucket_name=SRC_BUCKET_NAME,
+        bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
         region=USGS_AWS_REGION,
     )
-    logging.info(f"Connected to S3 source {SRC_BUCKET_NAME}")
+    logging.info(f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET}")
 
     # Retrieve keys from inventory bucket
     source_keys = get_and_filter_source_keys(s3_bucket_client=s3_inventory_source)
@@ -98,10 +99,10 @@ def generate_buckets_diff():
     # Create connection to the inventory S3 bucket
     s3_inventory_destination = InventoryUtils(
         conn=S2_AFRICA_CONN_ID,
-        bucket_name=SENTINEL_2_INVENTORY_BUCKET,
+        bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
         region=AWS_DEFAULT_REGION,
     )
-    logging.info(f"Connected to S3 destination {SENTINEL_2_INVENTORY_BUCKET}")
+    logging.info(f"Connected to S3 destination {SENTINEL_2_INVENTORY_BUCKET_NAME}")
 
     # Retrieve keys from inventory bucket
     destination_keys = get_and_filter_destination_keys(
@@ -125,7 +126,7 @@ def generate_buckets_diff():
     # s3_report = S3(conn_id=S2_AFRICA_CONN_ID)
     #
     # s3_report.put_object(
-    #     bucket_name=SENTINEL_2_INVENTORY_UTILS_BUCKET,
+    #     bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
     #     key=key,
     #     region=AWS_DEFAULT_REGION,
     #     body="\n".join(missing_scenes),
@@ -133,13 +134,13 @@ def generate_buckets_diff():
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
-    print(f"Wrote inventory to: s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}/{key}")
+    print(f"Wrote inventory to: s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}/{key}")
 
     if len(orphaned_keys) > 0:
         output_filename = datetime.today().isoformat() + "_orphaned.txt"
         key = REPORTING_PREFIX + output_filename
         # s3_report.put_object(
-        #     bucket_name=SENTINEL_2_INVENTORY_UTILS_BUCKET,
+        #     bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
         #     key=key,
         #     region=AWS_DEFAULT_REGION,
         #     body="\n".join(orphaned_keys),
@@ -150,11 +151,14 @@ def generate_buckets_diff():
         )
 
         print(
-            f"Wrote orphaned scenes to: s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}/{key}"
+            f"Wrote orphaned scenes to: s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}/{key}"
         )
 
-    message = f"{len(missing_scenes)} scenes are missing from s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET} and \
-                {len(orphaned_keys)} scenes no longer exist in s3://sentinel-cogs"
+    message = (
+        f"{len(missing_scenes)} scenes are missing from "
+        f"s3://{SENTINEL_2_INVENTORY_BUCKET_NAME} and {len(orphaned_keys)} "
+        f"scenes no longer exist in s3://sentinel-cogs"
+    )
     print(message)
 
     if len(missing_scenes) > 200 or len(orphaned_keys) > 200:

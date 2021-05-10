@@ -15,11 +15,8 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import (
-    SYNC_LANDSAT_INVENTORY_ID,
-    SYNC_LANDSAT_CONNECTION_ID,
-)
-from infra.s3_buckets import LANDSAT_SYNC_INVENTORY_BUCKET, LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.connections import SYNC_LANDSAT_INVENTORY_ID
+from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_C2_FOLDER_NAME,
@@ -33,7 +30,6 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
 )
-from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
     read_csv_from_gzip,
@@ -193,7 +189,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=SYNC_LANDSAT_INVENTORY_ID,
-            bucket_name=LANDSAT_SYNC_INVENTORY_BUCKET,
+            bucket_name=LANDSAT_INVENTORY_BUCKET_NAME,
             region=AWS_DEFAULT_REGION,
         )
 
@@ -226,31 +222,29 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # s3_report = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
         #
         # s3_report.put_object(
-        #     bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
+        #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
         #     key=key,
         #     region=AWS_DEFAULT_REGION,
         #     body="\n".join(missing_scenes),
         # )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
-        logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}")
+        logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
             output_filename = f"{land_sat}_{datetime.today().isoformat()}_orphaned.txt"
             key = REPORTING_PREFIX + output_filename
             # s3_report.put_object(
-            #     bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
+            #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             #     key=key,
             #     region=AWS_DEFAULT_REGION,
             #     body="\n".join(orphaned_scenes),
             # )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
-            logging.info(
-                f"Wrote orphaned scenes to: {LANDSAT_SYNC_S3_BUCKET_NAME}/{key}"
-            )
+            logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         message = (
-            f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_S3_BUCKET_NAME} "
+            f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
             f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
         logging.info(message)

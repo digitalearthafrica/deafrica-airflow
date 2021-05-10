@@ -23,7 +23,10 @@ from airflow.operators.python_operator import (
 from pystac import Item, Link
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
-from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
+from infra.s3_buckets import (
+    SENTINEL_2_SYNC_BUCKET_NAME,
+    SENTINEL_2_INVENTORY_BUCKET_NAME,
+)
 from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
@@ -96,7 +99,7 @@ def correct_stac_links(stac_item: Item):
     self_link = stac_item.get_single_link("self")
     self_link.target = self_link.get_href().replace(
         SENTINEL_2_URL,
-        f"s3://{SENTINEL_2_INVENTORY_UTILS_BUCKET}",
+        f"s3://{SENTINEL_2_INVENTORY_BUCKET_NAME}",
     )
 
     stac_item.links.remove(stac_item.get_single_link("canonical"))
@@ -137,7 +140,7 @@ def write_scene(src_key):
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
         source_bucket_name=SENTINEL_COGS_BUCKET,
-        dest_bucket_name=SENTINEL_2_SYNC_BUCKET,
+        dest_bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
     )
     return True
 
@@ -216,7 +219,7 @@ def start_transfer(stac_item: Item):
             string_data=json.dumps(stac_item.to_dict()),
             key=stac_key,
             replace=True,
-            bucket_name=SENTINEL_2_SYNC_BUCKET,
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
         )
     except Exception as exc:
         raise ValueError(f"{stac_key} failed to copy")
