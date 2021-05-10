@@ -15,10 +15,10 @@ from airflow.contrib.hooks.aws_hook import AwsHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+
 from infra.connections import CONN_LANDSAT_SYNC
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
+from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import SQS
 
