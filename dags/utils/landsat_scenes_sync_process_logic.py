@@ -16,7 +16,7 @@ from pystac import Item, Link
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
-from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC
+from infra.sns_topics import LANDSAT_SYNC_SNS_ARN
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
@@ -607,10 +607,10 @@ def process_item(stac_type: str, item: Item):
     # Send to the SNS
     logging.info(f"{logger_name} - Pushing Item to the SNS {stac_1_item.to_dict()}")
     sns_topic.publish_to_sns_topic(
-        target_arn=LANDSAT_SYNC_SNS_TOPIC,
+        target_arn=LANDSAT_SYNC_SNS_ARN,
         message=json.dumps(stac_1_item.to_dict()),
     )
-    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_TOPIC}")
+    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_ARN}")
 
 
 def process():
