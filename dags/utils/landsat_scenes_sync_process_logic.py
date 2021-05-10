@@ -15,7 +15,7 @@ from pystac import Item, Link
 # from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
 from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from landsat_scenes_sync.variables import (
@@ -204,7 +204,7 @@ class ScenesSyncProcess:
             tasks = [
                 executor.submit(
                     self.s3.key_not_existent,
-                    LANDSAT_SYNC_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_BUCKET_NAME,
                     link,
                 )
                 for link in asset_paths
@@ -227,7 +227,7 @@ class ScenesSyncProcess:
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(
                 f"{self.logger_name} - Transferring {num_of_threads} assets simultaneously "
-                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_S3_BUCKET_NAME}"
+                f"(Python threads) from {USGS_S3_BUCKET_NAME} to {LANDSAT_SYNC_BUCKET_NAME}"
             )
 
             # Check if the key was already copied
@@ -241,7 +241,7 @@ class ScenesSyncProcess:
                 executor.submit(
                     self.s3.copy_s3_to_s3_cross_region,
                     USGS_S3_BUCKET_NAME,
-                    LANDSAT_SYNC_S3_BUCKET_NAME,
+                    LANDSAT_SYNC_BUCKET_NAME,
                     USGS_AWS_REGION,
                     AWS_DEFAULT_REGION,
                     link,
@@ -313,7 +313,7 @@ class ScenesSyncProcess:
         self.s3.save_obj_to_s3(
             file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
             destination_key=destination_key,
-            destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
         )
 
 
@@ -376,7 +376,7 @@ def check_already_copied(conn_id, item: Item) -> bool:
 
     # If not exist return the path, if exist return None
     s3 = S3(conn_id=conn_id)
-    exist = s3.key_not_existent(LANDSAT_SYNC_S3_BUCKET_NAME, path_and_file_name["path"])
+    exist = s3.key_not_existent(LANDSAT_SYNC_BUCKET_NAME, path_and_file_name["path"])
 
     return not bool(exist)
 
