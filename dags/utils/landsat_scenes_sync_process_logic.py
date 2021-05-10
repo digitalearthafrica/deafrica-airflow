@@ -15,9 +15,9 @@ from pystac import Item, Link
 # from stactools.landsat.utils import transform_stac_to_stac
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.sns_topics import LANDSAT_SYNC_SNS_ARN
+from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
-from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
-from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from landsat_scenes_sync.variables import (
     USGS_API_MAIN_URL,
     USGS_INDEX_URL,
@@ -503,7 +503,7 @@ def get_messages(
     :return: Generator
     """
 
-    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_QUEUE}")
+    logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_NAME}")
     logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
 
     sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
@@ -511,7 +511,7 @@ def get_messages(
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
-            queue_name=LANDSAT_SYNC_SQS_QUEUE,
+            queue_name=LANDSAT_SYNC_SQS_NAME,
             visibility_timeout=visibility_timeout,
             max_number_messages=1,
             wait_time_seconds=10,
@@ -607,10 +607,10 @@ def process_item(stac_type: str, item: Item):
     # Send to the SNS
     logging.info(f"{logger_name} - Pushing Item to the SNS {stac_1_item.to_dict()}")
     sns_topic.publish_to_sns_topic(
-        target_arn=LANDSAT_SYNC_SNS_TOPIC_ARN,
+        target_arn=LANDSAT_SYNC_SNS_ARN,
         message=json.dumps(stac_1_item.to_dict()),
     )
-    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_TOPIC_ARN}")
+    logger.info(f"{logger_name} - Items pushed to the SNS {LANDSAT_SYNC_SNS_ARN}")
 
 
 def process():

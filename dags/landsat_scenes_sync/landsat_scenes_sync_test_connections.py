@@ -17,8 +17,8 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
-from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import SQS
 
@@ -149,7 +149,7 @@ def get_queue_attributes_test(conn_id):
     sqs = SQS(conn_id=conn_id, region=AWS_DEFAULT_REGION)
 
     t = sqs.get_queue_attributes(
-        queue_name=LANDSAT_SYNC_SQS_QUEUE,
+        queue_name=LANDSAT_SYNC_SQS_NAME,
         region=AWS_DEFAULT_REGION,
         attributes=["ApproximateNumberOfMessages"],
     )
