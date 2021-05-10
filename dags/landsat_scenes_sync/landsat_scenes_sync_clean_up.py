@@ -12,7 +12,7 @@ from airflow import DAG
 # Operators; we need this to operate!
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import S3
@@ -120,5 +120,5 @@ with dag:
     PythonOperator(
         task_id="Cleanup",
         python_callable=check_key_on_s3,
-        op_kwargs=dict(conn_id=SYNC_LANDSAT_CONNECTION_ID),
+        op_kwargs=dict(conn_id=CONN_LANDSAT_SYNC),
     )

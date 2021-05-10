@@ -22,7 +22,7 @@ from airflow.operators.python_operator import (
 )
 from pystac import Item, Link
 
-from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
 from infra.sns_topics import SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_QUEUE
@@ -49,7 +49,7 @@ def get_messages(
     """
     Get messages from a queue resource.
     """
-    sqs_queue = SQS(S2_US_CONN_ID, AWS_DEFAULT_REGION)
+    sqs_queue = SQS(CONN_SENTINEL_2_SYNC, AWS_DEFAULT_REGION)
     count = 0
     while True:
         messages = sqs_queue.receive_messages(
@@ -118,7 +118,7 @@ def publish_to_sns(updated_stac: Item, attributes):
         del attributes["collection"]
     attributes["product"] = "s2_l2a"
 
-    sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
+    sns_hook = AwsSnsHook(aws_conn_id=CONN_SENTINEL_2_SYNC)
 
     sns_hook.publish_to_target(
         target_arn=SYNC_SENTINEL_2_CONNECTION_TOPIC_ARN,
@@ -132,7 +132,7 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
+    s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     s3_hook.copy_object(
         source_bucket_key=src_key,
         dest_bucket_key=src_key,
@@ -148,7 +148,7 @@ def start_transfer(stac_item: Item):
     """
     logging.info("Transfering Files")
 
-    s3_hook_oregon = S3Hook(aws_conn_id=S2_US_CONN_ID)
+    s3_hook_oregon = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     derived_from_link = stac_item.get_single_link("derived_from")
     s3_filepath = derived_from_link.get_href()
 
@@ -211,7 +211,7 @@ def start_transfer(stac_item: Item):
     else:
         raise ValueError(f"{scene_path} failed to copy")
     try:
-        s3_hook = S3Hook(aws_conn_id=S2_AFRICA_CONN_ID)
+        s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
         s3_hook.load_string(
             string_data=json.dumps(stac_item.to_dict()),
             key=stac_key,
@@ -248,7 +248,7 @@ def copy_s3_objects(ti, **kwargs):
     failed = 0
 
     logging.info(f"Connecting to AWS SQS {SENTINEL_2_SYNC_SQS_QUEUE}")
-    logging.info(f"Conn_id Name {S2_US_CONN_ID}")
+    logging.info(f"Conn_id Name {CONN_SENTINEL_2_SYNC}")
     messages = get_messages(limit=20, visibility_timeout=600)
 
     logging.info("Reading Africa's visible tiles")
@@ -305,7 +305,7 @@ def trigger_sensor(ti, **kwargs):
     :return: String id of the downstream task
     """
 
-    sqs_hook = SQSHook(aws_conn_id=S2_US_CONN_ID)
+    sqs_hook = SQSHook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     sqs = sqs_hook.get_resource_type("sqs")
     queue = sqs.get_queue_by_name(QueueName=SENTINEL_2_SYNC_SQS_QUEUE)
     queue_size = int(queue.attributes.get("ApproximateNumberOfMessages"))

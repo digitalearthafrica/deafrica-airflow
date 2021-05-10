@@ -7,7 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
 from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
@@ -34,9 +34,7 @@ def publish_messages(path_list):
 
     def post_messages(messages_to_send):
         try:
-            sqs_queue = SQS(
-                conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION
-            )
+            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
 
             sqs_queue.publish_to_sqs_queue(
                 queue_name=LANDSAT_SYNC_SQS_QUEUE,
@@ -125,7 +123,7 @@ def retrieve_list_of_files(scene_list):
     """
     # Eg. collection02/level-2/standard/etm/2021/196/046/LE07_L2SP_196046_20210101_20210127_02_T1/
 
-    s3 = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
     def build_asset_list(scene):
         year_acquired = convert_str_to_date(scene["Date Acquired"]).year

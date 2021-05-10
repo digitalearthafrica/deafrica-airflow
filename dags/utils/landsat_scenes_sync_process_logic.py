@@ -14,7 +14,7 @@ from pystac import Item, Link
 
 # from stactools.landsat.utils import transform_stac_to_stac
 
-from infra.connections import SYNC_LANDSAT_CONNECTION_ID
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.sns_topics import LANDSAT_SYNC_SNS_TOPIC_ARN
 from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
@@ -504,9 +504,9 @@ def get_messages(
     """
 
     logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_QUEUE}")
-    logging.info(f"Conn_id Name {SYNC_LANDSAT_CONNECTION_ID}")
+    logging.info(f"Conn_id Name {CONN_LANDSAT_SYNC}")
 
-    sqs_queue = SQS(conn_id=SYNC_LANDSAT_CONNECTION_ID, region=AWS_DEFAULT_REGION)
+    sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
 
     count = 0
     while True:
@@ -544,11 +544,9 @@ def process_item(stac_type: str, item: Item):
 
     logger_name = f"{item.id}_{stac_type}_log"
 
-    scenes_sync = ScenesSyncProcess(
-        conn_id=SYNC_LANDSAT_CONNECTION_ID, logger_name=logger_name
-    )
+    scenes_sync = ScenesSyncProcess(conn_id=CONN_LANDSAT_SYNC, logger_name=logger_name)
 
-    sns_topic = SNS(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+    sns_topic = SNS(conn_id=CONN_LANDSAT_SYNC)
 
     logger = logging.getLogger(logger_name)
 
@@ -642,13 +640,13 @@ def process():
                     )
 
                     sr_st_item_dict = retrieve_sr_and_st_update_and_convert_to_item(
-                        conn_id=SYNC_LANDSAT_CONNECTION_ID,
+                        conn_id=CONN_LANDSAT_SYNC,
                         stac_paths_obj=stac_paths_obj,
                     )
 
                 logging.info("Checking if stac was already processed")
                 already_processed = check_already_copied(
-                    conn_id=SYNC_LANDSAT_CONNECTION_ID, item=sr_st_item_dict["SR"]
+                    conn_id=CONN_LANDSAT_SYNC, item=sr_st_item_dict["SR"]
                 )
 
                 if not already_processed:
