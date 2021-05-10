@@ -14,8 +14,7 @@ from pathlib import Path
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-
-from infra.connections import SYNC_LANDSAT_INVENTORY_ID
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     AWS_DEFAULT_REGION,
@@ -188,7 +187,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
 
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
-            conn=SYNC_LANDSAT_INVENTORY_ID,
+            conn=CONN_LANDSAT_SYNC,
             bucket_name=LANDSAT_INVENTORY_BUCKET_NAME,
             region=AWS_DEFAULT_REGION,
         )
@@ -219,7 +218,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
-        # s3_report = S3(conn_id=SYNC_LANDSAT_CONNECTION_ID)
+        # s3_report = S3(conn_id=CONN_LANDSAT_SYNC)
         #
         # s3_report.put_object(
         #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,

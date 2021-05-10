@@ -11,7 +11,7 @@ from datetime import datetime
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
+from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
@@ -90,7 +90,7 @@ def generate_buckets_diff():
     logging.info("Process started")
     # Create connection to the inventory S3 bucket
     s3_inventory_source = InventoryUtils(
-        conn=S2_US_CONN_ID,
+        conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
         region=USGS_AWS_REGION,
     )
@@ -101,7 +101,7 @@ def generate_buckets_diff():
 
     # Create connection to the inventory S3 bucket
     s3_inventory_destination = InventoryUtils(
-        conn=S2_AFRICA_CONN_ID,
+        conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
         region=AWS_DEFAULT_REGION,
     )
@@ -126,7 +126,7 @@ def generate_buckets_diff():
     key = REPORTING_PREFIX + output_filename
 
     # Store report in the S3 bucket
-    # s3_report = S3(conn_id=S2_AFRICA_CONN_ID)
+    # s3_report = S3(conn_id=CONN_SENTINEL_2_SYNC)
     #
     # s3_report.put_object(
     #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
