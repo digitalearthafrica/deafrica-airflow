@@ -24,7 +24,7 @@ from pystac import Item, Link
 
 from infra.connections import S2_AFRICA_CONN_ID, S2_US_CONN_ID
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET, SENTINEL_2_INVENTORY_UTILS_BUCKET
-from infra.sns_topics import SENTINEL_2_SYNC_SNS_TOPIC_ARN
+from infra.sns_topics import SENTINEL_2_SYNC_SNS_ARN
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
@@ -121,7 +121,7 @@ def publish_to_sns(updated_stac: Item, attributes):
     sns_hook = AwsSnsHook(aws_conn_id=S2_AFRICA_CONN_ID)
 
     sns_hook.publish_to_target(
-        target_arn=SENTINEL_2_SYNC_SNS_TOPIC_ARN,
+        target_arn=SENTINEL_2_SYNC_SNS_ARN,
         message=json.dumps(updated_stac.to_dict()),
         message_attributes=attributes,
     )
