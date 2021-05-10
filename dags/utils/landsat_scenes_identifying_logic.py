@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.sqs_queues import LANDSAT_SYNC_SQS_QUEUE
+from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
@@ -39,7 +39,7 @@ def publish_messages(path_list):
             )
 
             sqs_queue.publish_to_sqs_queue(
-                queue_name=LANDSAT_SYNC_SQS_QUEUE,
+                queue_name=LANDSAT_SYNC_SQS_NAME,
                 messages=messages_to_send,
             )
         except Exception as error:
