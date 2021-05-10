@@ -17,8 +17,8 @@ from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import SQS
 
@@ -130,13 +130,13 @@ def check_key_on_s3(conn_id):
         bucket = S3Hook(aws_conn_id=conn_id)
 
         not_exist = bucket.get_conn().head_object(
-            Bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            Bucket=LANDSAT_SYNC_BUCKET_NAME,
             Key="collection02/level-2/standard/oli-tirs/2015/195/044/LC08_L2SP_195044_20151102_20210219_02_T1/LC08_L2SP_195044_20151102_20210219_02_T1_SR_B5.TIF",
         )
         logging.info(f"The key exist {not_exist}")
 
         not_exist2 = bucket.get_conn().head_object(
-            Bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+            Bucket=LANDSAT_SYNC_BUCKET_NAME,
             Key="collection02/level-2/standard/oli-tirs/2015/195/044/LC08_L2SP_195044_20151102_20210219_02_T1/LC08_L2SP_195044_20151102_20210219_02_T1_SR_B88.TIF",
         )
         logging.info(f"The key exist {not_exist2}")
@@ -173,7 +173,7 @@ with dag:
     #             op_kwargs=dict(
     #                 conn_id=SYNC_LANDSAT_CONNECTION_ID,
     #                 source_bucket=USGS_S3_BUCKET_NAME,
-    #                 destination_bucket=LANDSAT_SYNC_S3_BUCKET_NAME,
+    #                 destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
     #                 source_bucket_region=USGS_AWS_REGION,
     #                 destination_bucket_region=AWS_DEFAULT_REGION,
     #                 source_key=path,

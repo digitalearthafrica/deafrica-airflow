@@ -13,7 +13,7 @@ from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import SYNC_LANDSAT_CONNECTION_ID
-from infra.s3_buckets import LANDSAT_SYNC_S3_BUCKET_NAME
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
 from utils.aws_utils import S3
 
@@ -86,7 +86,7 @@ def check_key_on_s3(conn_id):
         bucket_content = []
         while True:
             resp = s3.list_objects(
-                bucket_name=LANDSAT_SYNC_S3_BUCKET_NAME,
+                bucket_name=LANDSAT_SYNC_BUCKET_NAME,
                 region=AWS_DEFAULT_REGION,
                 prefix="collection02/",
                 continuation_token=continuation_token,

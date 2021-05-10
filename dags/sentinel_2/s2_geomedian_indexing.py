@@ -7,13 +7,11 @@ DAG to index Sentinel-2 geomedian backlog data.
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.contrib.operators.kubernetes_pod_operator import (
-    KubernetesPodOperator,
-)
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
 
 from infra.images import INDEXER_IMAGE
-from infra.s3_buckets import SENTINEL_2_SERVICES_BUCKET
+from infra.s3_buckets import DEAFRICA_SERVICES_BUCKET_NAME
 from infra.variables import SECRET_ODC_WRITER_NAME, DB_HOSTNAME
 
 DEFAULT_ARGS = {
@@ -65,7 +63,7 @@ with DAG(
                 "s3-to-dc",
                 "--stac",
                 "--no-sign-request",
-                f"s3://{SENTINEL_2_SERVICES_BUCKET}/gm_s2_annual/1-0-0/x{index}/**/*.json",
+                f"s3://{DEAFRICA_SERVICES_BUCKET_NAME}/gm_s2_annual/1-0-0/x{index}/**/*.json",
                 "gm_s2_annual",
             ],
             labels={"backlog": "s3-to-dc"},
