@@ -140,13 +140,14 @@ class ScenesSyncProcess:
     ):
         """
         Function to add Africa's custom properties odc:product and odc:region_code
+        :param stac_type:
         :param item: (Pystac Item) Pystac Item
         :return: None
         """
 
         properties = item.properties
 
-        sat = properties.get("eo:platform", None)
+        sat = properties.get("platform") or properties.get("eo:platform")
 
         if sat == "LANDSAT_8":
             value = f"ls8_{stac_type}"
@@ -156,15 +157,15 @@ class ScenesSyncProcess:
             value = f"ls5_{stac_type}"
         else:
             raise Exception(
-                f'{f"{sat} not supported" if sat else "SAT was not informed"}'
+                f'{f"{sat} does not supported for this process" if sat else "was not informed"}'
             )
 
         item.properties.update(
             {
                 "odc:product": value,
-                "odc:region_code": "{path}{row}".format(
-                    path=item.properties["landsat:wrs_path"].zfill(3),
-                    row=item.properties["landsat:wrs_row"].zfill(3),
+                "odc:region_code": "{path:03d}{row:03d}".format(
+                    path=int(item.properties["landsat:wrs_path"]),
+                    row=int(item.properties["landsat:wrs_row"]),
                 ),
             }
         )
@@ -477,6 +478,8 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
             raise Exception(f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}")
         # Check assets in S3
         check_assets_item(conn_id=conn_id, item=st_item)
+        # remove unnecessary root Link
+        st_item.remove_links("root")
 
     # If we can load the blue band, use it to add proj information
     if not sr_item.assets.get("SR_B2.TIF"):
@@ -485,6 +488,9 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 
     # Check assets in S3
     check_assets_item(conn_id=conn_id, item=sr_item)
+
+    # remove unnecessary root Link
+    sr_item.remove_links("root")
 
     return {"SR": sr_item, "ST": st_item}
 
@@ -541,7 +547,7 @@ def process_item(stac_type: str, item: Item):
     :return: None
     """
 
-    logger_name = f"{item.id}_{stac_type}_log"
+    logger_name = f"{item.id}_log"
 
     scenes_sync = ScenesSyncProcess(conn_id=CONN_LANDSAT_SYNC, logger_name=logger_name)
 
