@@ -13,7 +13,7 @@ LANDSAT_INDEX_SQS_NAME = Variable.get(
 )
 
 SENTINEL_2_SYNC_SQS_NAME = Variable.get(
-    "sentinel_2_sync_sqs_name", "deafrica-dev-eks-sentinel-2-sync"
+    "sentinel_2_sync_sqs_name", "deafrica-prod-af-eks-sentinel-2-sync"
 )
 
 SENTINEL_2_INDEX_SQS_NAME = Variable.get(
