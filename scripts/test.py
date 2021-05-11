@@ -61,7 +61,6 @@ def convert(json_path: str):
         with open(json_path) as f:
             item = Item.from_dict(json.load(f))
             print(item)
-            print(item.to_dict())
             return item
     except Exception as error:
         print(error)
@@ -143,15 +142,14 @@ class class_test(unittest.TestCase):
         with self.assertRaises(RasterioIOError):
             rasterio_test(convert(json_path=json_landsat82))
 
-    @unittest.skip
     def test_transform_static_stac_missing_asset_b2_b10(self):
         """It has to be able to gather the right information from other geotiff files"""
 
-        json_file2 = os.path.join(
-            "C:/Users/cario/work/deafrica-airflow/scripts/", "test2.json"
+        json_landsat8 = os.path.join(
+            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
         )
 
-        item = convert(json_path=json_file2)
+        item = convert(json_path=json_landsat8)
 
         if item.assets.get("SR_B2.TIF"):
             item.assets.pop("SR_B2.TIF")

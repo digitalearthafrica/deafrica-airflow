@@ -1,174 +1,225 @@
 {
-    "stac_version": "1.0.0-beta.2",
+    "stac_version": "0.7.0",
     "stac_extensions": [
         "eo",
         "https://landsat.usgs.gov/stac/landsat-extension/schema.json"
     ],
-    "id": "LC08_L2SP_173064_20210329_20210408_02_T1",
+    "id": "LC08_L2SR_081119_20200101_20200823_02_T2",
     "type": "Feature",
     "bbox": [
-        27.43732247977534,
-        -6.8301955717688,
-        29.45034737520909,
-        -4.742876871116157
+        97.0135423519546,
+        -81.93331557352852,
+        111.50547149149213,
+        -79.61169259634802
     ],
     "geometry": {
         "type": "Polygon",
         "coordinates": [
             [
                 [
-                    27.81068423295273,
-                    -4.742876871116157
+                    106.0673404715087,
+                    -79.61169259634802
                 ],
                 [
-                    29.45034737520909,
-                    -5.093132537405793
+                    111.50547149149213,
+                    -81.06844416149866
                 ],
                 [
-                    29.08203885695961,
-                    -6.8301955717688
+                    101.33143658242044,
+                    -81.93331557352852
                 ],
                 [
-                    27.43732247977534,
-                    -6.476552482139929
+                    97.0135423519546,
+                    -80.34938321953908
                 ],
                 [
-                    27.81068423295273,
-                    -4.742876871116157
+                    106.0673404715087,
+                    -79.61169259634802
                 ]
             ]
         ]
     },
-    "description": "Landsat Collection 2 Level-2 Surface Temperature Product",
+    "description": "Landsat Collection 2 Level-2 Surface Reflectance Product",
     "properties": {
-        "datetime": "2021-03-29T08:15:04.227610Z",
-        "eo:cloud_cover": 82.15,
-        "eo:sun_azimuth": 72.87002114,
-        "eo:sun_elevation": 59.6138712,
+        "datetime": "2020-01-01",
+        "eo:cloud_cover": 0.0,
+        "eo:sun_azimuth": 93.54107327,
+        "eo:sun_elevation": 22.72192082,
         "eo:platform": "LANDSAT_8",
         "eo:instrument": "OLI_TIRS",
         "eo:off_nadir": 0,
-        "landsat:cloud_cover_land": 82.15,
+        "landsat:cloud_cover_land": 0.0,
         "landsat:wrs_type": "2",
-        "landsat:wrs_path": "173",
-        "landsat:wrs_row": "064",
-        "landsat:scene_id": "LC81730642021088LGN00",
-        "landsat:collection_category": "T1",
+        "landsat:wrs_path": "81",
+        "landsat:wrs_row": "119",
+        "landsat:scene_id": "LC80811192020001LGN00",
+        "landsat:collection_category": "T2",
         "landsat:collection_number": "02",
         "eo:bands": [
             {
-                "name": "ST_B10",
-                "common_name": "tir11",
+                "name": "SR_B1",
+                "common_name": "coastal",
                 "gsd": 30,
-                "center_wavelength": 10.9
+                "center_wavelength": 0.44
+            },
+            {
+                "name": "SR_B2",
+                "common_name": "blue",
+                "gsd": 30,
+                "center_wavelength": 0.48
+            },
+            {
+                "name": "SR_B3",
+                "common_name": "green",
+                "gsd": 30,
+                "center_wavelength": 0.56
+            },
+            {
+                "name": "SR_B4",
+                "common_name": "red",
+                "gsd": 30,
+                "center_wavelength": 0.65
+            },
+            {
+                "name": "SR_B5",
+                "common_name": "nir08",
+                "gsd": 30,
+                "center_wavelength": 0.86
+            },
+            {
+                "name": "SR_B6",
+                "common_name": "swir16",
+                "gsd": 30,
+                "center_wavelength": 1.6
+            },
+            {
+                "name": "SR_B7",
+                "common_name": "swir22",
+                "gsd": 30,
+                "center_wavelength": 2.2
             }
         ]
     },
     "assets": {
         "thumbnail": {
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_thumb_small.jpeg",
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_thumb_small.jpeg",
             "title": "Thumbnail image",
             "type": "image/jpeg"
         },
         "reduced_resolution_browse": {
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_thumb_large.jpeg",
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_thumb_large.jpeg",
             "title": "Reduced resolution browse image",
             "type": "image/jpeg"
         },
         "index": {
-            "href": "https://landsatlook.usgs.gov/stac-browser/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1",
+            "href": "https://landsatlook.usgs.gov/stac-browser/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2",
             "title": "HTML index page",
             "type": "text/html"
         },
-        "ST_B10.TIF": {
-            "title": "Surface Temperature Band (B10)",
-            "description": "Landsat Collection 2 Level-2 Surface Temperature Band (B10) Surface Temperature Product",
+        "SR_B1.TIF": {
+            "title": "Coastal/Aerosol Band (B1)",
+            "description": "Collection 2 Level-2 Coastal/Aerosol Band (B1) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_B10.TIF"
+            "eo:bands": [
+                0
+            ],
+            "href": "tests/data-files/landsat/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B2_small.TIF"
         },
-        "ST_ATRAN.TIF": {
-            "title": "Atmospheric Transmittance Band",
-            "description": "Landsat Collection 2 Level-2 Atmospheric Transmittance Band Surface Temperature Product",
+        "SR_B2.TIF": {
+            "title": "Blue Band (B2)",
+            "description": "Collection 2 Level-2 Blue Band (B2) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_ATRAN.TIF"
+            "eo:bands": [
+                1
+            ],
+            "href": "tests/data-files/landsat/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B2_small.TIF"
         },
-        "ST_CDIST.TIF": {
-            "title": "Cloud Distance Band",
-            "description": "Landsat Collection 2 Level-2 Cloud Distance Band Surface Temperature Product",
+        "SR_B3.TIF": {
+            "title": "Green Band (B3)",
+            "description": "Collection 2 Level-2 Green Band (B3) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_CDIST.TIF"
+            "eo:bands": [
+                2
+            ],
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B3.TIF"
         },
-        "ST_DRAD.TIF": {
-            "title": "Downwelled Radiance Band",
-            "description": "Landsat Collection 2 Level-2 Downwelled Radiance Band Surface Temperature Product",
+        "SR_B4.TIF": {
+            "title": "Red Band (B4)",
+            "description": "Collection 2 Level-2 Red Band (B4) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_DRAD.TIF"
+            "eo:bands": [
+                3
+            ],
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B4.TIF"
         },
-        "ST_URAD.TIF": {
-            "title": "Upwelled Radiance Band",
-            "description": "Landsat Collection 2 Level-2 Upwelled Radiance Band Surface Temperature Product",
+        "SR_B5.TIF": {
+            "title": "Near Infrared Band 0.8 (B5)",
+            "description": "Collection 2 Level-2 Near Infrared Band 0.8 (B5) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_URAD.TIF"
+            "eo:bands": [
+                4
+            ],
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B5.TIF"
         },
-        "ST_TRAD.TIF": {
-            "title": "Thermal Radiance Band",
-            "description": "Landsat Collection 2 Level-2 Thermal Radiance Band Surface Temperature Product",
+        "SR_B6.TIF": {
+            "title": "Short-wave Infrared Band 1.6 (B6)",
+            "description": "Collection 2 Level-2 Short-wave Infrared Band 1.6 (B6) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_TRAD.TIF"
+            "eo:bands": [
+                5
+            ],
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B6.TIF"
         },
-        "ST_EMIS.TIF": {
-            "title": "Emissivity Band",
-            "description": "Landsat Collection 2 Level-2 Emissivity Band Surface Temperature Product",
+        "SR_B7.TIF": {
+            "title": "Short-wave Infrared Band 2.2 (B7)",
+            "description": "Collection 2 Level-2 Short-wave Infrared Band 2.2 (B7) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_EMIS.TIF"
+            "eo:bands": [
+                6
+            ],
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B7.TIF"
         },
-        "ST_EMSD.TIF": {
-            "title": "Emissivity Standard Deviation Band",
-            "description": "Landsat Collection 2 Level-2 Emissivity Standard Deviation Band Surface Temperature Product",
+        "SR_QA_AEROSOL.TIF": {
+            "title": "Aerosol Quality Analysis Band",
+            "description": "Collection 2 Level-2 Aerosol Quality Analysis Band (ANG) Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_EMSD.TIF"
-        },
-        "ST_QA.TIF": {
-            "title": "Surface Temperature Quality Assessment Band",
-            "description": "Landsat Collection 2 Level-2 Surface Temperature Band Surface Temperature Product",
-            "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_QA.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_QA_AEROSOL.TIF"
         },
         "ANG.txt": {
             "title": "Angle Coefficients File",
-            "description": "Collection 2 Level-1 Angle Coefficients File (ANG) Surface Temperature",
+            "description": "Collection 2 Level-2 Angle Coefficients File (ANG) Surface Reflectance",
             "type": "text/plain",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ANG.txt"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_ANG.txt"
         },
         "MTL.txt": {
             "title": "Product Metadata File",
-            "description": "Collection 2 Level-1 Product Metadata File (MTL) Surface Temperature",
+            "description": "Collection 2 Level-2 Product Metadata File (MTL) Surface Reflectance",
             "type": "text/plain",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_MTL.txt"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_MTL.txt"
         },
         "MTL.xml": {
             "title": "Product Metadata File (xml)",
-            "description": "Collection 2 Level-1 Product Metadata File (xml) Surface Temperature",
+            "description": "Collection 2 Level-1 Product Metadata File (xml) Surface Reflectance",
             "type": "application/xml",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_MTL.xml"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_MTL.xml"
         },
         "MTL.json": {
             "title": "Product Metadata File (json)",
-            "description": "Collection 2 Level-1 Product Metadata File (json) Surface Temperature",
+            "description": "Collection 2 Level-2 Product Metadata File (json) Surface Reflectance",
             "type": "application/json",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_MTL.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_MTL.json"
         },
         "QA_PIXEL.TIF": {
             "title": "Pixel Quality Assessment Band",
-            "description": "Collection 2 Level-1 Pixel Quality Assessment Band Surface Temperature",
+            "description": "Collection 2 Level-2 Pixel Quality Assessment Band Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_QA_PIXEL.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_QA_PIXEL.TIF"
         },
         "QA_RADSAT.TIF": {
             "title": "Radiometric Saturation Quality Assessment Band",
-            "description": "Collection 2 Level-1 Radiometric Saturation Quality Assessment Band Surface Temperature",
+            "description": "Collection 2 Level-2 Radiometric Saturation Quality Assessment Band Surface Reflectance",
             "type": "image/vnd.stac.geotiff; cloud-optimized=true",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_QA_RADSAT.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_QA_RADSAT.TIF"
         }
     },
     "links": [
@@ -178,16 +229,16 @@
         },
         {
             "rel": "parent",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/catalog.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/catalog.json"
         },
         {
             "rel": "collection",
-            "href": "https://landsatlook.usgs.gov/data/collection02/landsat-c2l2-st.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/landsat-c2l2-sr.json"
         },
         {
             "rel": "self",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2021/173/064/LC08_L2SP_173064_20210329_20210408_02_T1/LC08_L2SP_173064_20210329_20210408_02_T1_ST_stac.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/oli-tirs/2020/081/119/LC08_L2SR_081119_20200101_20200823_02_T2/LC08_L2SR_081119_20200101_20200823_02_T2_SR_stac.json"
         }
     ],
-    "collection": "landsat-c2l2-st"
+    "collection": "landsat-c2l2-sr"
 }
