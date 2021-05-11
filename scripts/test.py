@@ -11,11 +11,11 @@ import requests
 from pystac import Item
 from rasterio import RasterioIOError
 
+from utils.stactools_mock import transform_stac_to_stac
 from utils.sync_utils import read_big_csv_files_from_gzip, read_csv_from_gzip
 
 
 def count_scenes():
-
     file_path = Path(
         os.path.join("C:/Users/cario/Downloads/", "LANDSAT_OT_C2_L2.csv.gz")
     )
@@ -59,11 +59,6 @@ def count_scenes():
 def convert(json_path: str):
     try:
         with open(json_path) as f:
-            dict_json = json.load(f)
-
-            if not item.properties or not item.properties.get("odc:product"):
-                raise Exception("Property odc:product is required")
-
             item = Item.from_dict(json.load(f))
             print(item)
             print(item.to_dict())
@@ -140,6 +135,7 @@ class class_test(unittest.TestCase):
         )
         print(item.stac_extensions)
 
+    @unittest.skip
     def test_rasterio(self):
         json_landsat82 = os.path.join(
             "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
@@ -151,11 +147,11 @@ class class_test(unittest.TestCase):
     def test_transform_static_stac_missing_asset_b2_b10(self):
         """It has to be able to gather the right information from other geotiff files"""
 
-        json_landsat82 = os.path.join(
-            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+        json_file2 = os.path.join(
+            "C:/Users/cario/work/deafrica-airflow/scripts/", "test2.json"
         )
 
-        item = convert(json_path=json_landsat82)
+        item = convert(json_path=json_file2)
 
         if item.assets.get("SR_B2.TIF"):
             item.assets.pop("SR_B2.TIF")
@@ -163,7 +159,11 @@ class class_test(unittest.TestCase):
         if item.assets.get("ST_B10.TIF"):
             item.assets.pop("ST_B10.TIF")
 
-        item = rasterio_test(item=item)
+        for asset in item.assets.values():
+            if "geotiff" in asset.media_type:
+                asset.href = "C:/Users/cario/work/deafrica-airflow/scripts/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B2_small.TIF"
+
+        item = transform_stac_to_stac(item)
         item.validate()
 
 
@@ -181,9 +181,9 @@ if __name__ == "__main__":
         "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
     )
 
-    get_queue_attributes_test()
-    # convert(json_file)
+    # get_queue_attributes_test()
+    # convert(json_path=json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
     # rasterio_test(json_file)
-    # unittest.main()
+    unittest.main()
     # count_scenes()

@@ -34,23 +34,25 @@ def transform_stac_to_stac(
 
     if isinstance(item.properties["eo:instrument"], str):
         item.common_metadata.instruments = [
-            i.lower() for i in item.properties["eo:instrument"].split("_")
+            i.lower() for i in item.properties.pop("eo:instrument").split("_")
         ]
     elif isinstance(item.properties["eo:instrument"], list):
         item.common_metadata.instruments = [
-            i.lower() for i in item.properties["eo:instrument"]
+            i.lower() for i in item.properties.pop("eo:instrument")
         ]
     else:
         raise STACError(
             f'eo:instrument type {type(item.properties["eo:instrument"])} not supported'
         )
 
-    del item.properties["eo:instrument"]
-
     # Handle view extension
     item.ext.enable("view")
-    item.ext.view.off_nadir = item.properties["eo:off_nadir"]
-    del item.properties["eo:off_nadir"]
+    if item.properties.get("eo:off_nadir"):
+        item.ext.view.off_nadir = item.properties.pop("eo:off_nadir")
+    elif item.properties.get("view:off_nadir"):
+        item.ext.view.off_nadir = item.properties.pop("view:off_nadir")
+    else:
+        STACError(f"eo:off_nadir or view:off_nadir required")
 
     if enable_proj:
 
@@ -73,7 +75,6 @@ def transform_stac_to_stac(
                                 raise STACError(
                                     f"Failed setting shape, transform and csr from {asset.href}"
                                 )
-
                     except RasterioIOError as io_error:
                         raise STACError(
                             f"Failed loading geotiff, so not handling proj fields"

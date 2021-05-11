@@ -368,7 +368,6 @@ def check_already_copied(conn_id, item: Item) -> bool:
     :param item:
     :return: (bool)
     """
-
     path_and_file_name = find_s3_path_and_file_name_from_item(
         item=item, start_url=USGS_DATA_URL
     )
@@ -479,6 +478,8 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
             raise Exception(f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}")
         # Check assets in S3
         check_assets_item(conn_id=conn_id, item=st_item)
+        # remove unnecessary root Link
+        st_item.remove_links("root")
 
     # If we can load the blue band, use it to add proj information
     if not sr_item.assets.get("SR_B2.TIF"):
@@ -487,6 +488,9 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
 
     # Check assets in S3
     check_assets_item(conn_id=conn_id, item=sr_item)
+
+    # remove unnecessary root Link
+    sr_item.remove_links("root")
 
     return {"SR": sr_item, "ST": st_item}
 
@@ -630,9 +634,11 @@ def process():
 
                 logging.info("Processing Message")
                 logging.info(f"Message received {message.body}")
-                logging.info(
-                    f"Message Paths {[stac_paths_obj for scene_id, stac_paths_obj in json.loads(message.body).items()]}"
-                )
+                paths = [
+                    stac_paths_obj
+                    for scene_id, stac_paths_obj in json.loads(message.body).items()
+                ]
+                logging.info(f"Message Paths {paths}")
 
                 sr_st_item_dict = None
                 for scene_id, stac_paths_obj in json.loads(message.body).items():
