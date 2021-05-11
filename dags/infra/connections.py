@@ -1,19 +1,12 @@
 """
 # Connection provided from infra to dags
 """
+# ##### LANDSAT #####
+CONN_LANDSAT_SYNC = "conn_landsat_sync"
 
-INDEX_LANDSAT_CONNECTION_ID = "index_landsat_scenes"
+CONN_LANDSAT_INDEX = "conn_landsat_index"
 
-# reverting to non-ssm
-SYNC_LANDSAT_CONNECTION_ID = "conn_sync_landsat_scene"
+# ##### SENTINEL - 2 #####
+CONN_SENTINEL_2_SYNC = "conn_sentinel_2_sync"
 
-SYNC_LANDSAT_INVENTORY_ID = "conn_sync_landsat_scene_inventory"
-
-MIGRATION_OREGON_CONNECTION_ID = "deafrica_migration_oregon"
-
-# Sentinel-2 US connection, this is based on svc-deafrica-prod-eks-s2-data-transfer
-# user which is in deafrica account
-S2_US_CONN_ID = "deafrica-prod-eks-s2-data-transfer"
-
-# Sentinel-2 PDS connection, this is based on svc-deafrica-sentinel-2-bucket-write
-S2_AFRICA_CONN_ID = "deafrica-sentinel-2-bucket-write"
+CONN_SENTINEL_2_INDEX = "conn_sentinel_2_index"
