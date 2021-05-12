@@ -148,7 +148,12 @@ def retrieve_list_of_files(scene_list):
             request_payer="requester",
         )
 
-        if not response.get("Contents"):
+        # if not response.get("Contents"):
+        if True:
+            logging.error(
+                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
+                f" folder {folder_link} - response {response}"
+            )
             notify_email(
                 task_name=f'Landsat Identifying - {scene["Date Product Generated L2"]}',
                 warning_message=f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
