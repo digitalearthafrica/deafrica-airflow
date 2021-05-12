@@ -154,6 +154,7 @@ def retrieve_list_of_files(scene_list):
                 warning_message=f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
                 f" folder {folder_link} - response {response}",
             )
+            return
             # raise Exception(
             #     f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
             # )
@@ -194,7 +195,9 @@ def retrieve_list_of_files(scene_list):
             if not flag:
                 logging.info("Consulting S3")
                 flag = True
-            yield future.result()
+
+            if future:
+                yield future.result()
 
 
 def identifying_data(file_name: str, date_to_process: str):
