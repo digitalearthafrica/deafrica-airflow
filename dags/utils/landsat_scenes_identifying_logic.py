@@ -22,6 +22,7 @@ from utils.sync_utils import (
     download_file_to_tmp,
     read_big_csv_files_from_gzip,
     convert_str_to_date,
+    notify_email,
 )
 
 
@@ -148,9 +149,15 @@ def retrieve_list_of_files(scene_list):
         )
 
         if not response.get("Contents"):
-            raise Exception(
-                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
+            notify_email(
+                task_name=f'Landsat Identifying - {scene["Date Product Generated L2"]}',
+                warning_message=f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
+                f" folder {folder_link} - response {response}",
             )
+            return
+            # raise Exception(
+            #     f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
+            # )
 
         mtl_sr_st_files = {}
         for obj in response["Contents"]:
@@ -188,7 +195,9 @@ def retrieve_list_of_files(scene_list):
             if not flag:
                 logging.info("Consulting S3")
                 flag = True
-            yield future.result()
+
+            if future:
+                yield future.result()
 
 
 def identifying_data(file_name: str, date_to_process: str):
