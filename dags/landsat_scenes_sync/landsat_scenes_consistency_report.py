@@ -29,6 +29,7 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
 )
+from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
     read_csv_from_gzip,
@@ -119,17 +120,6 @@ def get_and_filter_keys(s3_bucket_client):
             and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
         ):
             yield f"{key.rsplit('/', 1)[0]}/"
-
-    # return set(
-    #     key
-    #     # key.split("/")[-1]
-    #     for key in list_keys
-    #     if (
-    #         "_stac.json" in key
-    #         # Filter to remove inventory folder or any other despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
-    #         and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
-    #     )
-    # )
 
 
 def build_s3_url_from_api_metadata(display_ids):
