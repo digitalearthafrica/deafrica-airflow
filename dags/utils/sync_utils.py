@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import requests
-from airflow.utils.email import send_email
+from airflow.utils.email import send_email, send_email_smtp
 from pystac import Item
 
 
@@ -199,4 +199,4 @@ def notify_email(task_name: str, warning_message: str, **kwargs):
         task_name=task_name, warning_message=warning_message
     )
 
-    send_email("rodrigo.carvalho@ga.gov.au", title, body)
+    send_email_smtp(to="rodrigo.carvalho@ga.gov.au", subject=title, html_content=body)
