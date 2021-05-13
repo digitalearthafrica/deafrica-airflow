@@ -5,8 +5,10 @@ import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
 from infra.connections import CONN_LANDSAT_SYNC
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
@@ -14,6 +16,7 @@ from landsat_scenes_sync.variables import (
     BASE_BULK_CSV_URL,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
+    AFRICA_S3_BUKET_FAILS_FILE_PATH,
 )
 from utils.aws_utils import SQS, S3
 from utils.sync_utils import (
@@ -71,12 +74,23 @@ def publish_messages(path_list):
     return count
 
 
-def create_fail_report():
+def create_fail_report(landsat: str, error_message: str):
     """
-    d,fmn
-    :return:
+    Function to save a file to register fails
+    :param landsat: Landsat 5, 7 or 8
+    :param error_message:(str) Message to add to the log
+    :return: None
     """
-    pass
+
+    now = datetime.now()
+    destination_key = f"{AFRICA_S3_BUKET_FAILS_FILE_PATH}{landsat}_{now}.txt"
+
+    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3.save_obj_to_s3(
+        file=bytes(error_message),
+        destination_key=destination_key,
+        destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
+    )
 
 
 def filter_africa_location_from_gzip_file(file_path: Path, production_date: str):
@@ -158,15 +172,24 @@ def retrieve_list_of_files(scene_list):
 
         # if not response.get("Contents"):
         if True:
-            logging.error(
-                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
-                f" folder {folder_link} - response {response}"
+            msg = (
+                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} - "
+                f"folder {folder_link} - response {response}"
             )
-            notify_email(
-                task_name=f'Landsat Identifying - {scene["Date Product Generated L2"]}',
-                warning_message=f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
-                f" folder {folder_link} - response {response}",
-            )
+            landsat = scene["Date Product Generated L2"]
+
+            # Create file with the issue
+            create_fail_report(landsat=landsat, error_message=msg)
+
+            logging.error(msg)
+
+            try:
+                notify_email(
+                    task_name=f"Landsat Identifying - {landsat}", warning_message=msg
+                )
+            except Exception as error:
+                logging.error(error)
+
             return
             # raise Exception(
             #     f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"

@@ -41,7 +41,6 @@ class InventoryUtils:
         while True:
             # The S3 API response is a large blob of metadata.
             # 'Contents' contains information about the listed objects.
-            logging.info(f"FIND {self.bucket_name} - {self.region}")
             resp = self.s3_utils.list_objects(
                 bucket_name=self.bucket_name,
                 region=self.region,
@@ -50,8 +49,6 @@ class InventoryUtils:
 
             if not resp.get("Contents"):
                 return
-
-            logging.info(f"FIND {resp.get('Contents')}")
 
             for obj in resp["Contents"]:
                 if sub_key in obj["Key"] and obj["Key"].endswith(suffix):
