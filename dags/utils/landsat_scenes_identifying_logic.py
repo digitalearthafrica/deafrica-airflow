@@ -165,7 +165,7 @@ def retrieve_list_of_files(scene_list):
                 display_id=scene["Display ID"],
             )
         )
-        logging.info(f"folder_link {folder_link}")
+
         response = s3.list_objects(
             bucket_name=USGS_S3_BUCKET_NAME,
             region=USGS_AWS_REGION,
@@ -173,8 +173,7 @@ def retrieve_list_of_files(scene_list):
             request_payer="requester",
         )
 
-        # if not response.get("Contents"):
-        if True:
+        if not response.get("Contents"):
             # If there is no Content, generates a file with the issue,
             # then try to send an email and finally returns None
             msg = (
@@ -206,7 +205,6 @@ def retrieve_list_of_files(scene_list):
                 )
             except Exception as error:
                 logging.error(error)
-                raise error
 
             return
 
