@@ -74,16 +74,17 @@ def publish_messages(path_list):
     return count
 
 
-def create_fail_report(landsat: str, error_message: str):
+def create_fail_report(folder_path: str, error_message: str):
+
     """
     Function to save a file to register fails
-    :param landsat: Landsat 5, 7 or 8
+    :param folder_path:(str)
     :param error_message:(str) Message to add to the log
     :return: None
     """
 
-    now = datetime.now()
-    destination_key = f"fails/{landsat}_{now}.txt"
+    file_name = f"fail_{datetime.now()}.txt"
+    destination_key = f"fails/{folder_path}{file_name}"
 
     s3 = S3(conn_id=CONN_LANDSAT_SYNC)
     s3.save_obj_to_s3(
@@ -172,28 +173,34 @@ def retrieve_list_of_files(scene_list):
 
         # if not response.get("Contents"):
         if True:
+            # If there is no Content, generates a file with the issue,
+            # then try to send an email and finally returns None
             msg = (
                 f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} - "
                 f"folder {folder_link} - response {response}"
             )
-            landsat = scene["Date Product Generated L2"]
+
+            folder_path = (
+                f'{scene["Satellite"]}/'
+                f'{scene["Date Product Generated L2"]}/'
+                f'{scene["Display ID"]}/'
+            )
 
             # Create file with the issue
-            create_fail_report(landsat=landsat, error_message=msg)
+            create_fail_report(folder_path=folder_path, error_message=msg)
 
             logging.error(msg)
 
             try:
                 notify_email(
-                    task_name=f"Landsat Identifying - {landsat}", warning_message=msg
+                    task_name=f"Landsat Identifying - {scene['Satellite']}",
+                    warning_message=msg,
                 )
             except Exception as error:
                 logging.error(error)
+                raise error
 
             return
-            # raise Exception(
-            #     f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
-            # )
 
         mtl_sr_st_files = {}
         for obj in response["Contents"]:
