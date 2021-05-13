@@ -87,7 +87,7 @@ def create_fail_report(landsat: str, error_message: str):
 
     s3 = S3(conn_id=CONN_LANDSAT_SYNC)
     s3.save_obj_to_s3(
-        file=bytes(error_message),
+        file=bytes(error_message.encode("UTF-8")),
         destination_key=destination_key,
         destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
     )
