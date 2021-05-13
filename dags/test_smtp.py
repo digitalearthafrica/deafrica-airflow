@@ -27,10 +27,9 @@ dag = DAG(
 email = EmailOperator(
     task_id="send_email",
     to="nikita.gandhi@ga.gov.au",
-    task_id="email_task"
-    subject='Templated Subject: start_date {{ ds }}',
-    params={'content1': 'random'},
-    html_content=Templated Content: content1 - {{ params.content1 }}  task_key - {{ task_instance_key_str }} test_mode - {{ test_mode }} task_owner - {{ task.owner}} hostname - {{ ti.hostname }}",
+    subject="Templated Subject: start_date {{ ds }}",
+    params={"content1": "random"},
+    html_content="Templated Content: content1 - {{ params.content1 }}  task_key - {{ task_instance_key_str }} test_mode - {{ test_mode }} task_owner - {{ task.owner}} hostname - {{ ti.hostname }}",
     dag=dag,
 )
 
