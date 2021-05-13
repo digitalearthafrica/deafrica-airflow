@@ -21,6 +21,9 @@ class InventoryUtils:
         self.s3_utils = S3(conn_id=conn)
         self.region = region
         self.bucket_name = bucket_name
+        logging.info(
+            f"Inventory utils set to bucket {self.bucket_name} - and - region {self.region}"
+        )
 
     # Modified derived from https://alexwlchan.net/2018/01/listing-s3-keys-redux/
     def find(

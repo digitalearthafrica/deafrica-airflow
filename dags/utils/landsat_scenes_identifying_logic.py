@@ -5,8 +5,11 @@ import json
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
 from pathlib import Path
+
 from infra.connections import CONN_LANDSAT_SYNC
+from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
 from landsat_scenes_sync.variables import (
@@ -71,6 +74,25 @@ def publish_messages(path_list):
     return count
 
 
+def create_fail_report(folder_path: str, error_message: str):
+    """
+    Function to save a file to register fails
+    :param folder_path:(str)
+    :param error_message:(str) Message to add to the log
+    :return: None
+    """
+
+    file_name = f"fail_{datetime.now()}.txt"
+    destination_key = f"fails/{folder_path}{file_name}"
+
+    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3.save_obj_to_s3(
+        file=bytes(error_message.encode("UTF-8")),
+        destination_key=destination_key,
+        destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
+    )
+
+
 def filter_africa_location_from_gzip_file(file_path: Path, production_date: str):
     """
     Function to filter just the Africa location based on the WRS Path and WRS Row.
@@ -93,10 +115,12 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
     logging.info("Start Filtering Scenes by Africa location, Just day scenes and date")
     logging.info(f"Unzipping and filtering file according to Africa Pathrows")
     for row in read_big_csv_files_from_gzip(file_path):
+
         if (
             # Filter to skip all LANDSAT_4
             row.get("Satellite")
             and row["Satellite"] != "LANDSAT_4"
+            and row["Satellite"] != "4"
             # Filter to get just day
             and (
                 row.get("Day/Night Indicator")
@@ -140,7 +164,7 @@ def retrieve_list_of_files(scene_list):
                 display_id=scene["Display ID"],
             )
         )
-        logging.info(f"folder_link {folder_link}")
+
         response = s3.list_objects(
             bucket_name=USGS_S3_BUCKET_NAME,
             region=USGS_AWS_REGION,
@@ -149,15 +173,39 @@ def retrieve_list_of_files(scene_list):
         )
 
         if not response.get("Contents"):
-            notify_email(
-                task_name=f'Landsat Identifying - {scene["Date Product Generated L2"]}',
-                warning_message=f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} -"
-                f" folder {folder_link} - response {response}",
+            # If there is no Content, generates a file with the issue,
+            # then try to send an email and finally returns None
+            msg = (
+                f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} - "
+                f"folder {folder_link} - response {response}"
             )
+
+            satellite = (
+                scene["Satellite"]
+                if "LANDSAT" in scene["Satellite"].upper()
+                else f'LANDSAT_{scene["Satellite"]}'
+            )
+
+            folder_path = (
+                f"{satellite}/"
+                f'{scene["Date Product Generated L2"]}/'
+                f'{scene["Display ID"]}/'
+            )
+
+            # Create file with the issue
+            create_fail_report(folder_path=folder_path, error_message=msg)
+
+            logging.error(msg)
+
+            try:
+                notify_email(
+                    task_name=f"Landsat Identifying - {scene['Satellite']}",
+                    warning_message=msg,
+                )
+            except Exception as error:
+                logging.error(error)
+
             return
-            # raise Exception(
-            #     f"Error Listing objects in S3 {USGS_S3_BUCKET_NAME} folder {folder_link}"
-            # )
 
         mtl_sr_st_files = {}
         for obj in response["Contents"]:
@@ -224,9 +272,7 @@ def identifying_data(file_name: str, date_to_process: str):
 
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
-            # TODO remove limitation when in PROD
-            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:8])
-            # path_list = retrieve_list_of_files(scene_list=scene_list)
+            path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
             messages_sent = publish_messages(path_list=path_list)
