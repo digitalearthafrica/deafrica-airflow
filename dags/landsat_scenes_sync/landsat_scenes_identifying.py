@@ -32,7 +32,7 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
     "start_date": datetime(2021, 5, 8),
-    "version": "0.10",
+    "version": "0.12",
 }
 # [END default_args]
 
