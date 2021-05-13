@@ -151,6 +151,18 @@ def retrieve_list_of_files(scene_list):
     s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
     def build_asset_list(scene):
+        satellite = (
+            scene["Satellite"]
+            if "LANDSAT" in scene["Satellite"].upper()
+            else f'LANDSAT_{scene["Satellite"]}'
+        )
+
+        fail_folder_path = (
+            f"{satellite}/"
+            f'{scene["Date Product Generated L2"]}/'
+            f'{scene["Display ID"]}/'
+        )
+
         year_acquired = convert_str_to_date(scene["Date Acquired"]).year
         # USGS changes - for _ when generates the CSV bulk file
         identifier = scene["Sensor Identifier"].lower().replace("_", "-")
@@ -181,20 +193,8 @@ def retrieve_list_of_files(scene_list):
                 f"folder {folder_link} - response {response}"
             )
 
-            satellite = (
-                scene["Satellite"]
-                if "LANDSAT" in scene["Satellite"].upper()
-                else f'LANDSAT_{scene["Satellite"]}'
-            )
-
-            folder_path = (
-                f"{satellite}/"
-                f'{scene["Date Product Generated L2"]}/'
-                f'{scene["Display ID"]}/'
-            )
-
             # Create file with the issue
-            create_fail_report(folder_path=folder_path, error_message=msg)
+            create_fail_report(folder_path=fail_folder_path, error_message=msg)
 
             logging.error(msg)
 
@@ -220,9 +220,22 @@ def retrieve_list_of_files(scene_list):
                 mtl_sr_st_files.update({"MTL": obj["Key"]})
 
         if not mtl_sr_st_files:
-            raise Exception(
-                f'Neither SR nor ST file were found for {scene["Display ID"]}'
-            )
+            msg = f'Neither SR nor ST file were found for {scene["Display ID"]}'
+
+            # Create file with the issue
+            create_fail_report(folder_path=fail_folder_path, error_message=msg)
+
+            logging.error(msg)
+
+            try:
+                notify_email(
+                    task_name=f"Landsat Identifying - {scene['Satellite']}",
+                    warning_message=msg,
+                )
+            except Exception as error:
+                logging.error(error)
+
+            return
 
         return {scene["Display ID"]: mtl_sr_st_files}
 
