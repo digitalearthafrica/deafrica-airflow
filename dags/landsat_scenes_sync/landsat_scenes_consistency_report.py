@@ -79,6 +79,7 @@ def get_and_filter_keys_from_files(file_path: Path):
         )
 
     # Download updated Pathrows
+    logging.info("Retrieving allowed Pathrows")
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     for row in read_big_csv_files_from_gzip(file_path):
@@ -169,10 +170,13 @@ def generate_buckets_diff(land_sat: str, file_name: str):
     try:
         start_timer = time.time()
 
+        logging.info("Comparing")
+
         # Download bulk file
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
         # Retrieve keys from the bulk file
+        logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
         # Create connection to the inventory S3 bucket
@@ -183,9 +187,11 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         )
 
         # Retrieve keys from inventory bucket
+        logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
         dest_paths = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
 
         # Keys that are missing, they are in the source but not in the bucket
+        logging.info("Filtering missing scenes")
         missing_scenes = [
             "{s3_path}{base_path}".format(s3_path=USGS_S3_BUCKET_PATH, base_path=path)
             for path in source_paths
@@ -193,6 +199,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         ]
 
         # Keys that are orphan, they are in the bucket but not found in the files
+        logging.info("Filtering orphan scenes")
         orphaned_scenes = [
             "{s3_path}{base_path}".format(s3_path=AFRICA_S3_BUCKET_PATH, base_path=path)
             for path in dest_paths
@@ -202,7 +209,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-        logging.info(f"len(missing_scenes) : {len(missing_scenes)}")
+        logging.info(f"Amount of missing scenes : {len(missing_scenes)}")
 
         output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
