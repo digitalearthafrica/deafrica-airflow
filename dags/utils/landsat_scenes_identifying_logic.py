@@ -71,6 +71,14 @@ def publish_messages(path_list):
     return count
 
 
+def create_fail_report():
+    """
+    d,fmn
+    :return:
+    """
+    pass
+
+
 def filter_africa_location_from_gzip_file(file_path: Path, production_date: str):
     """
     Function to filter just the Africa location based on the WRS Path and WRS Row.

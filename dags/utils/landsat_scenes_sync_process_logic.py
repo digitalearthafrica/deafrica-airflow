@@ -200,7 +200,7 @@ class ScenesSyncProcess:
         # Limit number of threads
         num_of_threads = 25
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
-            logging.info("{self.logger_name} - FILTERING MISSING ASSETS")
+            logging.info("FILTERING MISSING ASSETS")
 
             tasks = [
                 executor.submit(
