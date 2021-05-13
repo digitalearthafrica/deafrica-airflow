@@ -30,8 +30,6 @@ BASE_BULK_CSV_URL = (
 
 AFRICA_S3_BUCKET_PATH = f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
 
-AFRICA_S3_BUKET_FAILS_FILE_PATH = f"{AFRICA_S3_BUCKET_PATH}fails/"
-
 AFRICA_S3_PRODUCT_EXPLORER = "https://explorer.digitalearth.africa/products/"
 
 AFRICA_S3_ENDPOINT = "s3.af-south-1.amazonaws.com"

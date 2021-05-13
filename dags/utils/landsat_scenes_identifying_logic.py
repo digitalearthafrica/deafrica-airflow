@@ -7,6 +7,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
+
 from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
@@ -16,7 +17,6 @@ from landsat_scenes_sync.variables import (
     BASE_BULK_CSV_URL,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
-    AFRICA_S3_BUKET_FAILS_FILE_PATH,
 )
 from utils.aws_utils import SQS, S3
 from utils.sync_utils import (
@@ -83,7 +83,7 @@ def create_fail_report(landsat: str, error_message: str):
     """
 
     now = datetime.now()
-    destination_key = f"{AFRICA_S3_BUKET_FAILS_FILE_PATH}{landsat}_{now}.txt"
+    destination_key = f"fails/{landsat}_{now}.txt"
 
     s3 = S3(conn_id=CONN_LANDSAT_SYNC)
     s3.save_obj_to_s3(
