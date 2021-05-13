@@ -25,6 +25,7 @@ dag = DAG(
 )
 
 email = EmailOperator(
+    mime_charset="utf-8",
     task_id="send_email",
     to="nikita.gandhi@ga.gov.au",
     subject="Templated Subject: start_date {{ ds }}",
