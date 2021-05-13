@@ -8,12 +8,12 @@ from airflow.operators.email_operator import EmailOperator
 
 default_args = {
     "owner": "Pin Jin",
-    "depends_on_past": False,
+    # "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
     "email": ["nikita.gandhi@ga.gov.au"],
-    "email_on_failure": False,
-    "email_on_retry": False,
-    "retries": 1,
+    # "email_on_failure": False,
+    # "email_on_retry": False,
+    # "retries": 1,
 }
 
 dag = DAG(
