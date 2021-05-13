@@ -13,7 +13,7 @@ default_args = {
     "email": ["nikita.gandhi@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
-    "retries": None,
+    "retries": 1,
 }
 
 dag = DAG(
