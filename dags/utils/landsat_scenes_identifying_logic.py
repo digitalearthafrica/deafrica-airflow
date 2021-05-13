@@ -116,10 +116,12 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
     logging.info("Start Filtering Scenes by Africa location, Just day scenes and date")
     logging.info(f"Unzipping and filtering file according to Africa Pathrows")
     for row in read_big_csv_files_from_gzip(file_path):
+
         if (
             # Filter to skip all LANDSAT_4
             row.get("Satellite")
             and row["Satellite"] != "LANDSAT_4"
+            and row["Satellite"] != "4"
             # Filter to get just day
             and (
                 row.get("Day/Night Indicator")
@@ -180,8 +182,14 @@ def retrieve_list_of_files(scene_list):
                 f"folder {folder_link} - response {response}"
             )
 
+            satellite = (
+                scene["Satellite"]
+                if "LANDSAT" in scene["Satellite"].upper()
+                else f'LANDSAT_{scene["Satellite"]}'
+            )
+
             folder_path = (
-                f'{scene["Satellite"]}/'
+                f"{satellite}/"
                 f'{scene["Date Product Generated L2"]}/'
                 f'{scene["Display ID"]}/'
             )
