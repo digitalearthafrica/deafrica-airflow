@@ -9,7 +9,6 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 from airflow import DAG
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
@@ -21,13 +20,13 @@ from airflow.operators.python_operator import (
     BranchPythonOperator,
 )
 from pystac import Item, Link
+
 from infra.connections import CONN_SENTINEL_2_SYNC
-from infra.sns_topics import SENTINEL_2_SYNC_SNS_ARN
-from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.s3_buckets import (
     SENTINEL_2_SYNC_BUCKET_NAME,
-    SENTINEL_2_INVENTORY_BUCKET_NAME,
 )
+from infra.sns_topics import SENTINEL_2_SYNC_SNS_ARN
+from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
 from utils.aws_utils import SQS
@@ -134,6 +133,9 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
+    # TODO TEST
+    return True
+
     s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     s3_hook.copy_object(
         source_bucket_key=src_key,
@@ -212,16 +214,19 @@ def start_transfer(stac_item: Item):
         logging.info(f"Succeeded: {scene_path} ")
     else:
         raise ValueError(f"{scene_path} failed to copy")
-    try:
-        s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-        s3_hook.load_string(
-            string_data=json.dumps(stac_item.to_dict()),
-            key=stac_key,
-            replace=True,
-            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-        )
-    except Exception as exc:
-        raise ValueError(f"{stac_key} failed to copy")
+
+    logging.info(f"Saving {stac_item.to_dict()} at {stac_key}")
+    # TODO uncomment in PROD
+    # try:
+    #     s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+    #     s3_hook.load_string(
+    #         string_data=json.dumps(stac_item.to_dict()),
+    #         key=stac_key,
+    #         replace=True,
+    #         bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+    #     )
+    # except Exception as exc:
+    #     raise ValueError(f"{stac_key} failed to copy")
 
 
 def is_valid_tile_id(stac_item: Item, valid_tile_ids: list):
@@ -257,7 +262,13 @@ def copy_s3_objects(ti, **kwargs):
     logging.info("Reading Africa's visible tiles")
     valid_tile_ids = read_csv_from_gzip(file_path=AFRICA_TILES)
 
+    # TODO Test limit
+    count = 0
     for message in messages:
+        count += 1
+        if count > 10:
+            break
+
         message_body = json.loads(message.body)
         message_body_dict = json.loads(message_body["Message"])
 
@@ -276,9 +287,17 @@ def copy_s3_objects(ti, **kwargs):
             updated_stac = correct_stac_links(stac_item)
             logging.info("Corrected")
 
+            logging.info("Transferring files")
             start_transfer(updated_stac)
+            logging.info("Files transferred")
+
+            logging.info("Sending message to SNS topic")
             publish_to_sns(updated_stac, attributes)
+            logging.info("Message sent")
+
+            logging.info("Deleting message")
             # message.delete()
+            logging.info("Message deleted")
             successful += 1
         except ValueError as err:
             failed += 1

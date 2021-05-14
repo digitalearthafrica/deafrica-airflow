@@ -75,7 +75,6 @@ def publish_messages(path_list):
 
 
 def create_fail_report(folder_path: str, error_message: str):
-
     """
     Function to save a file to register fails
     :param folder_path:(str)
