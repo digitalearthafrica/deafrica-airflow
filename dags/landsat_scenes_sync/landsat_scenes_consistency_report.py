@@ -194,7 +194,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
-            "{s3_path}{base_path}".format(s3_path=USGS_S3_BUCKET_PATH, base_path=path)
+            f"{USGS_S3_BUCKET_PATH}{path}"
             for path in source_paths
             if path not in dest_paths
         ]
@@ -202,7 +202,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
-            "{s3_path}{base_path}".format(s3_path=AFRICA_S3_BUCKET_PATH, base_path=path)
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
             for path in dest_paths
             if path not in source_paths
         ]
@@ -210,20 +210,18 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-        logging.info(f"Amount of missing scenes : {len(missing_scenes)}")
-
         output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
-        # s3_report = S3(conn_id=CONN_LANDSAT_SYNC)
-        #
-        # s3_report.put_object(
-        #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-        #     key=key,
-        #     region=AWS_DEFAULT_REGION,
-        #     body="\n".join(missing_scenes),
-        # )
+        s3_report = S3(conn_id=CONN_LANDSAT_SYNC)
+
+        s3_report.put_object(
+            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+            key=key,
+            region=AWS_DEFAULT_REGION,
+            body="\n".join(missing_scenes),
+        )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
@@ -231,12 +229,12 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         if len(orphaned_scenes) > 0:
             output_filename = f"{land_sat}_{datetime.today().isoformat()}_orphaned.txt"
             key = REPORTING_PREFIX + output_filename
-            # s3_report.put_object(
-            #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            #     key=key,
-            #     region=AWS_DEFAULT_REGION,
-            #     body="\n".join(orphaned_scenes),
-            # )
+            s3_report.put_object(
+                bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+                key=key,
+                region=AWS_DEFAULT_REGION,
+                body="\n".join(orphaned_scenes),
+            )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 

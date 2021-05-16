@@ -133,8 +133,6 @@ def write_scene(src_key):
     Write a file to destination bucket
     param message: key to write
     """
-    # TODO TEST
-    return True
 
     s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     s3_hook.copy_object(
@@ -150,7 +148,7 @@ def start_transfer(stac_item: Item):
     """
     Transfer a scene from source to destination bucket
     """
-    logging.info("Transfering Files")
+    logging.info("Transfering Files TRUE")
 
     s3_hook_oregon = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     derived_from_link = stac_item.get_single_link("derived_from")
@@ -166,6 +164,7 @@ def start_transfer(stac_item: Item):
         raise ValueError(
             f"{stac_key} does not exist in the {SENTINEL_COGS_BUCKET} bucket"
         )
+    logging.info(f"File exists")
 
     # Add URL of .tif files
     urls = [
@@ -215,18 +214,17 @@ def start_transfer(stac_item: Item):
     else:
         raise ValueError(f"{scene_path} failed to copy")
 
-    logging.info(f"Saving {stac_item.to_dict()} at {stac_key}")
-    # TODO uncomment in PROD
-    # try:
-    #     s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    #     s3_hook.load_string(
-    #         string_data=json.dumps(stac_item.to_dict()),
-    #         key=stac_key,
-    #         replace=True,
-    #         bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-    #     )
-    # except Exception as exc:
-    #     raise ValueError(f"{stac_key} failed to copy")
+    logging.info(f"Saving {stac_item.to_dict()} to {stac_key}")
+    try:
+        s3_hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+        s3_hook.load_string(
+            string_data=json.dumps(stac_item.to_dict()),
+            key=stac_key,
+            replace=True,
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+        )
+    except Exception as exc:
+        raise ValueError(f"{stac_key} failed to copy")
 
 
 def is_valid_tile_id(stac_item: Item, valid_tile_ids: list):
