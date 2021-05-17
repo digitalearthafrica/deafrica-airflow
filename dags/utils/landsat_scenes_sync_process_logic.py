@@ -14,7 +14,7 @@ from pystac import Item, Link
 
 # from stactools.landsat.utils import transform_stac_to_stac
 
-from infra.connections import CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.sns_topics import LANDSAT_SYNC_SNS_ARN
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
@@ -44,9 +44,7 @@ class ScenesSyncProcess:
     Sync scenes from USGS to Africa
     """
 
-    def __init__(self, conn_id, logger_name: str = ""):
-        self.s3 = S3(conn_id=conn_id)
-        self.sns = SNS(conn_id=conn_id)
+    def __init__(self, logger_name: str = ""):
         self.logger_name = logger_name
 
     def remove_usgs_extension(self, item: Item):
@@ -202,9 +200,11 @@ class ScenesSyncProcess:
         with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
             logging.info(f"{self.logger_name} - FILTERING MISSING ASSETS")
 
+            s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+
             tasks = [
                 executor.submit(
-                    self.s3.key_not_existent,
+                    s3.key_not_existent,
                     LANDSAT_SYNC_BUCKET_NAME,
                     link,
                 )
@@ -238,9 +238,12 @@ class ScenesSyncProcess:
                 f"{self.logger_name} - Copying missing assets {missing_assets}"
             )
 
+            # It has to be the PDS User
+            s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+
             task = [
                 executor.submit(
-                    self.s3.copy_s3_to_s3_cross_region,
+                    s3.copy_s3_to_s3_cross_region,
                     USGS_S3_BUCKET_NAME,
                     LANDSAT_SYNC_BUCKET_NAME,
                     USGS_AWS_REGION,
@@ -311,17 +314,18 @@ class ScenesSyncProcess:
 
         logging.info(f"{self.logger_name} - destination {destination_key}")
 
-        self.s3.save_obj_to_s3(
+        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+
+        s3.save_obj_to_s3(
             file=bytes(json.dumps(item_obj.to_dict()).encode("UTF-8")),
             destination_key=destination_key,
             destination_bucket=LANDSAT_SYNC_BUCKET_NAME,
         )
 
 
-def check_assets_item(conn_id, item: Item):
+def check_assets_item(item: Item):
     """
     Function to check assets from a given Item in USGS S3 bucket
-    :param conn_id:
     :param item:
     :return:
     """
@@ -339,7 +343,7 @@ def check_assets_item(conn_id, item: Item):
 
     logging.info(f"Scene S3 folder path {folder_path}")
 
-    s3 = S3(conn_id=conn_id)
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
 
     resp = s3.list_objects(
         bucket_name=USGS_S3_BUCKET_NAME,
@@ -360,11 +364,10 @@ def check_assets_item(conn_id, item: Item):
     return not difference
 
 
-def check_already_copied(conn_id, item: Item) -> bool:
+def check_already_copied(item: Item) -> bool:
     """
     Check if the item was already copied based on the <scene>
 
-    :param conn_id:
     :param item:
     :return: (bool)
     """
@@ -375,26 +378,25 @@ def check_already_copied(conn_id, item: Item) -> bool:
     logging.info(f"Checking for {path_and_file_name['path']}")
 
     # If not exist return the path, if exist return None
-    s3 = S3(conn_id=conn_id)
+    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
     exist = s3.key_not_existent(LANDSAT_SYNC_BUCKET_NAME, path_and_file_name["path"])
 
     return not bool(exist)
 
 
-def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict):
+def retrieve_sr_and_st_update_and_convert_to_item(stac_paths_obj: dict):
     """
     Function to access AWS USGS S3 and retrieve their SR and ST json files, then merge the
     ST and SR assets and
     return SR_ITEM and ST_ITEM respectively
 
-    :param conn_id:
     :param stac_paths_obj:(dict) dict with the path for metadata (SR, ST, ML)
     :return:(dict) Return SR and ST stactools Items in a dict
     """
 
     def retrieve_file(path: str):
         if path:
-            s3 = S3(conn_id=conn_id)
+            s3 = S3(conn_id=CONN_LANDSAT_WRITE)
             return s3.get_s3_contents_and_attributes(
                 bucket_name=USGS_S3_BUCKET_NAME,
                 key=path,
@@ -477,7 +479,7 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
             # st_item = None
             raise Exception(f"Either ST_B6.TIF and ST_B10.TIF are missing in {st_dict}")
         # Check assets in S3
-        check_assets_item(conn_id=conn_id, item=st_item)
+        check_assets_item(item=st_item)
         # remove unnecessary root Link
         st_item.remove_links("root")
 
@@ -487,7 +489,7 @@ def retrieve_sr_and_st_update_and_convert_to_item(conn_id, stac_paths_obj: dict)
         raise Exception(f"Asset SR_B2.TIF is missing in {sr_item}")
 
     # Check assets in S3
-    check_assets_item(conn_id=conn_id, item=sr_item)
+    check_assets_item(item=sr_item)
 
     # remove unnecessary root Link
     sr_item.remove_links("root")
@@ -508,7 +510,7 @@ def get_messages(
     :return: Generator
     """
 
-    logging.info(f"Conn_id Name {CONN_LANDSAT_SYNC}")
+    logging.info(f"Reading messages with {CONN_LANDSAT_SYNC}")
     logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_NAME}")
 
     sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
@@ -549,9 +551,9 @@ def process_item(stac_type: str, item: Item):
 
     logger_name = f"{item.id}_log"
 
-    scenes_sync = ScenesSyncProcess(conn_id=CONN_LANDSAT_SYNC, logger_name=logger_name)
+    scenes_sync = ScenesSyncProcess(logger_name=logger_name)
 
-    sns_topic = SNS(conn_id=CONN_LANDSAT_SYNC)
+    sns_topic = SNS(conn_id=CONN_LANDSAT_WRITE)
 
     logger = logging.getLogger(logger_name)
 
@@ -647,14 +649,11 @@ def process():
                     )
 
                     sr_st_item_dict = retrieve_sr_and_st_update_and_convert_to_item(
-                        conn_id=CONN_LANDSAT_SYNC,
                         stac_paths_obj=stac_paths_obj,
                     )
 
                 logging.info("Checking if stac was already processed")
-                already_processed = check_already_copied(
-                    conn_id=CONN_LANDSAT_SYNC, item=sr_st_item_dict["SR"]
-                )
+                already_processed = check_already_copied(item=sr_st_item_dict["SR"])
 
                 if not already_processed:
                     logging.info(f"Stac NOT processed!")

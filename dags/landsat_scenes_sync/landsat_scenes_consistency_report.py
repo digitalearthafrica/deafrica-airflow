@@ -14,7 +14,7 @@ from pathlib import Path
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from infra.connections import CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     AWS_DEFAULT_REGION,
@@ -83,7 +83,9 @@ def get_and_filter_keys_from_files(file_path: Path):
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
-    for row in read_big_csv_files_from_gzip(file_path):
+    return set(
+        build_path(row)
+        for row in read_big_csv_files_from_gzip(file_path)
         if (
             # Filter to skip all LANDSAT_4
             row.get("Satellite")
@@ -99,29 +101,66 @@ def get_and_filter_keys_from_files(file_path: Path):
                 and row.get("WRS Row")
                 and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
             )
-        ):
-            # Create name as it's stored in the S3 bucket, so it can be compared
-            yield build_path(row)
+        )
+    )
+
+    # for row in read_big_csv_files_from_gzip(file_path):
+    #     if (
+    #         # Filter to skip all LANDSAT_4
+    #         row.get("Satellite")
+    #         and row["Satellite"] != "LANDSAT_4"
+    #         # Filter to get just day
+    #         and (
+    #             row.get("Day/Night Indicator")
+    #             and row["Day/Night Indicator"].upper() == "DAY"
+    #         )
+    #         # Filter to get just from Africa
+    #         and (
+    #             row.get("WRS Path")
+    #             and row.get("WRS Row")
+    #             and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+    #         )
+    #     ):
+    #         # Create name as it's stored in the S3 bucket, so it can be compared
+    #         yield build_path(row)
 
 
-def get_and_filter_keys(s3_bucket_client):
+def get_and_filter_keys(s3_bucket_client, landsat: str):
     """
     Retrieve key list from a inventory bucket and filter
     :param s3_bucket_client:
+    :param landsat:(str)
     :return:
     """
+
+    prefix = None
+    if landsat == "landsat_8":
+        prefix = "LC08"
+    elif landsat == "landsat_7":
+        prefix = "LE07"
+    elif landsat == "Landsat_4_5":
+        prefix = "LT05"
+
+    if not prefix:
+        raise Exception(f"prefix not defined")
 
     list_keys = s3_bucket_client.retrieve_keys_from_inventory(
         manifest_sufix=MANIFEST_SUFFIX
     )
 
-    for key in list_keys:
+    logging.info(f"Filterring by prefix {prefix}")
+
+    return set(
+        f"{key.rsplit('/', 1)[0]}/"
+        for key in list_keys
         if (
-            "_stac.json" in key
+            "SR_stac.json" in key
             # Filter to remove any folder despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
             and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
-        ):
-            yield f"{key.rsplit('/', 1)[0]}/"
+            # Ensure the filter to the right satellite
+            and key.split("/")[-1].startswith(prefix)
+        )
+    )
 
 
 def build_s3_url_from_api_metadata(display_ids):
@@ -163,7 +202,7 @@ def build_s3_url_from_api_metadata(display_ids):
                 yield future.result()
 
 
-def generate_buckets_diff(land_sat: str, file_name: str):
+def generate_buckets_diff(landsat: str, file_name: str):
     """
     Compare USGS bulk files and Africa inventory bucket detecting differences
     A report containing missing keys will be written to AFRICA_S3_BUCKET_PATH
@@ -180,6 +219,8 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
+        logging.info(f" TEST {set(s for s in source_paths)}")
+
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
@@ -189,52 +230,54 @@ def generate_buckets_diff(land_sat: str, file_name: str):
 
         # Retrieve keys from inventory bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
-        dest_paths = get_and_filter_keys(s3_bucket_client=s3_inventory_dest)
+        dest_paths = get_and_filter_keys(
+            s3_bucket_client=s3_inventory_dest, landsat=landsat
+        )
+
+        logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
 
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
             f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths
-            if path not in dest_paths
+            for path in source_paths.difference(dest_paths)
         ]
 
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
             f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths
-            if path not in source_paths
+            for path in dest_paths.difference(source_paths)
         ]
 
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-        output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
+        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
-        s3_report = S3(conn_id=CONN_LANDSAT_SYNC)
+        s3_report = S3(conn_id=CONN_LANDSAT_WRITE)
 
-        s3_report.put_object(
-            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            key=key,
-            region=AWS_DEFAULT_REGION,
-            body="\n".join(missing_scenes),
-        )
+        # s3_report.put_object(
+        #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+        #     key=key,
+        #     region=AWS_DEFAULT_REGION,
+        #     body="\n".join(missing_scenes),
+        # )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{land_sat}_{datetime.today().isoformat()}_orphaned.txt"
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt"
             key = REPORTING_PREFIX + output_filename
-            s3_report.put_object(
-                bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-                key=key,
-                region=AWS_DEFAULT_REGION,
-                body="\n".join(orphaned_scenes),
-            )
+            # s3_report.put_object(
+            #     bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+            #     key=key,
+            #     region=AWS_DEFAULT_REGION,
+            #     body="\n".join(orphaned_scenes),
+            # )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
@@ -275,7 +318,7 @@ with DAG(
             PythonOperator(
                 task_id=f"{sat}_compare_s3_inventories",
                 python_callable=generate_buckets_diff,
-                op_kwargs=dict(land_sat=sat, file_name=file),
+                op_kwargs=dict(landsat=sat, file_name=file),
             )
         )
 
