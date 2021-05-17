@@ -36,7 +36,7 @@ CONCURRENCY = 32
 
 default_args = {
     "owner": "Airflow",
-    "email": ["toktam.ebadi@ga.gov.au"],
+    "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,

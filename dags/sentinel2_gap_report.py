@@ -27,7 +27,7 @@ SCHEDULE_INTERVAL = "@weekly"
 default_args = {
     "owner": "Airflow",
     "start_date": datetime(2020, 7, 24),
-    "email": ["toktam.ebadi@ga.gov.au", "alex.leith@ga.gov.au"],
+    "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,
