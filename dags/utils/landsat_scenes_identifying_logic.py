@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from infra.connections import CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
@@ -85,7 +85,7 @@ def create_fail_report(folder_path: str, error_message: str):
     file_name = f"fail_{datetime.now()}.txt"
     destination_key = f"fails/{folder_path}{file_name}"
 
-    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
     s3.save_obj_to_s3(
         file=bytes(error_message.encode("UTF-8")),
         destination_key=destination_key,
@@ -147,9 +147,21 @@ def retrieve_list_of_files(scene_list):
     """
     # Eg. collection02/level-2/standard/etm/2021/196/046/LE07_L2SP_196046_20210101_20210127_02_T1/
 
-    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
 
     def build_asset_list(scene):
+        satellite = (
+            scene["Satellite"]
+            if "LANDSAT" in scene["Satellite"].upper()
+            else f'LANDSAT_{scene["Satellite"]}'
+        )
+
+        fail_folder_path = (
+            f"{satellite}/"
+            f'{scene["Date Product Generated L2"]}/'
+            f'{scene["Display ID"]}/'
+        )
+
         year_acquired = convert_str_to_date(scene["Date Acquired"]).year
         # USGS changes - for _ when generates the CSV bulk file
         identifier = scene["Sensor Identifier"].lower().replace("_", "-")
@@ -180,20 +192,8 @@ def retrieve_list_of_files(scene_list):
                 f"folder {folder_link} - response {response}"
             )
 
-            satellite = (
-                scene["Satellite"]
-                if "LANDSAT" in scene["Satellite"].upper()
-                else f'LANDSAT_{scene["Satellite"]}'
-            )
-
-            folder_path = (
-                f"{satellite}/"
-                f'{scene["Date Product Generated L2"]}/'
-                f'{scene["Display ID"]}/'
-            )
-
             # Create file with the issue
-            create_fail_report(folder_path=folder_path, error_message=msg)
+            create_fail_report(folder_path=fail_folder_path, error_message=msg)
 
             logging.error(msg)
 
@@ -219,9 +219,22 @@ def retrieve_list_of_files(scene_list):
                 mtl_sr_st_files.update({"MTL": obj["Key"]})
 
         if not mtl_sr_st_files:
-            raise Exception(
-                f'Neither SR nor ST file were found for {scene["Display ID"]}'
-            )
+            msg = f'Neither SR nor ST file were found for {scene["Display ID"]}'
+
+            # Create file with the issue
+            create_fail_report(folder_path=fail_folder_path, error_message=msg)
+
+            logging.error(msg)
+
+            try:
+                notify_email(
+                    task_name=f"Landsat Identifying - {scene['Satellite']}",
+                    warning_message=msg,
+                )
+            except Exception as error:
+                logging.error(error)
+
+            return
 
         return {scene["Display ID"]: mtl_sr_st_files}
 

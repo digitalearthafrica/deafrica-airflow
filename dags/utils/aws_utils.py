@@ -21,10 +21,12 @@ class S3:
 
     def get_bucket_client(
         self,
+        endpoint_url: str = None,
         region: str = "af-south-1",
     ):
         """
         function to return a bucket client
+        :param endpoint_url:(str) Not in use for now
         :param region: AWS Region
         :return:
         """
@@ -43,6 +45,7 @@ class S3:
             aws_access_key_id=cred.access_key,
             aws_secret_access_key=cred.secret_key,
             region_name=region,
+            # endpoint_url=endpoint_url
         )
 
     def check_s3_copy_return(self, returned: dict):
@@ -162,6 +165,7 @@ class S3:
         source_bucket_region: str,
         destination_bucket_region: str,
         source_key: str,
+        endpoint_url: str = None,
         destination_key: str = None,
         request_payer: str = "requester",
         acl: str = "bucket-owner-full-control",
@@ -176,6 +180,7 @@ class S3:
         :param destination_bucket_region: Region which the file goes to
         :param source_bucket_region: Region which the file comes from
         :param source_bucket:(str) Source S3 source_bucket_client name
+        :param endpoint_url:(str)
         :param destination_bucket:(str) Destination S3 source_bucket_client name
         :param request_payer:(str) When None the S3 owner will pay, when <requester> the solicitor will pay
         :param acl:
@@ -201,7 +206,7 @@ class S3:
         streaming_body = s3_obj["Body"]
 
         destination_bucket_client = self.get_bucket_client(
-            region=destination_bucket_region
+            region=destination_bucket_region, endpoint_url=endpoint_url
         )
 
         destination_bucket_client.upload_fileobj(
@@ -224,39 +229,58 @@ class S3:
         exist = self.s3_hook.check_for_key(key, bucket_name=bucket_name)
         return key if not exist else ""
 
-    def get_object(self, bucket_name, key, region, request_payer: str = ""):
+    def get_object(
+        self,
+        bucket_name: str,
+        key: str,
+        region: str,
+        endpoint_url: str = None,
+        request_payer: str = "",
+    ):
         """
         Function to retrieve an object from an AWS S# bucket according to the key sent
         :param bucket_name:(str) bucket name
         :param key: (str) path to the file
         :param region: (str) AWS region
+        :param endpoint_url:
         :param request_payer:(str)
         :return:
         """
-        # logging.info(f'get_object {bucket_name} {key} {region} {request_payer}')
+        # logging.info(f'get_object {bucket_name} {key} {region} {endpoint_url} {request_payer}')
 
-        bucket_client = self.get_bucket_client(region=region)
+        bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
         return bucket_client.get_object(
             Bucket=bucket_name, Key=key, RequestPayer=request_payer
         )
 
-    def put_object(self, bucket_name: str, key: str, region: str, body: str = ""):
+    def put_object(
+        self,
+        bucket_name: str,
+        key: str,
+        region: str,
+        endpoint_url: str = None,
+        body: str = "",
+        acl: str = "bucket-owner-full-control",
+    ):
         """
         Function to upload an object to an AWS S3 bucket
         :param bucket_name: (str) bucket name
         :param key: (str) path to the file
         :param region: (str) AWS region
+        :param endpoint_url:(str)
         :param body: (str) body
+        :param acl: (str) permissions
         :return:
         """
-        bucket_client = self.get_bucket_client(region=region)
+        bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
 
-        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body)
+        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body, ACL=acl)
 
     def list_objects(
         self,
         bucket_name: str,
         region: str,
+        endpoint_url: str = None,
         prefix: str = None,
         request_payer: str = None,
         continuation_token: str = None,
@@ -265,12 +289,13 @@ class S3:
         List objects into an AWS S3 Bucket
         :param bucket_name: (str)
         :param region: (str)
+        :param endpoint_url:(str)
         :param prefix: (str)
         :param request_payer: (str)
         :param continuation_token: (str)
         :return: (dict)
         """
-        bucket_client = self.get_bucket_client(region=region)
+        bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
 
         kwargs = {"Bucket": bucket_name}
 
