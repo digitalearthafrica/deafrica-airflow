@@ -240,18 +240,26 @@ class S3:
             Bucket=bucket_name, Key=key, RequestPayer=request_payer
         )
 
-    def put_object(self, bucket_name: str, key: str, region: str, body: str = ""):
+    def put_object(
+        self,
+        bucket_name: str,
+        key: str,
+        region: str,
+        body: str = "",
+        acl: str = "bucket-owner-full-control",
+    ):
         """
         Function to upload an object to an AWS S3 bucket
         :param bucket_name: (str) bucket name
         :param key: (str) path to the file
         :param region: (str) AWS region
         :param body: (str) body
+        :param acl: (str) permissions
         :return:
         """
         bucket_client = self.get_bucket_client(region=region)
 
-        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body)
+        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body, ACL=acl)
 
     def list_objects(
         self,

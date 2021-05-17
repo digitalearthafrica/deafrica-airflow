@@ -194,7 +194,7 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
-            "{s3_path}{base_path}".format(s3_path=USGS_S3_BUCKET_PATH, base_path=path)
+            f"{USGS_S3_BUCKET_PATH}{path}"
             for path in source_paths
             if path not in dest_paths
         ]
@@ -202,15 +202,13 @@ def generate_buckets_diff(land_sat: str, file_name: str):
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
-            "{s3_path}{base_path}".format(s3_path=AFRICA_S3_BUCKET_PATH, base_path=path)
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
             for path in dest_paths
             if path not in source_paths
         ]
 
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
-
-        logging.info(f"Amount of missing scenes : {len(missing_scenes)}")
 
         output_filename = f"{land_sat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename
