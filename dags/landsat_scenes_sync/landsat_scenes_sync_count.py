@@ -78,7 +78,7 @@ def count_2018_sr_st(file_name):
         # Variable that ensure the log is going to show at the right time
         for row in read_big_csv_files_from_gzip(file_path):
             date_acquired = convert_str_to_date(row["Date Acquired"])
-            if date_acquired.year != 2018:
+            if date_acquired.year != 2018 and date_acquired.month != 4:
                 continue
             if (
                 # Filter to skip all LANDSAT_4
@@ -172,11 +172,13 @@ def count_2018_sr_st(file_name):
         missing_scenes = []
         for future in as_completed(tasks):
             if future:
-                missing_scenes.append(future.result())
-                for k, v in future.result().items():
-                    mtl_count += 1 if v.get("Missing MSL") else 0
-                    st_count += 1 if v.get("Missing ST") else 0
-                    sr_count += 1 if v.get("Missing SR") else 0
+                result = future.result()
+                if result:
+                    missing_scenes.append(future.result())
+                    for k, v in future.result().items():
+                        mtl_count += 1 if v.get("Missing MSL") else 0
+                        st_count += 1 if v.get("Missing ST") else 0
+                        sr_count += 1 if v.get("Missing SR") else 0
 
         print("********************************************************************")
         print(f"MTL Missing {mtl_count}")
