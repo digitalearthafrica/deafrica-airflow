@@ -90,7 +90,6 @@ def count_2018_sr_st(file_name):
                     row.get("Day/Night Indicator")
                     and row["Day/Night Indicator"].upper() == "DAY"
                 )
-                and (date_acquired.year == 2018)
                 # Filter to get just from Africa
                 and (
                     row.get("WRS Path")
@@ -149,6 +148,8 @@ def count_2018_sr_st(file_name):
             missing.update({"Missing MTL": True})
 
         if missing:
+            date_acquired = convert_str_to_date(scene["Date Acquired"])
+            missing.update({"Date": date_acquired})
             missing.update({"S3 path": f"s3://usgs-landsat/{folder_link}"})
             return {scene["Display ID"]: missing}
 
