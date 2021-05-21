@@ -48,7 +48,7 @@ DEFAULT_ARGS = {
 
 # [START instantiate_dag]
 dag = DAG(
-    "Landsat_ST_ST_MLS_TEST",
+    "Landsat_ST_ST_MTL_TEST",
     default_args=DEFAULT_ARGS,
     description="Sync Tests",
     schedule_interval=None,
@@ -89,8 +89,8 @@ def count_2018_sr_st(file_name):
                     row.get("Day/Night Indicator")
                     and row["Day/Night Indicator"].upper() == "DAY"
                 )
-                and date_acquired.year != 2018
-                and date_acquired.month != 4
+                and date_acquired.year == 2018
+                and date_acquired.month == 4
                 # Filter to get just from Africa
                 and (
                     row.get("WRS Path")
@@ -209,7 +209,7 @@ with dag:
 
     processes = [
         PythonOperator(
-            task_id="Landsat_ST_ST_MLS_TEST",
+            task_id="Landsat_ST_ST_MTL_TEST",
             python_callable=count_2018_sr_st,
             op_kwargs=dict(file_name="LANDSAT_OT_C2_L2.csv.gz"),
         )
