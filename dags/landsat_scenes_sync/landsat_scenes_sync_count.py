@@ -76,10 +76,9 @@ def count_2018_sr_st(file_name):
         africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
         # Variable that ensure the log is going to show at the right time
+        filtered_list = []
         for row in read_big_csv_files_from_gzip(file_path):
             date_acquired = convert_str_to_date(row["Date Acquired"])
-            if date_acquired.year != 2018 and date_acquired.month != 4:
-                continue
             if (
                 # Filter to skip all LANDSAT_4
                 row.get("Satellite")
@@ -90,6 +89,8 @@ def count_2018_sr_st(file_name):
                     row.get("Day/Night Indicator")
                     and row["Day/Night Indicator"].upper() == "DAY"
                 )
+                and date_acquired.year != 2018
+                and date_acquired.month != 4
                 # Filter to get just from Africa
                 and (
                     row.get("WRS Path")
@@ -98,7 +99,9 @@ def count_2018_sr_st(file_name):
                     in africa_pathrows
                 )
             ):
-                yield row
+                filtered_list.append(row)
+
+        return filtered_list
 
     def build_asset_list(scene):
         s3 = S3(conn_id=CONN_LANDSAT_WRITE)
@@ -148,14 +151,17 @@ def count_2018_sr_st(file_name):
             missing.update({"Missing MTL": True})
 
         if missing:
-            date_acquired = convert_str_to_date(scene["Date Acquired"])
-            missing.update({"Date": date_acquired})
+            missing.update({"Date": scene["Date Acquired"]})
             missing.update({"S3 path": f"s3://usgs-landsat/{folder_link}"})
             return {scene["Display ID"]: missing}
 
     file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
-    num_of_threads = 50
+    list_of_scenes = filter_data(file_path)
+
+    print(f"Requesting USGS for {len(list_of_scenes)} scenes")
+
+    num_of_threads = 150
     with ThreadPoolExecutor(max_workers=num_of_threads) as executor:
 
         tasks = [
@@ -163,7 +169,7 @@ def count_2018_sr_st(file_name):
                 build_asset_list,
                 scene,
             )
-            for scene in filter_data(file_path)
+            for scene in list_of_scenes
         ]
 
         mtl_count = 0
@@ -188,7 +194,7 @@ def count_2018_sr_st(file_name):
         print("====================================================================")
         print(json.dumps(missing_scenes))
         print("====================================================================")
-        print(f"Number Scenes {len(list(filter_data(file_path)))}")
+        print(f"Number Scenes {len(list_of_scenes)}")
         print("====================================================================")
         print(f"Number Missing some data Scenes {len(missing_scenes)}")
 
