@@ -75,11 +75,13 @@ def count_2018_sr_st(file_name):
         # Download updated Pathrows
         africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
-        # Variable that ensure the log is going to show at the right time
         filtered_list = []
+        # Variable that ensure the log is going to show at the right time
         for row in read_big_csv_files_from_gzip(file_path):
             date_acquired = convert_str_to_date(row["Date Acquired"])
             if (
+                (date_acquired.year == 2018 and date_acquired.month == 4)
+                and
                 # Filter to skip all LANDSAT_4
                 row.get("Satellite")
                 and row["Satellite"] != "LANDSAT_4"
@@ -89,8 +91,6 @@ def count_2018_sr_st(file_name):
                     row.get("Day/Night Indicator")
                     and row["Day/Night Indicator"].upper() == "DAY"
                 )
-                and date_acquired.year == 2018
-                and date_acquired.month == 4
                 # Filter to get just from Africa
                 and (
                     row.get("WRS Path")
