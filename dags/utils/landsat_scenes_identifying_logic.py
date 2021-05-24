@@ -127,7 +127,7 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Compare string of dates to ensure that Airflow will process the right date
-            and (row["Date Product Generated L2"] == production_date)
+            # and (row["Date Product Generated L2"] == production_date)
             # Filter to get just from Africa
             and (
                 row.get("WRS Path")
