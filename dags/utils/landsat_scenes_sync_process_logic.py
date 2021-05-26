@@ -275,6 +275,9 @@ class ScenesSyncProcess:
             aws_unsigned=True,
             AWS_S3_ENDPOINT=AFRICA_S3_ENDPOINT,
             CURL_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt",
+            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            GDAL_HTTP_MAX_RETRY="10",
+            GDAL_HTTP_RETRY_DELAY="0.5",
         ):
             # TODO Remove the Links below once Stactools library is updated.
             #  The new Stactools does not need self link or source link if they are already
