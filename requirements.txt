@@ -4,7 +4,7 @@ SQLAlchemy == 1.3.23
 # Used for Landsat data sync
 pystac==0.5.4
 rasterio~=1.1.8
-stactools-cli==0.1.4
-stactools-core==0.1.4
-stactools-landsat==0.1.4
+stactools-cli==0.1.5
+stactools-core==0.1.5
+stactools-landsat==0.1.5
 requests~=2.25.0
