@@ -646,9 +646,9 @@ def process():
                 logging.info(f"Message Paths {paths}")
 
                 sr_st_item_dict = None
-                for scene_id, stac_paths_obj in json.loads(message.body).items():
+                for stac_paths_obj in json.loads(message.body).values():
                     logging.info(
-                        "Retrieving SR and ST metadata merging and converting to  to pystac item"
+                        "Retrieving SR and ST metadata merging and converting to pystac item"
                     )
 
                     sr_st_item_dict = retrieve_sr_and_st_update_and_convert_to_item(
