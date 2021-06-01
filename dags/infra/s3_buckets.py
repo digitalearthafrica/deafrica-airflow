@@ -29,8 +29,6 @@ SENTINEL_1_INVENTORY_BUCKET_NAME = Variable.get(
     "sentinel_1_inventory_bucket_name", ""
 )  # qa
 
-SENTINEL_1_SYNC_BUCKET_NAME = Variable.get("sentinel_1_sync_bucket_name", "")  # qa
-
 # #################### DEAFRICA ####################
 DEAFRICA_SERVICES_BUCKET_NAME = Variable.get(
     "deafrica_services_bucket_name", "deafrica-services"
