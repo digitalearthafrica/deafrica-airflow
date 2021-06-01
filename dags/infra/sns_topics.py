@@ -4,6 +4,7 @@
 """
 from airflow.models import Variable
 
+# Landsat sync SNS is in the PDS account, accessed by Lambda
 LANDSAT_SYNC_SNS_ARN = Variable.get(
     "landsat_sync_sns_arn",
     "arn:aws:sns:af-south-1:543785577597:deafrica-landsat-scene-topic",

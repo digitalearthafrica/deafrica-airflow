@@ -63,10 +63,10 @@ def convert_str_to_date(date: str):
     :return: (datetime) return datetime of a string date. The time will always be 0.
     """
     try:
-        return datetime.strptime(date, "%Y/%M/%d").date()
+        return datetime.strptime(date, "%Y/%m/%d").date()
     except ValueError:
         try:
-            return datetime.strptime(date, "%Y-%M-%d").date()
+            return datetime.strptime(date, "%Y-%m-%d").date()
         except ValueError as error:
             raise error
 
