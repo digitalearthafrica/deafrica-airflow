@@ -4,6 +4,7 @@
 
 # [START import_module]
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta, datetime
 
 # The DAG object; we'll need this to instantiate a DAG
@@ -19,8 +20,10 @@ from airflow.operators.python_operator import PythonOperator
 from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
-from landsat_scenes_sync.variables import AWS_DEFAULT_REGION
+from landsat_scenes_sync.variables import AWS_DEFAULT_REGION, BASE_BULK_CSV_URL
 from utils.aws_utils import SQS
+from utils.landsat_scenes_identifying_logic import filter_africa_location_from_gzip_file
+from utils.sync_utils import download_file_to_tmp, convert_str_to_date
 
 # [END import_module]
 # [START default_args]
@@ -155,6 +158,50 @@ def get_queue_attributes_test(conn_id):
     )
 
 
+def first_date(files):
+    """
+
+    :param files:
+    :return:
+    """
+
+    def max_min_date(file_name, landsat):
+        """
+
+        :param file_name:
+        :param landsat:
+        :return:
+        """
+
+        file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
+        scene_list = filter_africa_location_from_gzip_file(
+            file_path=file_path, production_date=""
+        )
+
+        date_list = [
+            convert_str_to_date(scene["Date Product Generated L2"])
+            for scene in scene_list
+        ]
+
+        print(f"{landsat} - number of scenes {len(date_list)}")
+
+        date_set = set(sorted(date_list))
+        min_date = min(date_set)
+        max_date = max(date_set)
+        print(f"{landsat} - number of dates SET {len(list(date_list))}")
+        print(f"{landsat} - dates {date_set}")
+        print(f"{landsat} - MIN DATE {min_date}")
+        print(f"{landsat} - MAX DATE {max_date}")
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        tasks = [
+            executor.submit(max_min_date, file_name, landsat)
+            for landsat, file_name in files.items()
+        ]
+
+        [future.result() for future in as_completed(tasks)]
+
+
 with dag:
     START = DummyOperator(task_id="start-tasks")
 
@@ -186,11 +233,17 @@ with dag:
     #     )
     #     count += 1
 
+    files = {
+        "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
+        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+    }
+
     processes = [
         PythonOperator(
             task_id="TEST-Check_key",
-            python_callable=get_queue_attributes_test,
-            op_kwargs=dict(conn_id=CONN_LANDSAT_SYNC),
+            python_callable=first_date,
+            op_kwargs=dict(files=files),
         )
     ]
 

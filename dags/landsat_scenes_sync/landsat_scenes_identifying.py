@@ -31,8 +31,8 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2020, 1, 1),
-    "version": "0.16",
+    "start_date": datetime(2021, 5, 8),
+    "version": "0.18",
 }
 # [END default_args]
 
@@ -54,9 +54,9 @@ with dag:
 
     processes = []
     files = {
-        "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
-        # "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
-        # "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+        # "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
+        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
     for sat, file in files.items():

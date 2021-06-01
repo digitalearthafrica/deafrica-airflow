@@ -4,9 +4,9 @@
 """
 from airflow.models import Variable
 
-
+# Sync Queue is in the PDS account
 LANDSAT_SYNC_SQS_NAME = Variable.get(
-    "landsat_sync_sqs_name", "deafrica-prod-af-eks-sync-landsat-scene"
+    "landsat_sync_sqs_name", "deafrica-pds-landsat-sync-scene"
 )  # qa
 
 LANDSAT_INDEX_SQS_NAME = Variable.get(

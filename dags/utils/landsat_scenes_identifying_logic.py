@@ -8,7 +8,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from infra.connections import CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
 from infra.variables import AWS_DEFAULT_REGION
@@ -85,7 +85,7 @@ def create_fail_report(folder_path: str, error_message: str):
     file_name = f"fail_{datetime.now()}.txt"
     destination_key = f"fails/{folder_path}{file_name}"
 
-    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
     s3.save_obj_to_s3(
         file=bytes(error_message.encode("UTF-8")),
         destination_key=destination_key,
@@ -147,7 +147,7 @@ def retrieve_list_of_files(scene_list):
     """
     # Eg. collection02/level-2/standard/etm/2021/196/046/LE07_L2SP_196046_20210101_20210127_02_T1/
 
-    s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
 
     def build_asset_list(scene):
         satellite = (
@@ -285,7 +285,9 @@ def identifying_data(file_name: str, date_to_process: str):
 
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
-            path_list = retrieve_list_of_files(scene_list=scene_list)
+            # TODO remove limitation when in PROD
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:8])
+            # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
             messages_sent = publish_messages(path_list=path_list)

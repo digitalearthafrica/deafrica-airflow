@@ -8,17 +8,10 @@ from airflow.models import Variable
 LANDSAT_SYNC_BUCKET_NAME = Variable.get(
     "landsat_sync_bucket_name", "deafrica-landsat"
 )  # qa
+
 LANDSAT_INVENTORY_BUCKET_NAME = Variable.get(
     "landsat_inventory_bucket_name", "deafrica-landsat-inventory"
 )  # qa
-
-# #################### SENTINEL - 1  ####################
-SENTINEL_1_INVENTORY_BUCKET_NAME = Variable.get(
-    "sentinel_1_inventory_bucket_name", ""
-)  # qa
-
-SENTINEL_1_SYNC_BUCKET_NAME = Variable.get("sentinel_1_sync_bucket_name", "")  # qa
-
 
 # #################### SENTINEL - 2  ####################
 SENTINEL_2_INVENTORY_BUCKET_NAME = Variable.get(
@@ -28,6 +21,15 @@ SENTINEL_2_INVENTORY_BUCKET_NAME = Variable.get(
 SENTINEL_2_SYNC_BUCKET_NAME = Variable.get(
     "sentinel_2_sync_bucket_name", "deafrica-sentinel-2"
 )  # qa
+
+# #################### SENTINEL - 1  ####################
+SENTINEL_1_SYNC_BUCKET_NAME = Variable.get("sentinel_1_sync_bucket_name", "")  # qa
+
+SENTINEL_1_INVENTORY_BUCKET_NAME = Variable.get(
+    "sentinel_1_inventory_bucket_name", ""
+)  # qa
+
+SENTINEL_1_SYNC_BUCKET_NAME = Variable.get("sentinel_1_sync_bucket_name", "")  # qa
 
 # #################### DEAFRICA ####################
 DEAFRICA_SERVICES_BUCKET_NAME = Variable.get(
