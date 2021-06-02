@@ -22,9 +22,6 @@ from infra.variables import (
 )
 from infra.images import INDEXER_IMAGE
 
-from textwrap import dedent
-
-import kubernetes.client.models as k8s
 
 DAG_NAME = "alchemist_indexing"
 
