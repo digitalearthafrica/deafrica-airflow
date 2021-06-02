@@ -104,7 +104,7 @@ with dag:
             ],
             labels={"step": "sqs-to-rds"},
             name=f"datacube-index-{name}",
-            task_id="indexing-task-{name}",
+            task_id=f"indexing-task-{name}",
             get_logs=True,
             affinity=affinity,
             is_delete_operator_pod=True,
