@@ -26,7 +26,7 @@ from textwrap import dedent
 
 import kubernetes.client.models as k8s
 
-DAG_NAME = "sentinel-2_indexing"
+DAG_NAME = "alchemist_indexing"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -73,7 +73,7 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-2"],
+    tags=["k8s", "alchemist"],
 )
 
 
