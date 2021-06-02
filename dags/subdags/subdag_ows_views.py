@@ -12,15 +12,15 @@ from textwrap import dedent
 import kubernetes.client.models as k8s
 
 from infra.images import OWS_CONFIG_IMAGE, OWS_IMAGE
-from infra.podconfig import (
+from subdags.podconfig import (
     OWS_CFG_PATH,
     OWS_CFG_MOUNT_PATH,
     OWS_CFG_IMAGEPATH,
-    NODE_AFFINITY,
     OWS_DATACUBE_CFG,
     OWS_PYTHON_PATH,
     OWS_CFG_FOLDER_PATH,
 )
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.variables import SECRET_OWS_WRITER_NAME
 
 OWS_SECRETS = [
@@ -128,7 +128,7 @@ def ows_update_extent_subdag(
         volume_mounts=[ows_cfg_mount],
         init_containers=[config_container],
         is_delete_operator_pod=True,
-        affinity=NODE_AFFINITY,
+        affinity=ONDEMAND_NODE_AFFINITY,
         dag=dag_subdag,
     )
 

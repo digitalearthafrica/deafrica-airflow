@@ -6,6 +6,9 @@
 DAG to manually migrate schema for ODC DB when new version of explorer is
 deployed.
 
+NOTE: explorer_admin user permission boundary is bound to `cubedash` schema only.
+  So, when schema upgrade require to create agdc additional index,
+  those steps handled outside manually using odc_admin user.
 """
 
 import pendulum
@@ -23,7 +26,7 @@ DB_HOSTNAME = "db-writer"
 DEFAULT_ARGS = {
     "owner": "Tisham Dhar",
     "depends_on_past": False,
-    "start_date": datetime(2021, 3, 11, tzinfo=local_tz),
+    "start_date": datetime(2021, 2, 10, tzinfo=local_tz),
     "email": ["tisham.dhar@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
@@ -54,21 +57,25 @@ dag = DAG(
     concurrency=1,
     max_active_runs=1,
     tags=["k8s"],
-    schedule_interval=None,    # Fully manual migrations
+    schedule_interval=None,  # Fully manual migrations
 )
 
 affinity = {
     "nodeAffinity": {
         "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [{
-                "matchExpressions": [{
-                    "key": "nodetype",
-                    "operator": "In",
-                    "values": [
-                        "ondemand",
+            "nodeSelectorTerms": [
+                {
+                    "matchExpressions": [
+                        {
+                            "key": "nodetype",
+                            "operator": "In",
+                            "values": [
+                                "ondemand",
+                            ],
+                        }
                     ]
-                }]
-            }]
+                }
+            ]
         }
     }
 }
@@ -93,7 +100,6 @@ with dag:
 
     # Task complete
     COMPLETE = DummyOperator(task_id="done")
-
 
     START >> UPDATE_SCHEMA
     UPDATE_SCHEMA >> COMPLETE

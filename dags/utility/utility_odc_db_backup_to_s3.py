@@ -15,19 +15,14 @@ from textwrap import dedent
 
 from airflow.models import Variable
 
-from infra.variables import (
-    DB_DUMP_S3_BUCKET,
-    DB_DUMP_S3_ROLE,
-    SECRET_DBA_ADMIN_NAME,
-    DB_DATABASE,
-    DB_HOSTNAME,
-    SECRET_AWS_NAME,
-)
-
-from infra.podconfig import NODE_AFFINITY
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
+from infra.variables import SECRET_DBA_ADMIN_NAME
+from infra.s3_buckets import DB_DUMP_S3_BUCKET
+from infra.iam_roles import DB_DUMP_S3_ROLE
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
+
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
@@ -41,16 +36,14 @@ DEFAULT_ARGS = {
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
         # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
-        "DB_DATABASE": DB_DATABASE,
+        "DB_HOSTNAME": "db-writer",
+        "DB_DATABASE": "odc",
+        "AWS_DEFAULT_REGION": "af-south-1",
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_DBA_ADMIN_NAME, "postgres-username"),
         Secret("env", "PGPASSWORD", SECRET_DBA_ADMIN_NAME, "postgres-password"),
-        Secret(
-            "env", "AWS_DEFAULT_REGION", "indexing-aws-creds-prod", "AWS_DEFAULT_REGION"
-        ),
     ],
 }
 
@@ -62,9 +55,9 @@ DUMP_TO_S3_COMMAND = [
         """
             pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
             ls -la | grep {0}
-            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod/{0} --region af-south-1
+            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod-af/{0}
         """
-    ).format(f"africa_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
+    ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
 
 # THE DAG
@@ -78,6 +71,7 @@ dag = DAG(
 )
 
 with dag:
+
     DB_DUMP = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
@@ -87,6 +81,6 @@ with dag:
         name="dump-odc-db",
         task_id="dump-odc-db",
         get_logs=True,
-        affinity=NODE_AFFINITY,
+        affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
     )

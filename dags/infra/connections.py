@@ -1,5 +1,21 @@
-# SYNC_LANDSAT_CONNECTION_ID = "sync_landsat_scenes"
-INDEX_LANDSAT_CONNECTION_ID = "index_landsat_scenes"
+"""
+# Connection provided from infra to dags
+# audit: 11/05/2021
+"""
+# ##### LANDSAT #####
+# Reads Landsat sync and Inventory bucket
+# Reads SQS landsat sync
+# Write SQS landsat sync
+CONN_LANDSAT_SYNC = "conn_landsat_sync"  # qa
 
-# reverting to non-ssm
-SYNC_LANDSAT_CONNECTION_ID = "conn_sync_landsat_scene"
+# Reads USGS, Landsat sync
+# Writes Landsat sync
+# Writes SNS  landsat_sns_topic
+CONN_LANDSAT_WRITE = "conn_landsat_write"  # qa
+
+CONN_LANDSAT_INDEX = "conn_landsat_index"  # qa
+
+# ##### SENTINEL - 2 #####
+CONN_SENTINEL_2_SYNC = "conn_sentinel_2_sync"  # qa
+
+CONN_SENTINEL_2_INDEX = "conn_sentinel_2_index"  # qa

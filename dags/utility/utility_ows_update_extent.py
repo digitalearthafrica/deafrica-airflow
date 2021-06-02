@@ -43,7 +43,7 @@ DEFAULT_ARGS = {
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
     "email": ["pin.jin@ga.gov.au"],
-    "email_on_failure": False,
+    "email_on_failure": True,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
@@ -71,6 +71,7 @@ dag = DAG(
 
 
 def parse_dagrun_conf(products, **kwargs):
+    """parse para"""
     if products:
         return products
     else:
