@@ -45,9 +45,11 @@ def publish_messages(path_list):
             )
         except Exception as error:
             logging.error(f"Error sending message to the queue {error}")
+            return f"Error sending message to the queue {error}"
 
     count = 0
     messages = []
+    sending_error = ""
     flag = False
     for obj in path_list:
         if not flag:
@@ -68,7 +70,10 @@ def publish_messages(path_list):
 
     # Post the last messages if there are any
     if len(messages) > 0:
-        post_messages(messages)
+        sending_error = post_messages(messages)
+
+    if sending_error:
+        raise Exception(sending_error)
 
     logging.info(f"{count} messages sent successfully :)")
     return count
@@ -285,9 +290,7 @@ def identifying_data(file_name: str, date_to_process: str):
 
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
-            # TODO remove limitation when in PROD
-            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:8])
-            # path_list = retrieve_list_of_files(scene_list=scene_list)
+            path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
             messages_sent = publish_messages(path_list=path_list)

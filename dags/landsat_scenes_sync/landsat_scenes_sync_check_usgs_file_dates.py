@@ -40,11 +40,9 @@ dag = DAG(
     "landsat_scenes_check_usgs_file_dates",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval="@daily",
+    schedule_interval=None,
     catchup=False,
-    tags=[
-        "Scene",
-    ],
+    tags=["Scene", "Dates"],
 )
 # [END instantiate_dag]
 
