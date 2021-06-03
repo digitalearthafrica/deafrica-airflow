@@ -41,7 +41,7 @@ dag = DAG(
     "landsat_scenes_identifying",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval=None,
+    schedule_interval="@daily",
     catchup=True,
     tags=["Scene", "Bulk", "Landsat", "USGS", "Collection 2"],
 )
