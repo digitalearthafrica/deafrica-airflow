@@ -70,7 +70,7 @@ dag = DAG(
     dag_id=DAG_NAME,
     doc_md=__doc__,
     default_args=DEFAULT_ARGS,
-    schedule_interval="0 */1 * * *",
+    schedule_interval="40 */3 * * *",
     catchup=False,
     tags=["k8s", "sentinel-2"],
 )
