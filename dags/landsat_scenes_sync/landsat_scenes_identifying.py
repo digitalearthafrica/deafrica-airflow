@@ -31,8 +31,8 @@ DEFAULT_ARGS = {
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 4, 1),
-    "version": "0.19",
+    "start_date": datetime(2020, 1, 1),
+    "version": "0.20",
 }
 # [END default_args]
 
@@ -41,11 +41,9 @@ dag = DAG(
     "landsat_scenes_identifying",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval="@daily",
+    schedule_interval=None,
     catchup=True,
-    tags=[
-        "Scene",
-    ],
+    tags=["Scene", "Bulk", "Landsat", "USGS", "Collection 2"],
 )
 # [END instantiate_dag]
 
