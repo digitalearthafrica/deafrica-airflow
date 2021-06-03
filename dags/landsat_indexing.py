@@ -1,5 +1,5 @@
 """
-# Sentinel-1 indexing automation
+# Landsat indexing automation
 """
 from datetime import datetime, timedelta
 
@@ -22,7 +22,7 @@ from infra.variables import (
 )
 from infra.images import INDEXER_IMAGE
 
-DAG_NAME = "sentinel-1_indexing"
+DAG_NAME = "landsat_indexing"
 PRODUCT_NAMES = "ls8_sr ls8_st ls7_sr ls7_st ls5_sr ls5_st"
 INDEXING_USER_CREDS = "landsat-indexing-user-creds"
 
