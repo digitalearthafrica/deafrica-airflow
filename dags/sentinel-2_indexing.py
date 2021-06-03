@@ -1,13 +1,5 @@
 """
 # Sentinel-2 indexing automation
-
-DAG to periodically index Sentinel-2 data. Eventually it could
-update explorer and ows schemas in RDS after a given Dataset has been
-indexed.
-
-This DAG uses k8s executors and in cluster with relevant tooling
-and configuration installed.
-
 """
 from datetime import datetime, timedelta
 
@@ -27,17 +19,13 @@ from infra.podconfig import (
 )
 from infra.variables import (
     DB_DATABASE,
-    DB_HOSTNAME,
-    SECRET_ODC_WRITER_NAME,
-    SECRET_AWS_NAME,
+    DB_HOSTNAME
 )
-from infra.images import INDEXER_IMAGE, OWS_IMAGE, EXPLORER_IMAGE
-
-from textwrap import dedent
-
-import kubernetes.client.models as k8s
+from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "sentinel-2_indexing"
+PRODUCT_NAME = "s2_l2a"
+INDEXING_USER_CREDS = "sentinel-2-indexing-user"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -61,16 +49,16 @@ DEFAULT_ARGS = {
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
-            "sentinel-2-indexing-user",
+            INDEXING_USER_CREDS,
             "AWS_DEFAULT_REGION",
         ),
         Secret(
-            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
+            "env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"
         ),
         Secret(
             "env",
             "AWS_SECRET_ACCESS_KEY",
-            "sentinel-2-indexing-user",
+            INDEXING_USER_CREDS,
             "AWS_SECRET_ACCESS_KEY",
         ),
     ],
@@ -119,8 +107,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=["s2_l2a"],
-        # provide_context=True,
+        op_args=[PRODUCT_NAME],
     )
 
     EXPLORER_SUMMARY = SubDagOperator(

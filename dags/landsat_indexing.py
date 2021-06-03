@@ -10,7 +10,7 @@ from airflow.operators.python_operator import PythonOperator
 
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 
-from infra.sqs_queues import SENTINEL_1_INDEX_SQS_NAME
+from infra.sqs_queues import LANDSAT_INDEX_SQS_NAME
 from subdags.subdag_ows_views import ows_update_extent_subdag
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from infra.podconfig import (
@@ -23,9 +23,8 @@ from infra.variables import (
 from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "sentinel-1_indexing"
-PRODUCT_NAME = "s1_rtc"
-INDEXING_USER_CREDS = "sentinel-1-indexing-user"
-
+PRODUCT_NAMES = "ls8_sr ls8_st ls7_sr ls7_st ls5_sr ls5_st"
+INDEXING_USER_CREDS = "landsat-indexing-user-creds"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
@@ -72,7 +71,7 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-1"],
+    tags=["k8s", "landsat"],
 )
 
 
@@ -92,8 +91,8 @@ with dag:
         arguments=[
             "sqs-to-dc",
             "--stac",
-            SENTINEL_1_INDEX_SQS_NAME,
-            PRODUCT_NAME,
+            LANDSAT_INDEX_SQS_NAME,
+            PRODUCT_NAMES,
         ],
         labels={"step": "sqs-to-rds"},
         name="datacube-index",
@@ -106,7 +105,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=[PRODUCT_NAME],
+        op_args=[PRODUCT_NAMES],
     )
 
     EXPLORER_SUMMARY = SubDagOperator(
