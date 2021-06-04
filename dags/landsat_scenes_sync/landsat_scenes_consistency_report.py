@@ -131,7 +131,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     logging.info(f"Filterring by prefix {prefix}")
     logging.info(
         f"SHOW 10 first keys from the inventory bucket"
-        f' {[key for key in list_keys if key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME and key.split("/")[-1].startswith(prefix))][0:50]}'
+        f' {[key for key in list_keys if key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME) and key.split("/")[-1].startswith(prefix)][0:50]}'
     )
     return set(
         f"{key.rsplit('/', 1)[0]}/"
