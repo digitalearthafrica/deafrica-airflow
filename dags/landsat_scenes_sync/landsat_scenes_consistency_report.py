@@ -123,11 +123,11 @@ def get_and_filter_keys_from_files(file_path: Path):
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Filter to get just from Africa
-            and (
-                row.get("WRS Path")
-                and row.get("WRS Row")
-                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
-            )
+            # and (
+            #     row.get("WRS Path")
+            #     and row.get("WRS Row")
+            #     and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+            # )
         )
     )
 
