@@ -66,19 +66,19 @@ def get_and_filter_keys_from_files(file_path: Path):
         # USGS changes - for _ when generates the CSV bulk file
         identifier = file_row["Sensor Identifier"].lower().replace("_", "-")
         year_acquired = convert_str_to_date(file_row["Date Acquired"]).year
-        logging.info("PATH:")
-        logging.info(
-            (
-                "collection02/level-2/standard/{identifier}/{year_acquired}/"
-                "{target_path}/{target_row}/{display_id}/".format(
-                    identifier=identifier,
-                    year_acquired=year_acquired,
-                    target_path=file_row["WRS Path"],
-                    target_row=file_row["WRS Row"],
-                    display_id=file_row["Display ID"],
-                )
-            )
-        )
+        # logging.info("PATH:")
+        # logging.info(
+        #     (
+        #         "collection02/level-2/standard/{identifier}/{year_acquired}/"
+        #         "{target_path}/{target_row}/{display_id}/".format(
+        #             identifier=identifier,
+        #             year_acquired=year_acquired,
+        #             target_path=file_row["WRS Path"],
+        #             target_row=file_row["WRS Row"],
+        #             display_id=file_row["Display ID"],
+        #         )
+        #     )
+        # )
         return (
             "collection02/level-2/standard/{identifier}/{year_acquired}/"
             "{target_path}/{target_row}/{display_id}/".format(
@@ -93,8 +93,23 @@ def get_and_filter_keys_from_files(file_path: Path):
     # Download updated Pathrows
     logging.info("Retrieving allowed Africa Pathrows")
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
+    logging.info(
+        f"africa_pathrows {list(africa_pathrows)[0:10]} type {type(list(africa_pathrows)[0])}"
+    )
 
     logging.info("Reading and filtering Bulk file")
+
+    count = 0
+    for row in read_big_csv_files_from_gzip(file_path):
+        if count < 20:
+            logging.info(
+                f'ROW SAT {row.get("Satellite")} - '
+                f'DAY/NIGHT {row["Day/Night Indicator"].upper()} - '
+                f'PATHROW {row["WRS Path"]}{row["WRS Row"]}'
+            )
+
+            count += 1
+
     return set(
         build_path(row)
         for row in read_big_csv_files_from_gzip(file_path)
