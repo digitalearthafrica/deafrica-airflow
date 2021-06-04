@@ -217,15 +217,15 @@ def generate_buckets_diff(landsat: str, file_name: str):
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
-            f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths.difference(dest_paths)
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
+            for path in dest_paths.difference(source_paths)
         ]
 
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
-            f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths.difference(source_paths)
+            f"{USGS_S3_BUCKET_PATH}{path}"
+            for path in source_paths.difference(dest_paths)
         ]
 
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
