@@ -66,7 +66,19 @@ def get_and_filter_keys_from_files(file_path: Path):
         # USGS changes - for _ when generates the CSV bulk file
         identifier = file_row["Sensor Identifier"].lower().replace("_", "-")
         year_acquired = convert_str_to_date(file_row["Date Acquired"]).year
-
+        logging.info("PATH:")
+        logging.info(
+            (
+                "collection02/level-2/standard/{identifier}/{year_acquired}/"
+                "{target_path}/{target_row}/{display_id}/".format(
+                    identifier=identifier,
+                    year_acquired=year_acquired,
+                    target_path=file_row["WRS Path"],
+                    target_row=file_row["WRS Row"],
+                    display_id=file_row["Display ID"],
+                )
+            )
+        )
         return (
             "collection02/level-2/standard/{identifier}/{year_acquired}/"
             "{target_path}/{target_row}/{display_id}/".format(
