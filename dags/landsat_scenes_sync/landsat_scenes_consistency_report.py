@@ -104,26 +104,6 @@ def get_and_filter_keys_from_files(file_path: Path):
         )
     )
 
-    # for row in read_big_csv_files_from_gzip(file_path):
-    #     if (
-    #         # Filter to skip all LANDSAT_4
-    #         row.get("Satellite")
-    #         and row["Satellite"] != "LANDSAT_4"
-    #         # Filter to get just day
-    #         and (
-    #             row.get("Day/Night Indicator")
-    #             and row["Day/Night Indicator"].upper() == "DAY"
-    #         )
-    #         # Filter to get just from Africa
-    #         and (
-    #             row.get("WRS Path")
-    #             and row.get("WRS Row")
-    #             and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
-    #         )
-    #     ):
-    #         # Create name as it's stored in the S3 bucket, so it can be compared
-    #         yield build_path(row)
-
 
 def get_and_filter_keys(s3_bucket_client, landsat: str):
     """
@@ -219,8 +199,6 @@ def generate_buckets_diff(landsat: str, file_name: str):
         logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
-        logging.info(f" TEST {set(s for s in source_paths)}")
-
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
@@ -281,13 +259,10 @@ def generate_buckets_diff(landsat: str, file_name: str):
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
-        message = (
+        logging.info(
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
             f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
-        logging.info(message)
-        # if len(missing_keys) > 200 or len(orphaned_keys) > 200:
-        #     raise AirflowException(message)
 
         logging.info(
             f"File {file_name} processed and sent in {time_process(start=start_timer)}"
