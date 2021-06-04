@@ -129,10 +129,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     )
 
     logging.info(f"Filterring by prefix {prefix}")
-    logging.info(
-        f"SHOW 10 first keys from the inventory bucket"
-        f' {[key for key in list_keys if key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME) and key.split("/")[-1].startswith(prefix)][0:50]}'
-    )
+
     return set(
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_keys
@@ -201,6 +198,9 @@ def generate_buckets_diff(landsat: str, file_name: str):
         logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
+        logging.info(f"BULK FILE number of objects {len(source_paths)}")
+        logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
+
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
@@ -215,20 +215,20 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
-        logging.info(f"BULK FILE number of objects {len(source_paths)}")
+        logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
 
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
-            f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths.difference(source_paths)
+            f"{USGS_S3_BUCKET_PATH}{path}"
+            for path in source_paths.difference(dest_paths)
         ]
 
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
-            f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths.difference(dest_paths)
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
+            for path in dest_paths.difference(source_paths)
         ]
 
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
