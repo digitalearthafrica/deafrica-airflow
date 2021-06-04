@@ -131,15 +131,14 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     logging.info(f"Filterring by prefix {prefix}")
     logging.info(
         f"SHOW 10 first keys from the inventory bucket"
-        f' {[key for key in list_keys if "SR_stac.json" in key and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)][0:50]}'
+        f' {[key for key in list_keys if key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME and key.split("/")[-1].startswith(prefix))][0:50]}'
     )
     return set(
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_keys
         if (
-            "SR_stac.json" in key
             # Filter to remove any folder despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
-            and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
+            key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
             # Ensure the filter to the right satellite
             and key.split("/")[-1].startswith(prefix)
         )
@@ -216,6 +215,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
+        logging.info(f"BULK FILE number of objects {len(source_paths)}")
 
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
