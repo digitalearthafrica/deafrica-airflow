@@ -92,25 +92,9 @@ def get_and_filter_keys_from_files(file_path: Path):
 
     # Download updated Pathrows
     logging.info("Retrieving allowed Africa Pathrows")
-    africa_pathrows = [
-        int(pathrow) for pathrow in read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
-    ]
-    logging.info(
-        f"africa_pathrows {list(africa_pathrows)[0:10]} type {type(list(africa_pathrows)[0])}"
-    )
+    africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
-
-    count = 0
-    for row in read_big_csv_files_from_gzip(file_path):
-        if count < 20:
-            logging.info(
-                f'ROW SAT {row.get("Satellite")} - '
-                f'DAY/NIGHT {row["Day/Night Indicator"].upper()} - '
-                f'PATHROW {row["WRS Path"]}{row["WRS Row"]}'
-            )
-
-            count += 1
 
     return set(
         build_path(row)
@@ -128,7 +112,8 @@ def get_and_filter_keys_from_files(file_path: Path):
             and (
                 row.get("WRS Path")
                 and row.get("WRS Row")
-                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+                and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                in africa_pathrows
             )
         )
     )
