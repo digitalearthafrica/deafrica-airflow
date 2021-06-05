@@ -92,7 +92,9 @@ def get_and_filter_keys_from_files(file_path: Path):
 
     # Download updated Pathrows
     logging.info("Retrieving allowed Africa Pathrows")
-    africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
+    africa_pathrows = [
+        int(pathrow) for pathrow in read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
+    ]
     logging.info(
         f"africa_pathrows {list(africa_pathrows)[0:10]} type {type(list(africa_pathrows)[0])}"
     )
@@ -123,11 +125,11 @@ def get_and_filter_keys_from_files(file_path: Path):
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Filter to get just from Africa
-            # and (
-            #     row.get("WRS Path")
-            #     and row.get("WRS Row")
-            #     and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
-            # )
+            and (
+                row.get("WRS Path")
+                and row.get("WRS Row")
+                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+            )
         )
     )
 
