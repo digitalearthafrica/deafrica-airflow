@@ -84,8 +84,8 @@ def get_and_filter_keys_from_files(file_path: Path):
             "{target_path}/{target_row}/{display_id}/".format(
                 identifier=identifier,
                 year_acquired=year_acquired,
-                target_path=file_row["WRS Path"],
-                target_row=file_row["WRS Row"],
+                target_path=file_row["WRS Path"].zfill(3),
+                target_row=file_row["WRS Row"].zfill(3),
                 display_id=file_row["Display ID"],
             )
         )
