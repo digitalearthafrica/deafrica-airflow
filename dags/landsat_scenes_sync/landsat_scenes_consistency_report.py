@@ -72,8 +72,8 @@ def get_and_filter_keys_from_files(file_path: Path):
             "{target_path}/{target_row}/{display_id}/".format(
                 identifier=identifier,
                 year_acquired=year_acquired,
-                target_path=file_row["WRS Path"],
-                target_row=file_row["WRS Row"],
+                target_path=file_row["WRS Path"].zfill(3),
+                target_row=file_row["WRS Row"].zfill(3),
                 display_id=file_row["Display ID"],
             )
         )
@@ -83,6 +83,7 @@ def get_and_filter_keys_from_files(file_path: Path):
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
+
     return set(
         build_path(row)
         for row in read_big_csv_files_from_gzip(file_path)
@@ -99,7 +100,8 @@ def get_and_filter_keys_from_files(file_path: Path):
             and (
                 row.get("WRS Path")
                 and row.get("WRS Row")
-                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
+                and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                in africa_pathrows
             )
         )
     )
@@ -134,9 +136,8 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_keys
         if (
-            "SR_stac.json" in key
             # Filter to remove any folder despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
-            and key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
+            key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
             # Ensure the filter to the right satellite
             and key.split("/")[-1].startswith(prefix)
         )
@@ -199,6 +200,8 @@ def generate_buckets_diff(landsat: str, file_name: str):
         logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
+        logging.info(f"BULK FILE number of objects {len(source_paths)}")
+
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
@@ -217,15 +220,15 @@ def generate_buckets_diff(landsat: str, file_name: str):
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
         missing_scenes = [
-            f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths.difference(source_paths)
+            f"{USGS_S3_BUCKET_PATH}{path}"
+            for path in source_paths.difference(dest_paths)
         ]
 
         # Keys that are orphan, they are in the bucket but not found in the files
         logging.info("Filtering orphan scenes")
         orphaned_scenes = [
-            f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths.difference(dest_paths)
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
+            for path in dest_paths.difference(source_paths)
         ]
 
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
