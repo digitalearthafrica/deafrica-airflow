@@ -150,7 +150,9 @@ def retrieve_status_report(landsat: str):
 
     missing_scene_paths = [
         scene_path
-        for scene_path in missing_scene_file.split(f"s3://{LANDSAT_SYNC_BUCKET_NAME}/")
+        for scene_path in missing_scene_file.decode("utf-8").split(
+            f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
+        )
         if scene_path
     ]
     logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
