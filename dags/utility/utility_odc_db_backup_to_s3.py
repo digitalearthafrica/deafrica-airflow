@@ -11,10 +11,9 @@ from datetime import date, datetime, timedelta
 from airflow import DAG
 from airflow.kubernetes.secret import Secret
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
+from airflow.kubernetes.volume import Volume
+from airflow.kubernetes.volume_mount import VolumeMount
 from textwrap import dedent
-
-from airflow.models import Variable
-
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
 from infra.variables import SECRET_DBA_ADMIN_NAME, DB_DATABASE, DB_HOSTNAME
@@ -23,7 +22,15 @@ from infra.s3_buckets import DB_DUMP_S3_BUCKET
 from infra.iam_roles import DB_DUMP_S3_ROLE
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
+DB_DUMP_MOUNT_PATH = '/dbdump'
 
+odc_db_dump_volume_mount = VolumeMount(
+    name="odc-db-dump-volume", mount_path=DB_DUMP_MOUNT_PATH, sub_path=None, read_only=False
+)
+
+odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc_db_dump-volume"}}
+
+odc_db_dump_volume = Volume(name="s3-backup-volume", configs=odc_db_dump_volume_mount)
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
@@ -38,6 +45,7 @@ DEFAULT_ARGS = {
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_DATABASE": DB_DATABASE,
+        "DB_DUMP_MOUNT_PATH": DB_DUMP_MOUNT_PATH,
         "AWS_DEFAULT_REGION": AWS_DEFAULT_REGION,
     },
     # Lift secrets into environment variables
@@ -53,9 +61,11 @@ DUMP_TO_S3_COMMAND = [
     "-c",
     dedent(
         """
-            pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
+            pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > $(DB_DUMP_MOUNT_PATH)/{0}
             ls -la | grep {0}
             aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-dev/{0}
+            
+            rm -f $(DB_DUMP_MOUNT_PATH)/{0}
         """
     ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
@@ -82,5 +92,7 @@ with dag:
         task_id="dump-odc-db",
         get_logs=True,
         affinity=ONDEMAND_NODE_AFFINITY,
+        volumes=[odc_db_dump_volume],
+        volume_mounts=[odc_db_dump_volume_mount],
         is_delete_operator_pod=True,
     )
