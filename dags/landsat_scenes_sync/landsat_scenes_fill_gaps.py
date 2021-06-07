@@ -108,7 +108,11 @@ def find_latest_report(landsat: str) -> str:
             )
 
         list_reports.extend(
-            [obj["Key"] for obj in resp["Contents"] if landsat in obj["Key"]]
+            [
+                obj["Key"]
+                for obj in resp["Contents"]
+                if landsat in obj["Key"] and "orphaned" not in obj["Key"]
+            ]
         )
 
         # The S3 API is paginated, returning up to 1000 keys at a time.
@@ -143,10 +147,8 @@ def retrieve_status_report(landsat: str):
         region=AWS_DEFAULT_REGION,
         key=latest_report,
     )
-    logging.info(missing_scene_file.decode("utf-8"))
-    missing_scene_paths = [
-        x.strip() for x in missing_scene_file.decode("utf-8").readlines()
-    ]
+
+    missing_scene_paths = [x.strip() for x in missing_scene_file.readlines()]
     logging.info(f"missing_scene_paths {missing_scene_paths}")
     # missing_scene_paths = read_csv_from_gzip(
     #     file_path=f"s3://{LANDSAT_SYNC_BUCKET_NAME}/{latest_report}"
