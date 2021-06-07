@@ -10,7 +10,7 @@ LANDSAT_SYNC_SQS_NAME = Variable.get(
 )  # qa
 
 LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME = Variable.get(
-    "landsat_usgs_sns_filter_sqs_name", "deafrica-pds-landsat-usgs-sns-filter"
+    "landsat_usgs_sns_filter_sqs_name", "deafrica-dev-eks-landsat-usgs-sns-filter"
 )  # qa
 
 LANDSAT_INDEX_SQS_NAME = Variable.get(
