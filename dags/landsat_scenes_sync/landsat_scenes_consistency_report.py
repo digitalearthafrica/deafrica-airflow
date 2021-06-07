@@ -132,7 +132,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         prefix = "LC08"
     elif landsat == "landsat_7":
         prefix = "LE07"
-    elif landsat == "Landsat_4_5":
+    elif landsat == "Landsat_5":
         prefix = "LT05"
 
     if not prefix:
@@ -302,7 +302,7 @@ with DAG(
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
         "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
-        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+        "Landsat_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
     for sat, file in files.items():
