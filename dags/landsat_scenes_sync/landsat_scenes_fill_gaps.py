@@ -15,6 +15,7 @@ from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
 )
+from landsat_scenes_sync.variables import USGS_S3_BUCKET_PATH
 from utils.aws_utils import S3, SQS
 from utils.sync_utils import (
     read_csv_from_gzip,
@@ -154,9 +155,9 @@ def retrieve_status_report(landsat: str):
 
         missing_scene_paths = [
             scene_path
-            for scene_path in missing_scene_file.decode("utf-8").split(
-                f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
-            )
+            for scene_path in missing_scene_file.decode("utf-8")
+            .replace(USGS_S3_BUCKET_PATH, "")
+            .split("\n")
             if scene_path
         ]
         logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
