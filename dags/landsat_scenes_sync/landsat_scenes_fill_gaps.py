@@ -193,7 +193,8 @@ with DAG(
     START = DummyOperator(task_id="start-tasks")
 
     processes = []
-    satellites = ["landsat_8", "landsat_7", "Landsat_5"]
+    satellites = ["landsat_8", "Landsat_5"]
+    # satellites = ["landsat_8", "landsat_7", "Landsat_5"]
 
     for sat in satellites:
         processes.append(
