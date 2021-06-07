@@ -148,11 +148,13 @@ def retrieve_status_report(landsat: str):
         key=latest_report,
     )
 
-    missing_scene_paths = [x.strip() for x in missing_scene_file.readlines()]
-    logging.info(f"missing_scene_paths {missing_scene_paths}")
-    # missing_scene_paths = read_csv_from_gzip(
-    #     file_path=f"s3://{LANDSAT_SYNC_BUCKET_NAME}/{latest_report}"
-    # )
+    missing_scene_paths = [
+        scene_path
+        for scene_path in missing_scene_file.split(f"s3://{LANDSAT_SYNC_BUCKET_NAME}/")
+        if scene_path
+    ]
+    logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
 
     logging.info("Publishing messages")
