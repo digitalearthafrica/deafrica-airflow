@@ -17,7 +17,8 @@ from airflow.models import Variable
 
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
-from infra.variables import SECRET_DBA_ADMIN_NAME
+from infra.variables import SECRET_DBA_ADMIN_NAME, DB_DATABASE, DB_HOSTNAME
+from infra.variables import AWS_DEFAULT_REGION
 from infra.s3_buckets import DB_DUMP_S3_BUCKET
 from infra.iam_roles import DB_DUMP_S3_ROLE
 
@@ -26,19 +27,18 @@ DAG_NAME = "utility_odc_db_dump_to_s3"
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
-    "owner": "Pin Jin",
+    "owner": "Nikita Gandhi",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["pin.jin@ga.gov.au"],
+    "email": ["nikita.gandhi@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": "db-writer",
-        "DB_DATABASE": "odc",
-        "AWS_DEFAULT_REGION": "af-south-1",
+        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_DATABASE": DB_DATABASE,
+        "AWS_DEFAULT_REGION": AWS_DEFAULT_REGION,
     },
     # Lift secrets into environment variables
     "secrets": [
@@ -55,7 +55,7 @@ DUMP_TO_S3_COMMAND = [
         """
             pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > {0}
             ls -la | grep {0}
-            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-prod-af/{0}
+            aws s3 cp --acl bucket-owner-full-control {0} s3://{1}/deafrica-dev/{0}
         """
     ).format(f"odc_{date.today().strftime('%Y_%m_%d')}.pgdump", DB_DUMP_S3_BUCKET),
 ]
