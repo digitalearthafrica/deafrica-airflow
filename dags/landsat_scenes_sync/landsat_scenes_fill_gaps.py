@@ -164,7 +164,7 @@ def retrieve_status_report(landsat: str):
             message_list=[
                 {
                     "Message": {
-                        "landsat_product_id": path.split("/")[-1],
+                        "landsat_product_id": path[0:-1].split("/"),
                         "s3_location": path,
                     }
                 }
