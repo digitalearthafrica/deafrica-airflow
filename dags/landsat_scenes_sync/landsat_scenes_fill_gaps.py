@@ -44,7 +44,7 @@ def publish_messages(message_list) -> None:
             sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
 
             sqs_queue.publish_to_sqs_queue(
-                queue_name="rodrigo_test_queue",
+                queue_name="deafrica-dev-eks-rodrigo-sync",
                 # queue_name=LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME,
                 messages=messages_to_send,
             )
