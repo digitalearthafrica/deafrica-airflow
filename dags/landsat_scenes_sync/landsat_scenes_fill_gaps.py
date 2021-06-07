@@ -152,9 +152,7 @@ def retrieve_status_report(landsat: str):
 
         missing_scene_paths = [
             scene_path
-            for scene_path in missing_scene_file.decode("utf-8")
-            .replace(USGS_S3_BUCKET_PATH, "")
-            .split("\n")
+            for scene_path in missing_scene_file.decode("utf-8").split("\n")
             if scene_path
         ]
         logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
