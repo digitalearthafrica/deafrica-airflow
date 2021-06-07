@@ -9,7 +9,7 @@ from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_LANDSAT_WRITE
+from infra.connections import CONN_LANDSAT_WRITE, CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     AWS_DEFAULT_REGION,
@@ -17,9 +17,6 @@ from infra.variables import (
 )
 from landsat_scenes_sync.variables import USGS_S3_BUCKET_PATH
 from utils.aws_utils import S3, SQS
-from utils.sync_utils import (
-    read_csv_from_gzip,
-)
 
 REPORTING_PREFIX = "status-report/"
 SCHEDULE_INTERVAL = "@weekly"
@@ -44,7 +41,7 @@ def publish_messages(message_list) -> None:
 
     def post_messages(messages_to_send):
         try:
-            sqs_queue = SQS(conn_id=CONN_LANDSAT_WRITE, region=AWS_DEFAULT_REGION)
+            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
 
             sqs_queue.publish_to_sqs_queue(
                 queue_name="rodrigo_test_queue",
