@@ -6,6 +6,7 @@ s3://deafrica-landsat-dev/<date>/status-report
 """
 import json
 import logging
+from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
@@ -31,7 +32,7 @@ SCHEDULE_INTERVAL = "@weekly"
 
 default_args = {
     "owner": "rodrigo.carvalho",
-    "start_date": None,
+    "start_date": datetime(2021, 6, 7),
     "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
     "email_on_failure": True,
     "email_on_success": True,
