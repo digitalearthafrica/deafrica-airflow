@@ -28,9 +28,9 @@ odc_db_dump_volume_mount = VolumeMount(
     name="odc-db-dump-volume", mount_path=DB_DUMP_MOUNT_PATH, sub_path=None, read_only=False
 )
 
-odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc_db_dump-volume"}}
+odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc-db-dump-volume"}}
 
-odc_db_dump_volume = Volume(name="s3-backup-volume", configs=odc_db_dump_volume_mount)
+odc_db_dump_volume = Volume(name="odc-db-dump-volume", configs=odc_db_dump_volume_mount)
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
