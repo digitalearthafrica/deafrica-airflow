@@ -105,6 +105,7 @@ def find_latest_report(landsat: str) -> str:
             raise Exception(
                 f"Report not found at "
                 f"{LANDSAT_SYNC_BUCKET_NAME}/{LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME}/"
+                f"  - returned {resp}"
             )
 
         list_reports.extend(
@@ -124,7 +125,7 @@ def find_latest_report(landsat: str) -> str:
             break
 
     list_reports.sort()
-    return list_reports[-1]
+    return list_reports[-1] if list_reports else ""
 
 
 def retrieve_status_report(landsat: str):
@@ -138,39 +139,42 @@ def retrieve_status_report(landsat: str):
     latest_report = find_latest_report(landsat=landsat)
     logging.info(f"Latest report found {latest_report}")
 
-    logging.info("Reading missing scenes from the report")
+    if not latest_report:
+        logging.error("Report not found")
+    else:
+        logging.info("Reading missing scenes from the report")
 
-    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
 
-    missing_scene_file = s3.get_s3_contents_and_attributes(
-        bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-        region=AWS_DEFAULT_REGION,
-        key=latest_report,
-    )
-
-    missing_scene_paths = [
-        scene_path
-        for scene_path in missing_scene_file.decode("utf-8").split(
-            f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
+        missing_scene_file = s3.get_s3_contents_and_attributes(
+            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+            region=AWS_DEFAULT_REGION,
+            key=latest_report,
         )
-        if scene_path
-    ]
-    logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
-    logging.info(f"Number of scenes found {len(missing_scene_paths)}")
-
-    logging.info("Publishing messages")
-    publish_messages(
-        message_list=[
-            {
-                "Message": {
-                    "landsat_product_id": path.split("/")[-1],
-                    "s3_location": path,
-                }
-            }
-            for path in missing_scene_paths
+        missing_scene_paths = [
+            scene_path
+            for scene_path in missing_scene_file.decode("utf-8").split(
+                f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
+            )
+            if scene_path
         ]
-    )
+        logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+
+        logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+
+        logging.info("Publishing messages")
+        publish_messages(
+            message_list=[
+                {
+                    "Message": {
+                        "landsat_product_id": path.split("/")[-1],
+                        "s3_location": path,
+                    }
+                }
+                for path in missing_scene_paths
+            ]
+        )
 
 
 def fill_the_gap(landsat: str) -> None:
