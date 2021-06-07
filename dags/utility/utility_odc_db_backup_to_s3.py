@@ -11,8 +11,7 @@ from datetime import date, datetime, timedelta
 from airflow import DAG
 from airflow.kubernetes.secret import Secret
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
-from airflow.kubernetes.volume import Volume
-from airflow.kubernetes.volume_mount import VolumeMount
+import kubernetes.client.models as k8s
 from textwrap import dedent
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
@@ -24,13 +23,13 @@ from infra.iam_roles import DB_DUMP_S3_ROLE
 DAG_NAME = "utility_odc_db_dump_to_s3"
 DB_DUMP_MOUNT_PATH = '/dbdump'
 
-odc_db_dump_volume_mount = VolumeMount(
-    name="odc-db-dump-volume", mount_path=DB_DUMP_MOUNT_PATH, sub_path=None, read_only=False
+odc_db_dump_volume = k8s.V1Volume(
+    name='odc-db-dump-volume',
+    persistent_volume_claim=k8s.V1PersistentVolumeClaimVolumeSource(claim_name='odc-db-dump-volume'),
 )
-
-odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc-db-dump-volume"}}
-
-odc_db_dump_volume = Volume(name="odc-db-dump-volume", configs=odc_db_dump_volume_config)
+odc_db_dump_volume_mount = k8s.V1VolumeMount(
+    name='odc-db-dump-volume', mount_path=DB_DUMP_MOUNT_PATH, sub_path=None, read_only=False
+)
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
