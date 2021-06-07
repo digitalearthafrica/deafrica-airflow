@@ -30,7 +30,7 @@ odc_db_dump_volume_mount = VolumeMount(
 
 odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc-db-dump-volume"}}
 
-odc_db_dump_volume = Volume(name="odc-db-dump-volume", configs=odc_db_dump_volume_mount)
+odc_db_dump_volume = Volume(name="odc-db-dump-volume", configs=odc_db_dump_volume_config)
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
