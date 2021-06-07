@@ -1,8 +1,5 @@
 """
-# Generate a gap report between deafrica-landsat-dev and usgs-landsat buckets
-
-This DAG runs weekly and creates a gap report in the folowing location:
-s3://deafrica-landsat-dev/<date>/status-report
+# Read report and generate messages to fill missing scenes
 """
 import json
 import logging
@@ -14,13 +11,9 @@ from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
-from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
-)
-from landsat_scenes_sync.variables import (
-    AFRICA_GZ_PATHROWS_URL,
 )
 from utils.aws_utils import S3, SQS
 from utils.sync_utils import (
@@ -142,9 +135,22 @@ def retrieve_status_report(landsat: str):
     logging.info(f"Latest report found {latest_report}")
 
     logging.info("Reading missing scenes from the report")
-    missing_scene_paths = read_csv_from_gzip(
-        file_path=f"s3://{LANDSAT_SYNC_BUCKET_NAME}/{latest_report}"
+
+    s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+
+    missing_scene_file = s3.get_s3_contents_and_attributes(
+        bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+        region=AWS_DEFAULT_REGION,
+        key=latest_report,
     )
+    logging.info(missing_scene_file.decode("utf-8"))
+    missing_scene_paths = [
+        x.strip() for x in missing_scene_file.decode("utf-8").readlines()
+    ]
+    logging.info(f"missing_scene_paths {missing_scene_paths}")
+    # missing_scene_paths = read_csv_from_gzip(
+    #     file_path=f"s3://{LANDSAT_SYNC_BUCKET_NAME}/{latest_report}"
+    # )
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
 
     logging.info("Publishing messages")
