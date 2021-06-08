@@ -49,17 +49,16 @@ def publish_messages(message_list) -> None:
             )
         except Exception as error:
             logging.error(f"Error sending message to the queue {error}")
+            return True
 
     count = 0
     messages = []
-    flag = False
+    error_flag = False
+    logging.info("sending messages")
     for obj in message_list:
-        if not flag:
-            logging.info("sending messages")
-            flag = True
         message = {
-            "Id": str(count).encode("utf-8"),
-            "MessageBody": json.dumps(obj, indent=4).encode("utf-8"),
+            "Id": str(count),
+            "MessageBody": str(json.dumps(obj)),
         }
 
         messages.append(message)
@@ -67,12 +66,15 @@ def publish_messages(message_list) -> None:
         count += 1
         # Send 10 messages per time
         if count % 10 == 0:
-            post_messages(messages)
+            error_flag = post_messages(messages)
             messages = []
 
     # Post the last messages if there are any
     if len(messages) > 0:
-        post_messages(messages)
+        error_flag = post_messages(messages)
+
+    if error_flag:
+        raise Exception("There was an error sending messages")
 
     logging.info(f"{count} messages sent successfully :)")
 
