@@ -58,8 +58,8 @@ def publish_messages(message_list) -> None:
             logging.info("sending messages")
             flag = True
         message = {
-            "Id": str(count),
-            "MessageBody": json.dumps(obj, indent=4),
+            "Id": str(count).encode("utf-8"),
+            "MessageBody": json.dumps(obj, indent=4).encode("utf-8"),
         }
 
         messages.append(message)
