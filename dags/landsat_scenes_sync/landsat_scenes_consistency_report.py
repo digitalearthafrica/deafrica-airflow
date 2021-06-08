@@ -120,7 +120,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         prefix = "LC08"
     elif landsat == "landsat_7":
         prefix = "LE07"
-    elif landsat == "Landsat_4_5":
+    elif landsat == "Landsat_5":
         prefix = "LT05"
 
     if not prefix:
@@ -201,6 +201,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         source_paths = get_and_filter_keys_from_files(file_path)
 
         logging.info(f"BULK FILE number of objects {len(source_paths)}")
+        logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
 
         # Create connection to the inventory S3 bucket
         s3_inventory_dest = InventoryUtils(
@@ -216,6 +217,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
+        logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
 
         # Keys that are missing, they are in the source but not in the bucket
         logging.info("Filtering missing scenes")
@@ -288,7 +290,7 @@ with DAG(
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
         "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
-        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+        "Landsat_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
     for sat, file in files.items():
