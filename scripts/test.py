@@ -16,44 +16,47 @@ from utils.sync_utils import read_big_csv_files_from_gzip, read_csv_from_gzip
 
 
 def count_scenes():
-    file_path = Path(
-        os.path.join("C:/Users/cario/Downloads/", "LANDSAT_OT_C2_L2.csv.gz")
-    )
-    url = urlparse(
-        f"{'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'}{'LANDSAT_OT_C2_L2.csv.gz'}"
-    )
-    downloaded = requests.get(url.geturl(), stream=True)
-    file_path.write_bytes(downloaded.content)
-
+    files = {
+        "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
+        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+    }
     africa_pathrows = read_csv_from_gzip(
         file_path="https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-usgs-pathrows.csv.gz"
     )
 
-    count = 0
-    for row in read_big_csv_files_from_gzip(file_path):
-        if (
-            # Filter to skip all LANDSAT_4
-            row.get("Satellite")
-            and row["Satellite"] != "LANDSAT_4"
-            # Filter to get just day
-            and (
-                row.get("Day/Night Indicator")
-                and row["Day/Night Indicator"].upper() == "DAY"
-            )
-            # Filter to get just from Africa
-            and (
-                row.get("WRS Path")
-                and row.get("WRS Row")
-                and int(f"{row['WRS Path']}{row['WRS Row']}") in africa_pathrows
-            )
-        ):
-            count += 1
-    print(f"Number of scenes {count}")
+    for sat, file in files.items():
+        file_path = Path(os.path.join("C:/Users/cario/Downloads/", file))
+        url = urlparse(
+            f"{'https://landsat.usgs.gov/landsat/metadata_service/bulk_metadata_files/'}{file}"
+        )
+        downloaded = requests.get(url.geturl(), stream=True)
+        file_path.write_bytes(downloaded.content)
 
-    sec_transfer = 90 * count
-    transfer_time = datetime.timedelta(seconds=sec_transfer)
-
-    print(f"Time to transfer {str(transfer_time)}")
+        count = len(
+            [
+                row
+                for row in read_big_csv_files_from_gzip(file_path)
+                if (
+                    # Filter to skip all LANDSAT_4
+                    row.get("Satellite")
+                    and row["Satellite"] != "LANDSAT_4"
+                    # Filter to get just day
+                    and (
+                        row.get("Day/Night Indicator")
+                        and row["Day/Night Indicator"].upper() == "DAY"
+                    )
+                    # Filter to get just from Africa
+                    and (
+                        row.get("WRS Path")
+                        and row.get("WRS Row")
+                        and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                        in africa_pathrows
+                    )
+                )
+            ]
+        )
+        print(f"{sat} - {count} scenes")
 
 
 def convert(json_path: str):
@@ -183,5 +186,5 @@ if __name__ == "__main__":
     # convert(json_path=json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
     # rasterio_test(json_file)
-    unittest.main()
-    # count_scenes()
+    # unittest.main()
+    count_scenes()

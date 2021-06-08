@@ -16,7 +16,6 @@ from infra.variables import (
     AWS_DEFAULT_REGION,
     LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
 )
-from landsat_scenes_sync.variables import USGS_S3_BUCKET_PATH
 from utils.aws_utils import S3, SQS
 
 REPORTING_PREFIX = "status-report/"
@@ -60,7 +59,7 @@ def publish_messages(message_list) -> None:
             flag = True
         message = {
             "Id": str(count),
-            "MessageBody": json.dumps(obj),
+            "MessageBody": json.dumps(obj, indent=4),
         }
 
         messages.append(message)
@@ -164,8 +163,8 @@ def retrieve_status_report(landsat: str):
             message_list=[
                 {
                     "Message": {
-                        "landsat_product_id": path[0:-1].split("/")[-1],
-                        "s3_location": path,
+                        "landsat_product_id": str(path[0:-1].split("/")[-1]),
+                        "s3_location": str(path),
                     }
                 }
                 for path in missing_scene_paths
