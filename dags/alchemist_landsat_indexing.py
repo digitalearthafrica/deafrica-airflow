@@ -99,6 +99,7 @@ with dag:
             arguments=[
                 "sqs-to-dc",
                 "--stac",
+                "--update-if-exists",
                 queue,
                 name,
             ],
