@@ -100,6 +100,7 @@ with dag:
                 "sqs-to-dc",
                 "--stac",
                 "--update-if-exists",
+                "--allow-unsafe",
                 queue,
                 name,
             ],
