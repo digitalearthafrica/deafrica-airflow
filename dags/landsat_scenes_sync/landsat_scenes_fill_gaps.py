@@ -36,7 +36,8 @@ default_args = {
 def publish_messages(message_list) -> None:
     """
     Publish messages
-    param message: list of messages
+    :param message_list:(list) list of messages
+    :return:(None)
     """
 
     def post_messages(messages_to_send):
@@ -82,15 +83,12 @@ def publish_messages(message_list) -> None:
 def find_latest_report(landsat: str) -> str:
     """
     Function to find the latest gap report
-    :param landsat:
-    :return:
+    :param landsat:(str)satellite name
+    :return:(str) return the latest report file name
     """
     continuation_token = None
     list_reports = []
     while True:
-        # The S3 API response is a large blob of metadata.
-        # 'Contents' contains information about the listed objects.
-
         s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
         resp = s3.list_objects(
@@ -116,8 +114,6 @@ def find_latest_report(landsat: str) -> str:
         )
 
         # The S3 API is paginated, returning up to 1000 keys at a time.
-        # Pass the continuation token into the next response, until we
-        # reach the final page (when this field is missing).
         if resp.get("NextContinuationToken"):
             continuation_token = resp["NextContinuationToken"]
         else:
@@ -129,9 +125,9 @@ def find_latest_report(landsat: str) -> str:
 
 def fill_the_gap(landsat: str) -> None:
     """
-
-    :param landsat:
-    :return:
+    Function to retrieve the latest gap report and create messages to the filter queue process.
+    :param landsat:(str) satellite name
+    :return:(None)
     """
 
     logging.info("Looking for latest report")
