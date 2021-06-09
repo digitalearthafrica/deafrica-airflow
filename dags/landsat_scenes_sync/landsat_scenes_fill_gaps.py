@@ -91,7 +91,7 @@ def find_latest_report(landsat: str) -> str:
         # The S3 API response is a large blob of metadata.
         # 'Contents' contains information about the listed objects.
 
-        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
         resp = s3.list_objects(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -127,7 +127,7 @@ def find_latest_report(landsat: str) -> str:
     return list_reports[-1] if list_reports else ""
 
 
-def retrieve_status_report(landsat: str):
+def fill_the_gap(landsat: str) -> None:
     """
 
     :param landsat:
@@ -143,7 +143,7 @@ def retrieve_status_report(landsat: str):
     else:
         logging.info("Reading missing scenes from the report")
 
-        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
         missing_scene_file = s3.get_s3_contents_and_attributes(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -172,16 +172,6 @@ def retrieve_status_report(landsat: str):
                 for path in missing_scene_paths
             ]
         )
-
-
-def fill_the_gap(landsat: str) -> None:
-    """
-        Function responsible to read status report and send them as messages to the queue
-    :param landsat:(str) Satellite name
-    :return: (None)
-    """
-
-    retrieve_status_report(landsat)
 
 
 with DAG(
