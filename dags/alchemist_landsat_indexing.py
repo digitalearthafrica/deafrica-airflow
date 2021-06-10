@@ -75,7 +75,7 @@ dag = DAG(
 
 
 def parse_dagrun_conf(product, **kwargs):
-    return products
+    return product
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
