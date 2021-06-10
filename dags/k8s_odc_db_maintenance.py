@@ -17,7 +17,7 @@ from infra.variables import DB_HOSTNAME, DB_PORT, SECRET_ODC_ADMIN_NAME
 DEFAULT_ARGS = {
     "owner": "Nikita Gandhi",
     "depends_on_past": False,
-    "start_date": datetime(2021, 6, 12),
+    "start_date": datetime(2021, 6, 11),
     "email": ["nikita.gandhi@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,
@@ -44,7 +44,7 @@ dag = DAG(
     concurrency=1,
     max_active_runs=1,
     tags=["k8s", "db", "odc"],
-    schedule_interval="@weekly",
+    schedule_interval=None,
     dagrun_timeout=timedelta(minutes=60 * 4),
 )
 
