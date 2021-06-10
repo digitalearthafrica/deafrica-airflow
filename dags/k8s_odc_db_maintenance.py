@@ -17,7 +17,7 @@ from infra.variables import DB_HOSTNAME, DB_PORT, SECRET_ODC_ADMIN_NAME
 DEFAULT_ARGS = {
     "owner": "Nikita Gandhi",
     "depends_on_past": False,
-    "start_date": datetime(2021, 6, 10),
+    "start_date": datetime(2021, 6, 12),
     "email": ["nikita.gandhi@ga.gov.au"],
     "email_on_failure": True,
     "email_on_retry": False,

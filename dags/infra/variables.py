@@ -15,7 +15,7 @@ SENTINEL_2_S3_COGS_FOLDER_NAME = Variable.get(
 )
 
 AWS_DEFAULT_REGION = Variable.get("aws_default_region", "af-south-1")
-SECRET_AWS_NAME = Variable.get("secret_aws_name", "processing-aws-creds-prod")
+SECRET_AWS_NAME = Variable.get("secret_aws_name", "processing-aws-creds-dev")
 
 ###### DB config
 DB_DATABASE = Variable.get("db_database", "odc")
