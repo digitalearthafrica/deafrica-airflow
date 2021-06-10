@@ -81,7 +81,8 @@ def parse_dagrun_conf(product, **kwargs):
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
 
 products = {
-    "wofs_ls": "deafrica-dev-eks-alchemist-landsat-indexing-dev-wo"
+    "wofs_ls": "deafrica-dev-eks-alchemist-landsat-indexing-dev-wo",
+    "fc_ls": "deafrica-dev-eks-alchemist-landsat-indexing-dev-fc"
 }
 
 with dag:
