@@ -89,7 +89,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=products.keys()
+        op_args=" ".join(products.keys())
     )
 
     for name, queue in products.items():
