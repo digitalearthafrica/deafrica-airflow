@@ -57,7 +57,8 @@ MAINTENANCE_SCRIPT = [
         """
             # vaccum analyze agdc + cubedash tables
             psql -h $(DB_HOSTNAME) -U $(DB_ADMIN_USER) -d $(DB_DATABASE) -c \
-            "vacuum verbose analyze agdc.dataset, agdc.dataset_type, agdc.dataset_source, agdc.metadata_type, agdc.dataset_location, cubedash.dataset_spatial, cubedash.product, cubedash.region, cubedash.time_overview;"
+            "vacuum verbose analyze agdc.dataset, agdc.dataset_type, agdc.dataset_source, agdc.metadata_type, agdc.dataset_location;"
+            #, cubedash.dataset_spatial, cubedash.product, cubedash.region, cubedash.time_overview;"
         """
     ),
 ]
