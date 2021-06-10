@@ -1,6 +1,6 @@
-"""### AWS NCI datacube db maintenance job
+"""### AWS ODC datacube db maintenance job
 
-Daily DAG for AWS NCI datacube db maintenance operations
+Daily DAG for AWS ODC datacube db maintenance operations
 """
 
 from airflow import DAG
@@ -66,7 +66,7 @@ MAINTENANCE_SCRIPT = [
 with dag:
     START = DummyOperator(task_id="start")
 
-    NCI_DB_MAINTENANCE = KubernetesPodOperator(
+    ODC_DB_MAINTENANCE = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
         arguments=MAINTENANCE_SCRIPT,
@@ -82,5 +82,5 @@ with dag:
     # Task complete
     COMPLETE = DummyOperator(task_id="done")
 
-    START >> NCI_DB_MAINTENANCE
-    NCI_DB_MAINTENANCE >> COMPLETE
+    START >> ODC_DB_MAINTENANCE
+    ODC_DB_MAINTENANCE >> COMPLETE
