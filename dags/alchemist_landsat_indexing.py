@@ -74,8 +74,9 @@ dag = DAG(
 )
 
 
-def parse_dagrun_conf(product, **kwargs):
-    return product
+def parse_dagrun_conf(products, **kwargs):
+    products_string = " ".join(products)
+    return [products_string]
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
@@ -89,7 +90,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=" ".join(products.keys())
+        op_args=products.keys()
     )
 
     for name, queue in products.items():

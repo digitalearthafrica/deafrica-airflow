@@ -119,8 +119,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=["s2_l2a"],
-        # provide_context=True,
+        op_args=["s2_l2a"]
     )
 
     EXPLORER_SUMMARY = SubDagOperator(
