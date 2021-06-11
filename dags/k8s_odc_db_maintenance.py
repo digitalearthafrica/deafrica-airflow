@@ -51,7 +51,7 @@ dag = DAG(
     concurrency=1,
     max_active_runs=1,
     tags=["k8s", "db", "odc"],
-    schedule_interval=None,
+    schedule_interval="@weekly",
     dagrun_timeout=timedelta(minutes=60 * 4),
 )
 
