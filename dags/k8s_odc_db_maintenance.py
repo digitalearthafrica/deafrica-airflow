@@ -11,7 +11,8 @@ from datetime import datetime, timedelta
 from textwrap import dedent
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
-from infra.variables import DB_HOSTNAME, DB_PORT, SECRET_ODC_ADMIN_NAME
+from infra.variables import DB_HOSTNAME, DB_PORT, DB_DATABASE
+from infra.variables import SECRET_ODC_ADMIN_NAME, SECRET_EXPLORER_ADMIN_NAME
 
 # Templated DAG arguments
 DEFAULT_ARGS = {
@@ -26,15 +27,21 @@ DEFAULT_ARGS = {
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_PORT": DB_PORT,
-    },
-    # Use K8S secrets to send DB Creds
-    # Lift secrets into environment variables for datacube database connectivity
-    "secrets": [
-        Secret("env", "DB_DATABASE", SECRET_ODC_ADMIN_NAME, "database-name"),
-        Secret("env", "DB_ADMIN_USER", SECRET_ODC_ADMIN_NAME, "postgres-username"),
-        Secret("env", "PGPASSWORD", SECRET_ODC_ADMIN_NAME, "postgres-password"),
-    ],
+        "DB_DATABASE": DB_DATABASE
+    }
 }
+
+# Lift secrets database connectivity
+ODC_SCHEMA_ADMIN_SECRET = [
+   Secret("env", "DB_ADMIN_USER", SECRET_ODC_ADMIN_NAME, "postgres-username"),
+   Secret("env", "PGPASSWORD", SECRET_ODC_ADMIN_NAME, "postgres-password"),
+]
+
+CUBEDASH_SCHEMA_ADMIN_SECRET = [
+    Secret("env", "DB_ADMIN_USER", SECRET_EXPLORER_ADMIN_NAME, "postgres-username"),
+    Secret("env", "PGPASSWORD", SECRET_EXPLORER_ADMIN_NAME, "postgres-password"),
+]
+
 
 dag = DAG(
     "k8s_odc_db_maintenance",
@@ -50,27 +57,53 @@ dag = DAG(
 
 affinity = ONDEMAND_NODE_AFFINITY
 
-MAINTENANCE_SCRIPT = [
+ODC_SCHEMA_MAINTENANCE_SCRIPT = [
     "bash",
     "-c",
     dedent(
         """
-            # vaccum analyze agdc + cubedash tables
+            # vaccum analyze agdc schema
             psql -h $(DB_HOSTNAME) -U $(DB_ADMIN_USER) -d $(DB_DATABASE) -c \
             "vacuum verbose analyze agdc.dataset, agdc.dataset_type, agdc.dataset_source, agdc.metadata_type, agdc.dataset_location;"
-            #, cubedash.dataset_spatial, cubedash.product, cubedash.region, cubedash.time_overview;"
         """
     ),
 ]
 
 
+CUBEDASH_SCHEMA_MAINTENANCE_SCRIPT = [
+    "bash",
+    "-c",
+    dedent(
+        """
+            # vaccum analyze cubedash schema
+            psql -h $(DB_HOSTNAME) -U $(DB_ADMIN_USER) -d $(DB_DATABASE) -c \
+            "vacuum verbose cubedash.dataset_spatial, cubedash.product, cubedash.region, cubedash.time_overview;"
+        """
+    ),
+]
+
 with dag:
     START = DummyOperator(task_id="start")
 
-    ODC_DB_MAINTENANCE = KubernetesPodOperator(
+    ODC_SCHEMA_MAINTENANCE = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
-        arguments=MAINTENANCE_SCRIPT,
+        arguments=ODC_SCHEMA_MAINTENANCE_SCRIPT,
+        secrets=ODC_SCHEMA_ADMIN_SECRET,
+        image_pull_policy="Always",
+        labels={"step": "odc-db-maintenance"},
+        name="odc-db-maintenance",
+        task_id="odc-db-maintenance",
+        get_logs=True,
+        is_delete_operator_pod=True,
+        affinity=affinity,
+    )
+
+    CUBEDASH_SCHEMA_MAINTENANCE = KubernetesPodOperator(
+        namespace="processing",
+        image=INDEXER_IMAGE,
+        arguments=CUBEDASH_SCHEMA_MAINTENANCE_SCRIPT,
+        secrets=CUBEDASH_SCHEMA_ADMIN_SECRET,
         image_pull_policy="Always",
         labels={"step": "odc-db-maintenance"},
         name="odc-db-maintenance",
@@ -83,5 +116,6 @@ with dag:
     # Task complete
     COMPLETE = DummyOperator(task_id="done")
 
-    START >> ODC_DB_MAINTENANCE
-    ODC_DB_MAINTENANCE >> COMPLETE
+    START >> ODC_SCHEMA_MAINTENANCE
+    ODC_SCHEMA_MAINTENANCE >> CUBEDASH_SCHEMA_MAINTENANCE
+    CUBEDASH_SCHEMA_MAINTENANCE >> COMPLETE
