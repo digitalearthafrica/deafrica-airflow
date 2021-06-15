@@ -186,5 +186,5 @@ if __name__ == "__main__":
     # convert(json_path=json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
     # rasterio_test(json_file)
-    # unittest.main()
-    count_scenes()
+    unittest.main()
+    # count_scenes()
