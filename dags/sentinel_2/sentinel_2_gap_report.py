@@ -92,7 +92,7 @@ def generate_buckets_diff():
     s3_inventory_source = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        region=USGS_AWS_REGION,
+        region=AWS_DEFAULT_REGION,
     )
     logging.info(f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET}")
 
