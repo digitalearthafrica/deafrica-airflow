@@ -65,7 +65,9 @@ class InventoryUtils:
         """
         Return a dictionary of a manifest file"
         """
-        logging.info("Start Looking for latest manifest file")
+        logging.info(
+            f"Start Looking for latest manifest file on {self.bucket_name} - {self.region}"
+        )
 
         today = datetime.now()
         # get latest manifest file
