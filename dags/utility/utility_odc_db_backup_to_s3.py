@@ -62,8 +62,9 @@ DUMP_TO_S3_COMMAND = [
     dedent(
         """
             pg_dump -Fc -h $(DB_HOSTNAME) -U $(DB_USERNAME) -d $(DB_DATABASE) > $(DB_DUMP_MOUNT_PATH)/{0}
-            ls -la | grep {0}
-            aws s3 cp --acl bucket-owner-full-control $(DB_DUMP_MOUNT_PATH)/{0} s3://{1}/deafrica-dev/{0}
+            ls -la $(DB_DUMP_MOUNT_PATH) | grep {0}
+            aws s3 cp --acl bucket-owner-full-control --only-show-errors $(DB_DUMP_MOUNT_PATH)/{0} s3://{1}/deafrica-dev/{0}
+            echo "SUCCESS writing to s3://{1}/deafrica-dev/{0}"
             
             rm -f $(DB_DUMP_MOUNT_PATH)/{0}
         """
