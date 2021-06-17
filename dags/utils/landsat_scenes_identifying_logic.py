@@ -269,7 +269,7 @@ def identifying_data(file_name: str, date_to_process: str):
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
             # TODO remove limitation when in PROD
-            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:20])
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:3])
             # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
