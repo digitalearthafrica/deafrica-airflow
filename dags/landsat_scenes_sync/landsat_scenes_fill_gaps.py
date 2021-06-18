@@ -36,7 +36,8 @@ default_args = {
 def publish_messages(message_list) -> None:
     """
     Publish messages
-    param message: list of messages
+    :param message_list:(list) list of messages
+    :return:(None)
     """
 
     def post_messages(messages_to_send):
@@ -82,16 +83,13 @@ def publish_messages(message_list) -> None:
 def find_latest_report(landsat: str) -> str:
     """
     Function to find the latest gap report
-    :param landsat:
-    :return:
+    :param landsat:(str)satellite name
+    :return:(str) return the latest report file name
     """
     continuation_token = None
     list_reports = []
     while True:
-        # The S3 API response is a large blob of metadata.
-        # 'Contents' contains information about the listed objects.
-
-        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
         resp = s3.list_objects(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -116,8 +114,6 @@ def find_latest_report(landsat: str) -> str:
         )
 
         # The S3 API is paginated, returning up to 1000 keys at a time.
-        # Pass the continuation token into the next response, until we
-        # reach the final page (when this field is missing).
         if resp.get("NextContinuationToken"):
             continuation_token = resp["NextContinuationToken"]
         else:
@@ -127,11 +123,11 @@ def find_latest_report(landsat: str) -> str:
     return list_reports[-1] if list_reports else ""
 
 
-def retrieve_status_report(landsat: str):
+def fill_the_gap(landsat: str) -> None:
     """
-
-    :param landsat:
-    :return:
+    Function to retrieve the latest gap report and create messages to the filter queue process.
+    :param landsat:(str) satellite name
+    :return:(None)
     """
 
     logging.info("Looking for latest report")
@@ -143,7 +139,7 @@ def retrieve_status_report(landsat: str):
     else:
         logging.info("Reading missing scenes from the report")
 
-        s3 = S3(conn_id=CONN_LANDSAT_WRITE)
+        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
         missing_scene_file = s3.get_s3_contents_and_attributes(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -174,16 +170,6 @@ def retrieve_status_report(landsat: str):
         )
 
 
-def fill_the_gap(landsat: str) -> None:
-    """
-        Function responsible to read status report and send them as messages to the queue
-    :param landsat:(str) Satellite name
-    :return: (None)
-    """
-
-    retrieve_status_report(landsat)
-
-
 with DAG(
     "landsat_scenes_fill_the_gap",
     default_args=default_args,
@@ -194,8 +180,7 @@ with DAG(
     START = DummyOperator(task_id="start-tasks")
 
     processes = []
-    satellites = ["landsat_8", "Landsat_5"]
-    # satellites = ["landsat_8", "landsat_7", "Landsat_5"]
+    satellites = ["landsat_8", "landsat_7", "Landsat_5"]
 
     for sat in satellites:
         processes.append(
