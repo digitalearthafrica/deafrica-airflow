@@ -371,9 +371,10 @@ with DAG(
     default_args=default_args,
     tags=["Sentinel-2", "transfer"],
     catchup=False,
-    start_date=datetime(2020, 6, 12),
+    start_date=datetime(2021, 6, 21),
     concurrency=CONCURRENCY,
-    schedule_interval="0 */1 * * *",
+    # DEV does not need to be updated
+    schedule_interval=None,
 ) as dag:
 
     BRANCH_OPT = BranchPythonOperator(

@@ -172,7 +172,8 @@ def generate_buckets_diff():
 with DAG(
     "sentinel-2_gap_detection",
     default_args=default_args,
-    schedule_interval="@weekly",
+    # DEV does not need to be updated
+    schedule_interval=None,
     tags=["Sentinel-2", "status"],
     catchup=False,
 ) as dag:
