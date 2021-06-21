@@ -41,7 +41,8 @@ from utils.sync_utils import (
 )
 
 REPORTING_PREFIX = "status-report/"
-SCHEDULE_INTERVAL = "@weekly"
+# Dev does not need to be updated
+SCHEDULE_INTERVAL = None
 
 default_args = {
     "owner": "rodrigo.carvalho",

@@ -41,6 +41,7 @@ dag = DAG(
     "landsat_scenes_identifying",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
+    # Dev does not need to be updated
     schedule_interval=None,
     catchup=True,
     tags=[
