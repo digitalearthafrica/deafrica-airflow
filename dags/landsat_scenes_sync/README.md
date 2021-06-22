@@ -10,14 +10,16 @@ to copy the data to Cape Town and upgrade the STAC metadata and create a notific
     file server, and filter by execution date, bbox, and pathrow resulting in a list of valid ids. After that,
     the process will consult USGS API to have its metadata which will be sent to thr SQS queue as JSON.
 
-- landsat-scenes-processing
-  * This Dag will be started by the scheduler to pull messages from the SQS queue, validate the message, process
-    the message adding missing items, changing links to point to our S3 bucket and transforming from stac 0.7 to 1.0.
-    After that, it sends the STAC document to an SNS topic.
-
 - landsat-scenes-indexing
   * This Dag will be started by the scheduler to pull the messages from a second SQS queue, which is
     filled automatically by the SNS, and will index into the Datacube.
+
+- landsat_scenes_consistency_report
+  * This Dag will start a Python process which will download tar.gz files for each satellite from USGS
+    file server, and filter by execution date, bbox, and pathrow resulting in a list of valid ids. After that,
+    the process will compare with Landsat bucket in PDS and save a file with the differences.
+
+
 
 ## Airflow Requirements
 
