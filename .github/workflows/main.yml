@@ -48,9 +48,9 @@ jobs:
           export AIRFLOW__CORE__DAGS_FOLDER="/home/runner/work/deafrica-airflow/deafrica-airflow/dags"
           airflow initdb
           airflow info
-          airflow list_dags
+          airflow dags list
           # check if list_dags has error if yes exit CI
-          daglist=`airflow list_dags`
+          daglist=`airflow dags list`
           errorstring="Error"
           if [[ $daglist == *"$errorstring"* ]]; then
               echo "error in dags"
