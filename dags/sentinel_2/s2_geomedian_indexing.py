@@ -53,12 +53,13 @@ with DAG(
 ) as dag:
 
     # This needs to be updated in the future in case more zones have been added
-    x = range(153, 247)
-    for index in x:
+    for index in range(153, 247):
         INDEXING = KubernetesPodOperator(
             namespace="processing",
             image=INDEXER_IMAGE,
             image_pull_policy="Always",
+            labels={"backlog": "s3-to-dc"},
+            cmds=["s3-to-dc"],
             arguments=[
                 "s3-to-dc",
                 "--stac",
@@ -66,7 +67,6 @@ with DAG(
                 f"s3://{DEAFRICA_SERVICES_BUCKET_NAME}/gm_s2_annual/1-0-0/x{index}/**/*.json",
                 "gm_s2_annual",
             ],
-            labels={"backlog": "s3-to-dc"},
             name="datacube-index",
             task_id=f"Sentinel-2-geomedian-backlog-indexing-task-x{index}",
             get_logs=True,
