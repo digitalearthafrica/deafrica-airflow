@@ -28,3 +28,11 @@ SENTINEL_2_INDEX_SQS_NAME = Variable.get(
 SENTINEL_1_INDEX_SQS_NAME = Variable.get(
     "sentinel_1_index_sqs_name", "deafrica-dev-eks-sentinel-1-indexing-dev"
 )  # qa
+
+LANDSAT_WO_INDEX_SQS_NAME = Variable.get(
+    "landsat_index_wo_sqs_name", "deafrica-dev-eks-alchemist-landsat-indexing-dev-wo"
+)
+
+LANDSAT_FC_INDEX_SQS_NAME = Variable.get(
+    "landsat_index_fc_sqs_name", "deafrica-dev-eks-alchemist-landsat-indexing-dev-fc"
+)
