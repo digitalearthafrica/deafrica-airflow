@@ -19,12 +19,13 @@ from infra.variables import (
 from utils.aws_utils import S3, SQS
 
 REPORTING_PREFIX = "status-report/"
-SCHEDULE_INTERVAL = "@weekly"
+
+SCHEDULE_INTERVAL = None
 
 default_args = {
     "owner": "rodrigo.carvalho",
     "start_date": datetime(2021, 6, 7),
-    "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,

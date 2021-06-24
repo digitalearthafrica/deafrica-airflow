@@ -25,7 +25,7 @@ from utils.landsat_scenes_identifying_logic import identifying_data
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
-    "email": ["rodrigo.carvalho@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
@@ -41,7 +41,8 @@ dag = DAG(
     "landsat_scenes_identifying",
     default_args=DEFAULT_ARGS,
     description="Identify scenes and Sync",
-    schedule_interval="@daily",
+    # Dev does not need to be updated
+    schedule_interval=None,
     catchup=True,
     tags=["Scene", "Bulk", "Landsat", "USGS", "Collection 2"],
 )
