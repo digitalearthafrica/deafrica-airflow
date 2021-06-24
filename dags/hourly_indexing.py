@@ -9,7 +9,7 @@ from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 
-from dags.infra.sqs_queues import (
+from infra.sqs_queues import (
     LANDSAT_FC_INDEX_SQS_NAME,
     LANDSAT_INDEX_SQS_NAME,
     LANDSAT_WO_INDEX_SQS_NAME,
