@@ -30,7 +30,7 @@ from utils.sync_utils import read_csv_from_gzip
 default_args = {
     "owner": "Airflow",
     "start_date": datetime(2020, 7, 24),
-    "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,

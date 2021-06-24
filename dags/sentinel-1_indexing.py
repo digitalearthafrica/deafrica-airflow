@@ -16,10 +16,7 @@ from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
-from infra.variables import (
-    DB_DATABASE,
-    DB_HOSTNAME
-)
+from infra.variables import DB_DATABASE, DB_HOSTNAME
 from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "sentinel-1_indexing"
@@ -31,7 +28,7 @@ DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -52,9 +49,7 @@ DEFAULT_ARGS = {
             INDEXING_USER_CREDS,
             "AWS_DEFAULT_REGION",
         ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"
-        ),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"),
         Secret(
             "env",
             "AWS_SECRET_ACCESS_KEY",

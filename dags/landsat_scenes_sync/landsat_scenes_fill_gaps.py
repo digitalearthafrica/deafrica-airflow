@@ -24,7 +24,7 @@ SCHEDULE_INTERVAL = "@weekly"
 default_args = {
     "owner": "rodrigo.carvalho",
     "start_date": datetime(2021, 6, 7),
-    "email": ["rodrigo.carvalho@ga.gov.au", "alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,
