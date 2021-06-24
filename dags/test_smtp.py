@@ -7,13 +7,9 @@ from airflow.operators.email_operator import EmailOperator
 
 
 default_args = {
-    "owner": "Pin Jin",
-    # "depends_on_past": False,
+    "owner": "Nikita Gandhi",
     "start_date": datetime(2020, 6, 14),
     "email": ["systems@digitalearthafrica.org"],
-    # "email_on_failure": False,
-    # "email_on_retry": False,
-    # "retries": 1,
 }
 
 dag = DAG(
