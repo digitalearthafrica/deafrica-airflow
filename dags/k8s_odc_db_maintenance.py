@@ -19,7 +19,7 @@ DEFAULT_ARGS = {
     "owner": "Nikita Gandhi",
     "depends_on_past": False,
     "start_date": datetime(2021, 6, 11),
-    "email": ["nikita.gandhi@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 1,
