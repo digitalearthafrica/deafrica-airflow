@@ -25,14 +25,14 @@ from utils.landsat_scenes_identifying_logic import identifying_data
 
 DEFAULT_ARGS = {
     "owner": "rodrigo.carvalho",
-    "email": ["rodrigo.carvalho@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
     "retry_delay": timedelta(minutes=15),
     "depends_on_past": False,
-    "start_date": datetime(2021, 6, 21),
-    "version": "0.18",
+    "start_date": datetime(2020, 1, 1),
+    "version": "0.20",
 }
 # [END default_args]
 
@@ -44,9 +44,7 @@ dag = DAG(
     # Dev does not need to be updated
     schedule_interval=None,
     catchup=True,
-    tags=[
-        "Scene",
-    ],
+    tags=["Scene", "Bulk", "Landsat", "USGS", "Collection 2"],
 )
 # [END instantiate_dag]
 

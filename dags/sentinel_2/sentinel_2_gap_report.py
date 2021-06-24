@@ -29,7 +29,7 @@ from utils.sync_utils import read_csv_from_gzip
 default_args = {
     "owner": "Airflow",
     "start_date": datetime(2020, 7, 24),
-    "email": ["toktam.ebadi@ga.gov.au", "alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_success": True,
     "email_on_retry": False,
@@ -140,6 +140,7 @@ def generate_buckets_diff():
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
+    logging.info(f"10 first missing_scenes {list(missing_scenes)[0:10]}")
     print(f"Wrote inventory to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     if len(orphaned_keys) > 0:
@@ -152,9 +153,7 @@ def generate_buckets_diff():
         #     body="\n".join(orphaned_keys),
         # )
 
-        logging.info(
-            f"orphaned_keys {orphaned_keys if len(orphaned_keys) < 100 else orphaned_keys[0:2]}"
-        )
+        logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
 
         print(f"Wrote orphaned scenes to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
