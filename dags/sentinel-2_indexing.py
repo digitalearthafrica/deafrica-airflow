@@ -1,37 +1,40 @@
 """
 # Sentinel-2 indexing automation
+
+DAG to periodically index Sentinel-2 data. Eventually it could
+update explorer and ows schemas in RDS after a given Dataset has been
+indexed.
+
+This DAG uses k8s executors and in cluster with relevant tooling
+and configuration installed.
+
 """
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.kubernetes.secret import Secret
-from airflow.operators.subdag_operator import SubDagOperator
-from airflow.operators.python_operator import PythonOperator
-
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
+from airflow.kubernetes.secret import Secret
+from airflow.operators.python_operator import PythonOperator
+from airflow.operators.subdag_operator import SubDagOperator
 
-from infra.sqs_queues import SENTINEL_2_INDEX_SQS_NAME
-from sentinel_2.variables import AFRICA_TILES
-from subdags.subdag_ows_views import ows_update_extent_subdag
-from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
+from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
-from infra.variables import (
-    DB_DATABASE,
-    DB_HOSTNAME
-)
-from infra.images import INDEXER_IMAGE
+from infra.sqs_queues import SENTINEL_2_INDEX_SQS_NAME
+from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME
+from landsat_indexing import INDEXING_USER_CREDS
+from sentinel_2.variables import AFRICA_TILES
+from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
+from subdags.subdag_ows_views import ows_update_extent_subdag
 
 DAG_NAME = "sentinel-2_indexing"
-PRODUCT_NAME = "s2_l2a"
-INDEXING_USER_CREDS = "sentinel-2-indexing-user"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -44,17 +47,15 @@ DEFAULT_ARGS = {
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
             INDEXING_USER_CREDS,
             "AWS_DEFAULT_REGION",
         ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"
-        ),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"),
         Secret(
             "env",
             "AWS_SECRET_ACCESS_KEY",
@@ -107,7 +108,7 @@ with dag:
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=[PRODUCT_NAME],
+        op_args=["s2_l2a"],
     )
 
     EXPLORER_SUMMARY = SubDagOperator(
