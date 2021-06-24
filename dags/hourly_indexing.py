@@ -1,13 +1,5 @@
 """
-# Sentinel-2 indexing automation
-
-DAG to periodically index Sentinel-2 data. Eventually it could
-update explorer and ows schemas in RDS after a given Dataset has been
-indexed.
-
-This DAG uses k8s executors and in cluster with relevant tooling
-and configuration installed.
-
+# Alchemist Landsat indexing automation
 """
 from datetime import datetime, timedelta
 
@@ -17,50 +9,51 @@ from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 
-from infra.images import INDEXER_IMAGE
-from infra.podconfig import (
-    ONDEMAND_NODE_AFFINITY,
+from infra.sqs_queues import (
+    LANDSAT_FC_INDEX_SQS_NAME,
+    LANDSAT_INDEX_SQS_NAME,
+    LANDSAT_WO_INDEX_SQS_NAME,
+    SENTINEL_1_INDEX_SQS_NAME,
+    SENTINEL_2_INDEX_SQS_NAME,
 )
-from infra.sqs_queues import SENTINEL_2_INDEX_SQS_NAME
+from infra.images import INDEXER_IMAGE
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME
-from sentinel_2.variables import AFRICA_TILES
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from subdags.subdag_ows_views import ows_update_extent_subdag
 
-DAG_NAME = "sentinel-2_indexing"
+DAG_NAME = "alchemist_indexing"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["systems@digitalearthafrica.org"],
+    "email": ["alex.leith@ga.gov.au"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_DATABASE": DB_DATABASE,
         "DB_PORT": "5432",
     },
-    # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
         Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
         Secret(
             "env",
             "AWS_DEFAULT_REGION",
-            "sentinel-2-indexing-user",
+            "indexing-user-creds-dev",
             "AWS_DEFAULT_REGION",
         ),
         Secret(
-            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
+            "env", "AWS_ACCESS_KEY_ID", "indexing-user-creds-dev", "AWS_ACCESS_KEY_ID"
         ),
         Secret(
             "env",
             "AWS_SECRET_ACCESS_KEY",
-            "sentinel-2-indexing-user",
+            "indexing-user-creds-dev",
             "AWS_SECRET_ACCESS_KEY",
         ),
     ],
@@ -74,43 +67,55 @@ dag = DAG(
     default_args=DEFAULT_ARGS,
     schedule_interval="0 */1 * * *",
     catchup=False,
-    tags=["k8s", "sentinel-2"],
+    tags=["k8s", "alchemist"],
 )
 
 
 def parse_dagrun_conf(product, **kwargs):
-    """"""
     return product
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
 
+products = {
+    "ls8_sr ls8_st ls7_sr ls7_st ls5_sr ls5_st": LANDSAT_INDEX_SQS_NAME,
+    "wofs_ls": LANDSAT_WO_INDEX_SQS_NAME,
+    "fc_ls": LANDSAT_FC_INDEX_SQS_NAME,
+    "s1_rtc": SENTINEL_1_INDEX_SQS_NAME,
+    "s2_l2a": SENTINEL_2_INDEX_SQS_NAME,
+}
 
 with dag:
-    INDEXING = KubernetesPodOperator(
-        namespace="processing",
-        image=INDEXER_IMAGE,
-        image_pull_policy="Always",
-        arguments=[
-            "sqs-to-dc",
-            "--stac",
-            f"--region-code-list-uri={AFRICA_TILES}",
-            SENTINEL_2_INDEX_SQS_NAME,
-            "s2_l2a",
-        ],
-        labels={"step": "sqs-to-rds"},
-        name="datacube-index",
-        task_id="indexing-task",
-        get_logs=True,
-        affinity=affinity,
-        is_delete_operator_pod=True,
-    )
-
     SET_PRODUCTS = PythonOperator(
         task_id=SET_REFRESH_PRODUCT_TASK_NAME,
         python_callable=parse_dagrun_conf,
-        op_args=["s2_l2a"],
+        op_args=[" ".join(products.keys())],
     )
+
+    for name, queue in products.items():
+        safe_name = name.replace(" ", "_")
+
+        INDEXING = KubernetesPodOperator(
+            namespace="processing",
+            image=INDEXER_IMAGE,
+            image_pull_policy="Always",
+            arguments=[
+                "sqs-to-dc",
+                "--stac",
+                "--update-if-exists",
+                "--allow-unsafe",
+                queue,
+                name,
+            ],
+            labels={"step": "sqs-to-rds"},
+            name=f"datacube-index-{safe_name}",
+            task_id=f"indexing-task-{safe_name}",
+            get_logs=True,
+            affinity=affinity,
+            is_delete_operator_pod=True,
+        )
+
+        INDEXING >> SET_PRODUCTS
 
     EXPLORER_SUMMARY = SubDagOperator(
         task_id="run-cubedash-gen-refresh-stat",
@@ -132,6 +137,5 @@ with dag:
         ),
     )
 
-    INDEXING >> SET_PRODUCTS
     SET_PRODUCTS >> EXPLORER_SUMMARY
     SET_PRODUCTS >> OWS_UPDATE_EXTENTS

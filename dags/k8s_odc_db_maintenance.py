@@ -27,14 +27,14 @@ DEFAULT_ARGS = {
     "env_vars": {
         "DB_HOSTNAME": DB_HOSTNAME,
         "DB_PORT": DB_PORT,
-        "DB_DATABASE": DB_DATABASE
-    }
+        "DB_DATABASE": DB_DATABASE,
+    },
 }
 
 # Lift secrets database connectivity
 ODC_SCHEMA_ADMIN_SECRET = [
-   Secret("env", "DB_ADMIN_USER", SECRET_ODC_ADMIN_NAME, "postgres-username"),
-   Secret("env", "PGPASSWORD", SECRET_ODC_ADMIN_NAME, "postgres-password"),
+    Secret("env", "DB_ADMIN_USER", SECRET_ODC_ADMIN_NAME, "postgres-username"),
+    Secret("env", "PGPASSWORD", SECRET_ODC_ADMIN_NAME, "postgres-password"),
 ]
 
 CUBEDASH_SCHEMA_ADMIN_SECRET = [
