@@ -30,7 +30,9 @@ SECRET_EXPLORER_ADMIN_NAME = Variable.get("db_explorer_admin_secret", "explorer-
 
 SECRET_ODC_WRITER_NAME = Variable.get("db_odc_writer_secret", "odc-writer")
 SECRET_OWS_WRITER_NAME = Variable.get("db_ows_writer_secret", "ows-writer")
-SECRET_EXPLORER_WRITER_NAME = Variable.get("db_explorer_writer_secret", "explorer-writer")
+SECRET_EXPLORER_WRITER_NAME = Variable.get(
+    "db_explorer_writer_secret", "explorer-writer"
+)
 
 SECRET_ODC_READER_NAME = Variable.get("db_odc_reader_secret", "odc-reader")
 SECRET_OWS_READER_NAME = Variable.get("db_ows_reader_secret", "ows-reader")

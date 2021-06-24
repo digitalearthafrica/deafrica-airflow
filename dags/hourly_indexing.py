@@ -4,17 +4,18 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.contrib.operators.kubernetes_pod_operator import \
-    KubernetesPodOperator
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 
-from dags.infra.sqs_queues import (LANDSAT_FC_INDEX_SQS_NAME,
-                                   LANDSAT_INDEX_SQS_NAME,
-                                   LANDSAT_WO_INDEX_SQS_NAME,
-                                   SENTINEL_1_INDEX_SQS_NAME,
-                                   SENTINEL_2_INDEX_SQS_NAME)
+from dags.infra.sqs_queues import (
+    LANDSAT_FC_INDEX_SQS_NAME,
+    LANDSAT_INDEX_SQS_NAME,
+    LANDSAT_WO_INDEX_SQS_NAME,
+    SENTINEL_1_INDEX_SQS_NAME,
+    SENTINEL_2_INDEX_SQS_NAME,
+)
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME

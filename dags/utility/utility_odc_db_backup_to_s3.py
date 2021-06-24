@@ -22,15 +22,22 @@ from infra.s3_buckets import DB_DUMP_S3_BUCKET
 from infra.iam_roles import DB_DUMP_S3_ROLE
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
-DB_DUMP_MOUNT_PATH = '/dbdump'
+DB_DUMP_MOUNT_PATH = "/dbdump"
 
 odc_db_dump_volume_mount = VolumeMount(
-    name="odc-db-dump-volume", mount_path=DB_DUMP_MOUNT_PATH, sub_path=None, read_only=False
+    name="odc-db-dump-volume",
+    mount_path=DB_DUMP_MOUNT_PATH,
+    sub_path=None,
+    read_only=False,
 )
 
-odc_db_dump_volume_config = {"persistentVolumeClaim": {"claimName": "odc-db-dump-volume"}}
+odc_db_dump_volume_config = {
+    "persistentVolumeClaim": {"claimName": "odc-db-dump-volume"}
+}
 
-odc_db_dump_volume = Volume(name="odc-db-dump-volume", configs=odc_db_dump_volume_config)
+odc_db_dump_volume = Volume(
+    name="odc-db-dump-volume", configs=odc_db_dump_volume_config
+)
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
