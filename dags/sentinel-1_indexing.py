@@ -25,7 +25,7 @@ DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
