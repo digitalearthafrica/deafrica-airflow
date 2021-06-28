@@ -1,55 +1,40 @@
 """
-# Product Adding and Indexing Utility Tool (Self Serve)
+## Utility Tool
+### update from S3 to Datacube
+This is utility is to provide administrators the easy accessiblity to run s3-to-dc
 
-This DAG should be triggered manually and will:
+#### Utility utilization
+The DAG must be parameterized with run time configurations `s3_glob` and `products`
+In addiction the DAG can receive the parameters `no_sign_request` and , `stac`
 
-- Add a new Product to the database *(Optional)*
-- Index a glob of datasets on S3 *(Optional)*
-- Update Datacube Explorer so that you can see the results
+To run with all, set `dag_run.conf.products` to `--all`
+otherwise provide list of products, to be refreshed, separated by space,
+i.e. `s2_l2a ls5_sr ls5_st ls7_sr ls7_st`
 
-## Note
-All list of utility dags here: https://github.com/GeoscienceAustralia/dea-airflow/tree/develop/dags/utility, see Readme
+dag_run.conf format:
 
-## Customisation
-
-There are three configuration arguments:
-
-- `product_definition_uri`: A HTTP/S url to a Product Definition YAML *(Optional)*
-- `s3_glob`: An S3 URL or Glob pattern, as recognised by `s3-to-dc` *(Optional)*
-- `product_name`: The name of the product
-
-The commands which are executed are:
-
-1. `datacube product add`
-2. `s3-to-dc`
-3. update explorer
-
-
-## Sample Configuration
-
+#### example conf in json format
     {
-        "product_definition_uri": "https://raw.githubusercontent.com/GeoscienceAustralia/dea-config/master/products/lccs/lc_ls_c2.odc-product.yaml",
-        "s3_glob": "s3://dea-public-data/cemp_insar/insar/displacement/alos//**/*.yaml",
-        "product_name": "lc_ls_landcover_class_cyear_2_0"
+        "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/*/**/*.json",
+        "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
+        "products":"--all" or "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
+        "no_sign_request":"True",
+        "stac":"True"
     }
-
 """
 
-import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
-from airflow.operators.python_operator import PythonOperator, BranchPythonOperator
+from airflow.operators.python_operator import BranchPythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
-from infra.s3_buckets import DEAFRICA_SERVICES_BUCKET_NAME
-from infra.sqs_queues import LANDSAT_INDEX_SQS_NAME, SENTINEL_2_INDEX_SQS_NAME
 from infra.variables import (
     DB_DATABASE,
     DB_HOSTNAME,
@@ -57,25 +42,12 @@ from infra.variables import (
     AWS_DEFAULT_REGION,
     DB_PORT,
 )
-from sentinel_2.variables import AFRICA_TILES
-from subdags.subdag_explorer_summary import explorer_refresh_operator
-
 
 ADD_PRODUCT_TASK_ID = "add-product-task"
 
 INDEXING_TASK_ID = "batch-indexing-task"
 
 DAG_NAME = "utility_add_product_index_dataset_explorer_update"
-
-PATHS = {
-    "s2_geomedian": {
-        "s3": f"s3://{DEAFRICA_SERVICES_BUCKET_NAME}/gm_s2_annual/1-0-0/**/*.json",
-    },
-    "s2_indexing": {
-        "sqs": f"--region-code-list-uri={AFRICA_TILES} {SENTINEL_2_INDEX_SQS_NAME}"
-    },
-    "landsat_indexing": {"sqs": LANDSAT_INDEX_SQS_NAME},
-}
 
 DEFAULT_ARGS = {
     "owner": "Rodrigo",
@@ -111,17 +83,18 @@ dag = DAG(
 )
 
 
-def parse_dagrun_conf(product_name, **kwargs):
-    """
-    parse input
-    """
-    return product_name
+# def parse_dagrun_conf(product_name, **kwargs):
+#     """
+#     parse input
+#     """
+#     return product_name
 
 
 def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     """
     determine task needed to perform
     """
+
     if product_definition_uri and s3_glob:
         return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
     elif product_definition_uri:
@@ -132,38 +105,6 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
 CHECK_DAGRUN_CONFIG = "check_dagrun_config"
-
-
-def get_index_from(index_from: str) -> str:
-    """
-
-    :param index_from:
-    :return:
-    """
-    if index_from.lower() == "s3":
-        return "s3-to-dc"
-    elif index_from.lower() == "sqs":
-        return "sqs-to-dc"
-    else:
-        logging.info(f"index_from {index_from} does not match any of the valid options")
-
-
-def get_s3_glob_or_sqs(index_from: str, index_type: str) -> str:
-    """
-    :param index_type:
-    :param index_from:
-    :return:
-    """
-
-    if PATHS.get(index_type.lower()):
-        if PATHS[index_type.lower()].get(index_from):
-            return PATHS[index_type.lower()][index_from]
-        else:
-            msg = f"index_from {index_from} does not match any of the valid options on {PATHS}"
-    else:
-        msg = f"index_type {index_type} does not match any of the valid options on {PATHS}"
-    logging.error(msg)
-    raise ValueError(msg)
 
 
 def get_parameters(no_sign_request: str, stac: str) -> str:
@@ -216,18 +157,12 @@ with dag:
         image=INDEXER_IMAGE,
         image_pull_policy="IfNotPresent",
         labels={"step": "s3-to-dc"},
-        cmds=[get_index_from("{{ dag_run.conf.index_from }}")],
-        # cmds=["s3-to-dc"],
+        cmds=["s3-to-dc"],
         arguments=[
-            get_s3_glob_or_sqs(
-                index_from="{{ dag_run.conf.index_from }}",
-                index_type="{{ dag_run.conf.index_type }}",
-            ),
-            "{{ dag_run.conf.product_name }}",
-            get_parameters(
-                no_sign_request="{{ dag_run.conf.no_sign_request }}",
-                stac="{{ dag_run.conf.stac }}",
-            ),
+            "{{ dag_run.conf.s3_glob }}",
+            "{{ dag_run.conf.products }}",
+            "{{ dag_run.conf.no_sign_request if dag_run.conf.no_sign_request else '' }}",
+            "{{ dag_run.conf.stac if dag_run.conf.stac else ''}}",
         ],
         name="datacube-index",
         task_id=INDEXING_TASK_ID,
@@ -237,16 +172,17 @@ with dag:
         trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
 
-    SET_PRODUCTS = PythonOperator(
-        task_id=SET_REFRESH_PRODUCT_TASK_NAME,
-        python_callable=parse_dagrun_conf,
-        op_args=["{{ dag_run.conf.product_name }}"],
-    )
-
-    EXPLORER_SUMMARY = explorer_refresh_operator(
-        xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
-    )
+    # SET_PRODUCTS = PythonOperator(
+    #     task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+    #     python_callable=parse_dagrun_conf,
+    #     op_args=["{{ dag_run.conf.product_name }}"],
+    # )
+    #
+    # EXPLORER_SUMMARY = explorer_refresh_operator(
+    #     xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+    # )
 
     TASK_PLANNER >> [ADD_PRODUCT, INDEXING]
-    ADD_PRODUCT >> INDEXING >> EXPLORER_SUMMARY
-    SET_PRODUCTS >> EXPLORER_SUMMARY
+    ADD_PRODUCT >> INDEXING
+    # ADD_PRODUCT >> INDEXING >> EXPLORER_SUMMARY
+    # SET_PRODUCTS >> EXPLORER_SUMMARY
