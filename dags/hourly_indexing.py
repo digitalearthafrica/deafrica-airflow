@@ -22,13 +22,13 @@ from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from subdags.subdag_ows_views import ows_update_extent_subdag
 
-DAG_NAME = "alchemist_indexing"
+DAG_NAME = "hourly_indexing_sqs"
 
 DEFAULT_ARGS = {
     "owner": "Alex Leith",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
-    "email": ["alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
