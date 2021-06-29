@@ -47,7 +47,6 @@ dag = DAG(
 with DAG(
     "Sentinel-2-geomedian-backlog-indexing",
     default_args=DEFAULT_ARGS,
-    schedule_interval=DEFAULT_ARGS["schedule_interval"],
     tags=["Sentinel-2", "geomedian-indexing"],
     catchup=False,
 ) as dag:
@@ -71,4 +70,5 @@ with DAG(
             task_id=f"Sentinel-2-geomedian-backlog-indexing-task-x{index}",
             get_logs=True,
             is_delete_operator_pod=True,
+            schedule_interval=DEFAULT_ARGS["schedule_interval"],
         )
