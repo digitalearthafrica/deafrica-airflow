@@ -31,7 +31,6 @@ from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import BranchPythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 
-from dags.subdags.subdag_explorer_summary import explorer_refresh_operator
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
@@ -124,10 +123,6 @@ def get_parameters(no_sign_request: str, stac: str) -> str:
     return return_str
 
 
-def get_arguments() -> list:
-    return []
-
-
 with dag:
 
     TASK_PLANNER = BranchPythonOperator(
@@ -163,13 +158,12 @@ with dag:
         image_pull_policy="IfNotPresent",
         labels={"step": "s3-to-dc"},
         cmds=["s3-to-dc"],
-        arguments=get_arguments(),
-        # arguments=[
-        #     "{{ dag_run.conf.s3_glob }}",
-        #     "{{ dag_run.conf.products }}",
-        #     "{{ dag_run.conf.no_sign_request if dag_run.conf.no_sign_request else '' }}",
-        #     "{{ dag_run.conf.stac if dag_run.conf.stac else ''}}",
-        # ],
+        arguments=[
+            "{{ dag_run.conf.s3_glob }}",
+            "{{ dag_run.conf.products }}",
+            "{{ dag_run.conf.no_sign_request if dag_run.conf.no_sign_request else '' }}",
+            "{{ dag_run.conf.stac if dag_run.conf.stac else ''}}",
+        ],
         name="datacube-index",
         task_id=INDEXING_TASK_ID,
         get_logs=True,
