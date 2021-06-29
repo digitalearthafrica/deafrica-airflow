@@ -31,6 +31,7 @@ from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import BranchPythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 
+from dags.subdags.subdag_explorer_summary import explorer_refresh_operator
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
@@ -83,11 +84,11 @@ dag = DAG(
 )
 
 
-# def parse_dagrun_conf(product_name, **kwargs):
-#     """
-#     parse input
-#     """
-#     return product_name
+def parse_dagrun_conf(product_name, **kwargs):
+    """
+    parse input
+    """
+    return product_name
 
 
 def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
@@ -121,6 +122,10 @@ def get_parameters(no_sign_request: str, stac: str) -> str:
         return_str += (" --stac",)
 
     return return_str
+
+
+def get_arguments() -> list:
+    return []
 
 
 with dag:
@@ -158,12 +163,13 @@ with dag:
         image_pull_policy="IfNotPresent",
         labels={"step": "s3-to-dc"},
         cmds=["s3-to-dc"],
-        arguments=[
-            "{{ dag_run.conf.s3_glob }}",
-            "{{ dag_run.conf.products }}",
-            "{{ dag_run.conf.no_sign_request if dag_run.conf.no_sign_request else '' }}",
-            "{{ dag_run.conf.stac if dag_run.conf.stac else ''}}",
-        ],
+        arguments=get_arguments(),
+        # arguments=[
+        #     "{{ dag_run.conf.s3_glob }}",
+        #     "{{ dag_run.conf.products }}",
+        #     "{{ dag_run.conf.no_sign_request if dag_run.conf.no_sign_request else '' }}",
+        #     "{{ dag_run.conf.stac if dag_run.conf.stac else ''}}",
+        # ],
         name="datacube-index",
         task_id=INDEXING_TASK_ID,
         get_logs=True,
@@ -172,17 +178,17 @@ with dag:
         trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
 
-    # SET_PRODUCTS = PythonOperator(
-    #     task_id=SET_REFRESH_PRODUCT_TASK_NAME,
-    #     python_callable=parse_dagrun_conf,
-    #     op_args=["{{ dag_run.conf.product_name }}"],
-    # )
-    #
-    # EXPLORER_SUMMARY = explorer_refresh_operator(
-    #     xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
-    # )
+    SET_PRODUCTS = PythonOperator(
+        task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+        python_callable=parse_dagrun_conf,
+        op_args=["{{ dag_run.conf.product_name }}"],
+    )
+
+    EXPLORER_SUMMARY = explorer_refresh_operator(
+        xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+    )
 
     TASK_PLANNER >> [ADD_PRODUCT, INDEXING]
     ADD_PRODUCT >> INDEXING
-    # ADD_PRODUCT >> INDEXING >> EXPLORER_SUMMARY
-    # SET_PRODUCTS >> EXPLORER_SUMMARY
+    ADD_PRODUCT >> INDEXING >> EXPLORER_SUMMARY
+    SET_PRODUCTS >> EXPLORER_SUMMARY
