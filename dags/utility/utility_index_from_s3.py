@@ -214,8 +214,15 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             image=INDEXER_IMAGE,
             image_pull_policy="Always",
             labels={"step": "s3-to-dc"},
-            cmds=["s3-to-dc"],
-            arguments=arguments,
+            # cmds=["s3-to-dc"],
+            arguments=[
+                f's3-to-dc '
+                f'{config["stac"] if config.get("stac") else ""} '
+                f'{config["no_sign_request"] if config.get("no_sign_request") else ""} '
+                f'{config.get("s3_glob")} '
+                f'{config.get("products")}'
+            ],
+            # arguments=arguments,
             # arguments=[
             #     config.get("s3_glob"),
             #     config.get("products"),
