@@ -162,6 +162,8 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
         return ADD_PRODUCT_TASK_ID
     elif s3_glob:
         return LOADING_ARGUMENTS_TASK_ID
+    else:
+        raise ValueError('Neither product_definition_uri nor s3_glob was informed!')
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
