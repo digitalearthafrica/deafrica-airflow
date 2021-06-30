@@ -141,7 +141,12 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     """
     determine task needed to perform
     """
-    logging.info(f"check_dagrun_config - {product_definition_uri} - {s3_glob} - {kwargs}")
+    logging.info(
+        f"check_dagrun_config - "
+        f"product_definition_uri:{product_definition_uri} - "
+        f"s3_glob:{s3_glob} - "
+        f"kwargs:{kwargs}"
+    )
 
     if product_definition_uri and s3_glob:
         return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
@@ -289,6 +294,6 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
-    ADD_PRODUCT >> GET_INDEXING_CONFIG
+    ADD_PRODUCT >> GET_INDEXING_CONFIG >> INDEXING
     GET_INDEXING_CONFIG >> INDEXING
     SET_PRODUCTS >> EXPLORER_SUMMARY
