@@ -179,7 +179,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
     with subdag:
         KubernetesPodOperator(
-            namespace="processing",
+            namespace="indexing",
             image=INDEXER_IMAGE,
             image_pull_policy="IfNotPresent",
             labels={"step": "s3-to-dc"},
@@ -191,7 +191,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
                 config.get("stac"),
             ],
             name=child_dag_name,
-            task_id="processing_id",
+            task_id="indexing_id",
             get_logs=True,
             affinity=ONDEMAND_NODE_AFFINITY,
             is_delete_operator_pod=True,
