@@ -162,7 +162,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         f"config_task_name:{config_task_name}"
     )
 
-    config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
+    config = "s3-to-dc {{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
         parent_dag_name, config_task_name
     )
 
@@ -192,7 +192,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             image=INDEXER_IMAGE,
             image_pull_policy="Always",
             labels={"step": "s3-to-dc"},
-            cmds=["s3-to-dc"],
+            # cmds=["s3-to-dc"],
             # arguments=arguments,
             # "s3-to-dc s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a --no_sign_request --stac"
             arguments=[
