@@ -218,8 +218,8 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             # arguments=arguments,
             arguments=[
                 's3-to-dc',
-                config.get("no_sign_request"),
-                config.get("stac"),
+                '--no-sign-request' if config.get("no_sign_request") else '',
+                '--stac' if config.get("stac") else '',
                 config.get("s3_glob"),
                 config.get("products"),
             ],
