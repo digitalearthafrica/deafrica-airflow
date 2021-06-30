@@ -119,9 +119,26 @@ def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: s
     else:
         raise ValueError(f"no_sign_request: expected one of 'true', 'false', found {no_sign_request}.")
 
-    to_return = f'{no_sign_request} {stac} {s3_glob} {products}'
-    logging.info(to_return)
-    return to_return
+    # to_return = f'{no_sign_request} {stac} {s3_glob} {products}'
+    # logging.info(to_return)
+    # return to_return
+
+    logging.info(
+        {
+            "s3_glob": s3_glob,
+            "products": products,
+            "stac": stac,
+            "no_sign_request": no_sign_request,
+        }
+    )
+    return json.dumps(
+        {
+            "s3_glob": s3_glob,
+            "products": products,
+            "stac": stac,
+            "no_sign_request": no_sign_request,
+        }
+    )
 
 
 def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
@@ -168,11 +185,11 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
     # config = f"{{{{ task_instance.xcom_pull(task_ids='{config_task_name}') }}}}"
 
-    # try:
-    #     config = json.loads(config)
-    # except json.decoder.JSONDecodeError:
-    #     raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
-    #     config = {}
+    try:
+        config = json.loads(config)
+    except json.decoder.JSONDecodeError:
+        raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
+        config = {}
 
     # logging.info(f"Retrieved Config - {config}")
 
@@ -192,13 +209,17 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             image=INDEXER_IMAGE,
             image_pull_policy="Always",
             labels={"step": "s3-to-dc"},
-            # cmds=["s3-to-dc"],
+            cmds=["s3-to-dc"],
             # arguments=arguments,
             # "s3-to-dc s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a --no_sign_request --stac"
             arguments=[
-                "s3-to-dc --no_sign_request --stac s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a"
+                # "s3-to-dc --no-sign-request --stac s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a"
                 # "s3-to-dc",
                 # config
+                config.get("no_sign_request"),
+                config.get("stac"),
+                config.get("s3_glob"),
+                config.get("products"),
             ],
             name=child_dag_name,
             task_id="indexing_id",
