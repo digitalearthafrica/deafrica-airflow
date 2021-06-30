@@ -181,14 +181,10 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
     try:
         config = json.loads(config)
     except json.decoder.JSONDecodeError:
+        raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
         config = {}
 
     logging.info(f"Retrieved Config - {config}")
-
-    arguments = [
-        config.get("s3_glob"),
-        config.get("products"),
-    ]
 
     if config.get("stac"):
         raise Exception(f'STACCCCCC {config.get("stac")}')
