@@ -212,7 +212,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             cmds=["s3-to-dc"],
             arguments=[
                 config.get("s3_glob") or '',
-                config.get("products") or '',
+                config.get("products") or '--all',
                 config.get("no_sign_request") or '',
                 config.get("stac") or '',
             ],
