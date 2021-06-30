@@ -49,6 +49,8 @@ from infra.variables import (
 
 ADD_PRODUCT_TASK_ID = "add-product-task"
 
+LOADING_ARGUMENTS_TASK_ID = "loading_arguments_task"
+
 INDEXING_TASK_ID = "batch-indexing-task"
 
 DAG_NAME = "utility_index_from_s3"
@@ -146,11 +148,10 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     elif product_definition_uri:
         return ADD_PRODUCT_TASK_ID
     elif s3_glob:
-        return LOADING_ARGUMENTS_TASK_NAME
+        return LOADING_ARGUMENTS_TASK_ID
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
-LOADING_ARGUMENTS_TASK_NAME = "loading_arguments"
 CHECK_DAGRUN_CONFIG = "check_dagrun_config"
 
 
@@ -259,7 +260,7 @@ with dag:
 
     # Validate and retrieve required arguments
     GET_INDEXING_CONFIG = PythonOperator(
-        task_id=LOADING_ARGUMENTS_TASK_NAME, python_callable=loading_arguments, op_args=op_args
+        task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
     )
 
     # Start Indexing process
@@ -269,7 +270,7 @@ with dag:
             DAG_NAME,
             INDEXING_TASK_ID,
             DEFAULT_ARGS,
-            LOADING_ARGUMENTS_TASK_NAME,
+            LOADING_ARGUMENTS_TASK_ID,
         ),
         default_args=DEFAULT_ARGS,
         dag=dag,
