@@ -213,13 +213,13 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             # arguments=arguments,
             # "s3-to-dc s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a --no_sign_request --stac"
             arguments=[
-                # "s3-to-dc --no-sign-request --stac s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a"
+                "s3-to-dc --no-sign-request --stac s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a"
                 # "s3-to-dc",
                 # config
-                config.get("no_sign_request"),
-                config.get("stac"),
-                config.get("s3_glob"),
-                config.get("products"),
+                # config.get("no_sign_request"),
+                # config.get("stac"),
+                # config.get("s3_glob"),
+                # config.get("products"),
             ],
             name=child_dag_name,
             task_id="indexing_id",
