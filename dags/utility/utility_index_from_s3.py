@@ -160,22 +160,6 @@ SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
 CHECK_DAGRUN_CONFIG = "check_dagrun_config"
 
 
-def get_parameters(no_sign_request: str, stac: str) -> str:
-    """
-
-    :param no_sign_request:
-    :param stac:
-    :return:
-    """
-    return_str = ""
-    if no_sign_request:
-        return_str += " --no-sign-request"
-    if stac:
-        return_str += (" --stac",)
-
-    return return_str
-
-
 def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
     """
      Make us a subdag
@@ -228,13 +212,6 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
 
 with dag:
-    op_args = [
-        "{{ dag_run.conf.s3_glob }}",
-        "{{ dag_run.conf.products }}",
-        "{{ dag_run.conf.no_sign_request }}",
-        "{{ dag_run.conf.stac }}",
-    ]
-
     TASK_PLANNER = BranchPythonOperator(
         task_id=CHECK_DAGRUN_CONFIG,
         python_callable=check_dagrun_config,
@@ -261,6 +238,13 @@ with dag:
         affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
     )
+
+    op_args = [
+        "{{ dag_run.conf.s3_glob }}",
+        "{{ dag_run.conf.products }}",
+        "{{ dag_run.conf.no_sign_request }}",
+        "{{ dag_run.conf.stac }}",
+    ]
 
     # Validate and retrieve required arguments
     GET_INDEXING_CONFIG = PythonOperator(
@@ -293,5 +277,4 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
-    # ADD_PRODUCT >> GET_INDEXING_CONFIG
     GET_INDEXING_CONFIG >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
