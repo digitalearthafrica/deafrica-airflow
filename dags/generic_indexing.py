@@ -244,10 +244,10 @@ with dag:
 
     # Start Indexing process
     INDEXING = SubDagOperator(
-        task_id=INDEXING_TASK_ID,
+        task_id="subdag_operator_id",
         subdag=indexing_subdag(
             DAG_NAME,
-            "datacube-index",
+            INDEXING_TASK_ID,
             DEFAULT_ARGS,
             LOADING_ARGUMENTS_TASK_NAME,
         ),
