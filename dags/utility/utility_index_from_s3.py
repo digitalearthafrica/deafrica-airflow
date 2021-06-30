@@ -149,7 +149,7 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     )
 
     if product_definition_uri and s3_glob:
-        return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
+        return [ADD_PRODUCT_TASK_ID, LOADING_ARGUMENTS_TASK_ID]
     elif product_definition_uri:
         return ADD_PRODUCT_TASK_ID
     elif s3_glob:
@@ -294,6 +294,6 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
-    ADD_PRODUCT >> GET_INDEXING_CONFIG >> INDEXING
+    # ADD_PRODUCT >> GET_INDEXING_CONFIG
     GET_INDEXING_CONFIG >> INDEXING
     SET_PRODUCTS >> EXPLORER_SUMMARY
