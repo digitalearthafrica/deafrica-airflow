@@ -211,10 +211,10 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             labels={"step": "s3-to-dc"},
             cmds=["s3-to-dc"],
             arguments=[
-                config.get("s3_glob"),
-                config.get("products"),
-                config.get("no_sign_request"),
-                config.get("stac"),
+                config.get("s3_glob") or '',
+                config.get("products") or '',
+                config.get("no_sign_request") or '',
+                config.get("stac") or '',
             ],
             name=child_dag_name,
             task_id="indexing_id",
@@ -228,6 +228,12 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
 
 with dag:
+    op_args = [
+        "{{ dag_run.conf.s3_glob }}",
+        "{{ dag_run.conf.products }}",
+        "{{ dag_run.conf.no_sign_request }}",
+        "{{ dag_run.conf.stac }}",
+    ]
 
     TASK_PLANNER = BranchPythonOperator(
         task_id=CHECK_DAGRUN_CONFIG,
@@ -255,13 +261,6 @@ with dag:
         affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
     )
-
-    op_args = [
-        "{{ dag_run.conf.s3_glob }}",
-        "{{ dag_run.conf.products }}",
-        "{{ dag_run.conf.no_sign_request }}",
-        "{{ dag_run.conf.stac }}",
-    ]
 
     # Validate and retrieve required arguments
     GET_INDEXING_CONFIG = PythonOperator(
@@ -295,5 +294,4 @@ with dag:
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
     # ADD_PRODUCT >> GET_INDEXING_CONFIG
-    GET_INDEXING_CONFIG >> INDEXING
-    SET_PRODUCTS >> EXPLORER_SUMMARY
+    GET_INDEXING_CONFIG >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
