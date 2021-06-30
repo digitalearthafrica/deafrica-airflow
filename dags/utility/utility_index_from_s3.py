@@ -187,6 +187,17 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
     logging.info(f"Retrieved Config - {config}")
 
+    arguments = [
+        config.get("s3_glob"),
+        config.get("products"),
+    ]
+
+    if config.get("stac"):
+        arguments.append(config["stac"])
+
+    if config.get("no_sign_request"):
+        arguments.append(config["no_sign_request"])
+
     with subdag:
         KubernetesPodOperator(
             namespace="processing",
@@ -194,12 +205,13 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             image_pull_policy="IfNotPresent",
             labels={"step": "s3-to-dc"},
             cmds=["s3-to-dc"],
-            arguments=[
-                config.get("s3_glob"),
-                config.get("products"),
-                config.get("no_sign_request"),
-                config.get("stac"),
-            ],
+            arguments=arguments,
+            # arguments=[
+            #     config.get("s3_glob"),
+            #     config.get("products"),
+            #     config.get("no_sign_request"),
+            #     config.get("stac"),
+            # ],
             name=child_dag_name,
             task_id="indexing_id",
             get_logs=True,
