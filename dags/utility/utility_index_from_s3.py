@@ -78,17 +78,6 @@ DEFAULT_ARGS = {
     ],
 }
 
-# THE DAG
-dag = DAG(
-    dag_id=DAG_NAME,
-    doc_md=__doc__,
-    default_args=DEFAULT_ARGS,
-    schedule_interval=None,
-    catchup=False,
-    tags=["k8s", "add-product", "self-service", "index-datasets", "explorer-update"],
-)
-
-
 def parse_dagrun_conf(products, **kwargs):
     """
     parse input
@@ -175,15 +164,12 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
      Make us a subdag
     """
 
-    logging.info(f"Indexing subdag - "
-                 f"parent_dag_name:{parent_dag_name} - "
-                 f"child_dag_name:{child_dag_name} - "
-                 f"args:{args} - "
-                 f"config_task_name:{config_task_name}"
-                 )
-
-    subdag = DAG(
-        dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
+    logging.info(
+        f"Indexing subdag - "
+        f"parent_dag_name:{parent_dag_name} - "
+        f"child_dag_name:{child_dag_name} - "
+        f"args:{args} - "
+        f"config_task_name:{config_task_name}"
     )
 
     # config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
@@ -205,10 +191,14 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
     ]
 
     if config.get("stac"):
-        arguments.append(config["stac"])
+        raise Exception(f'STACCCCCC {config.get("stac")}')
 
     if config.get("no_sign_request"):
-        arguments.append(config["no_sign_request"])
+        raise Exception(f'no_sign_request --------- {config.get("no_sign_request")}')
+
+    subdag = DAG(
+        dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
+    )
 
     with subdag:
         KubernetesPodOperator(
@@ -235,6 +225,16 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
 
     return subdag
 
+
+# THE DAG
+dag = DAG(
+    dag_id=DAG_NAME,
+    doc_md=__doc__,
+    default_args=DEFAULT_ARGS,
+    schedule_interval=None,
+    catchup=False,
+    tags=["k8s", "add-product", "self-service", "index-datasets", "explorer-update"],
+)
 
 with dag:
     TASK_PLANNER = BranchPythonOperator(
