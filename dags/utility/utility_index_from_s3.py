@@ -86,7 +86,7 @@ def parse_dagrun_conf(products, **kwargs):
     return products
 
 
-def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: str, **kwargs) -> dict:
+def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: str, **kwargs) -> str:
     """
     parse input
     """
@@ -119,7 +119,7 @@ def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: s
     else:
         raise ValueError(f"no_sign_request: expected one of 'true', 'false', found {no_sign_request}.")
 
-    to_return = f'{stac} {no_sign_request} {s3_glob} {products}'
+    to_return = f'{no_sign_request} {stac} {s3_glob} {products}'
     logging.info(to_return)
     return to_return
 
