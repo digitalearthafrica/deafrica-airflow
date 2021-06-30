@@ -190,6 +190,8 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         parent_dag_name, config_task_name
     )
 
+    raise Exception(f'############ CONFIG {config}')
+
     try:
         config = json.loads(config)
     except json.decoder.JSONDecodeError:
@@ -217,9 +219,9 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             # cmds=["s3-to-dc"],
             # arguments=arguments,
             arguments=[
-                's3-to-dc',
-                '--no-sign-request' if config.get("no_sign_request") else '',
-                '--stac' if config.get("stac") else '',
+                "s3-to-dc",
+                "--no-sign-request" if config.get("no_sign_request") else "",
+                "--stac" if config.get("stac") else "",
                 config.get("s3_glob"),
                 config.get("products"),
             ],
