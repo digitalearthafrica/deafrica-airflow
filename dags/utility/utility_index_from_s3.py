@@ -186,11 +186,11 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
     )
 
-    config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
-        parent_dag_name, config_task_name
-    )
+    # config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
+    #     parent_dag_name, config_task_name
+    # )
 
-    raise Exception(f'############ CONFIG {config}')
+    config = f"{{{{ task_instance.xcom_pull(task_ids='{config_task_name}') }}}}"
 
     try:
         config = json.loads(config)
