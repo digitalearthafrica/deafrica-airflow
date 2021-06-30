@@ -17,7 +17,7 @@ dag_run.conf format:
     {
         "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
         "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
-        "products":"--all" or "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
+        "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
         "no_sign_request":"True",
         "stac":"True"
     }
@@ -211,10 +211,10 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             labels={"step": "s3-to-dc"},
             cmds=["s3-to-dc"],
             arguments=[
-                config.get("s3_glob") or '',
-                config.get("products") or '--all',
-                config.get("no_sign_request") or '',
-                config.get("stac") or '',
+                config.get("s3_glob"),
+                config.get("products"),
+                config.get("no_sign_request"),
+                config.get("stac"),
             ],
             name=child_dag_name,
             task_id="indexing_id",
