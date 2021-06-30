@@ -78,6 +78,7 @@ DEFAULT_ARGS = {
     ],
 }
 
+
 def parse_dagrun_conf(products, **kwargs):
     """
     parse input
@@ -118,20 +119,9 @@ def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: s
     else:
         raise ValueError(f"no_sign_request: expected one of 'true', 'false', found {no_sign_request}.")
 
-    logging.info(
-        {
-            "s3_glob": s3_glob,
-            "products": products,
-            "stac": stac,
-            "no_sign_request": no_sign_request,
-        }
-    )
-    return {
-        "s3_glob": s3_glob,
-        "products": products,
-        "stac": stac,
-        "no_sign_request": no_sign_request,
-    }
+    to_return = f'{stac} {no_sign_request} {s3_glob} {products}'
+    logging.info(to_return)
+    return to_return
 
 
 def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
@@ -172,25 +162,25 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         f"config_task_name:{config_task_name}"
     )
 
-    # config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
-    #     parent_dag_name, config_task_name
-    # )
+    config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
+        parent_dag_name, config_task_name
+    )
 
-    config = f"{{{{ task_instance.xcom_pull(task_ids='{config_task_name}') }}}}"
+    # config = f"{{{{ task_instance.xcom_pull(task_ids='{config_task_name}') }}}}"
 
-    try:
-        config = json.loads(config)
-    except json.decoder.JSONDecodeError:
-        raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
-        config = {}
+    # try:
+    #     config = json.loads(config)
+    # except json.decoder.JSONDecodeError:
+    #     raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
+    #     config = {}
 
-    logging.info(f"Retrieved Config - {config}")
+    # logging.info(f"Retrieved Config - {config}")
 
-    if config.get("stac"):
-        raise Exception(f'STACCCCCC {config.get("stac")}')
-
-    if config.get("no_sign_request"):
-        raise Exception(f'no_sign_request --------- {config.get("no_sign_request")}')
+    # if config.get("stac"):
+    #     raise Exception(f'STACCCCCC {config.get("stac")}')
+    #
+    # if config.get("no_sign_request"):
+    #     raise Exception(f'no_sign_request --------- {config.get("no_sign_request")}')
 
     subdag = DAG(
         dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
@@ -206,10 +196,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             # arguments=arguments,
             arguments=[
                 "s3-to-dc",
-                "--no-sign-request" if config.get("no_sign_request") else "",
-                "--stac" if config.get("stac") else "",
-                config.get("s3_glob"),
-                config.get("products"),
+                config
             ],
             name=child_dag_name,
             task_id="indexing_id",
