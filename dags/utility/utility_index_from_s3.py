@@ -146,7 +146,7 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     elif product_definition_uri:
         return ADD_PRODUCT_TASK_ID
     elif s3_glob:
-        return GET_INDEXING_CONFIG
+        return LOADING_ARGUMENTS_TASK_NAME
 
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
