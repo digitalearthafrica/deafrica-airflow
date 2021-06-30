@@ -70,6 +70,7 @@ with DAG(
     "Sentinel-2-backlog-indexing",
     default_args=DEFAULT_ARGS,
     tags=["Sentinel-2", "indexing"],
+    schedule_interval=DEFAULT_ARGS["schedule_interval"],
     catchup=False,
 ) as dag:
 
@@ -93,5 +94,4 @@ with DAG(
             task_id=f"Sentinel-2-backlog-indexing-task-utm-zone-{utm_zone}",
             get_logs=True,
             is_delete_operator_pod=True,
-            schedule_interval=DEFAULT_ARGS["schedule_interval"],
         )
