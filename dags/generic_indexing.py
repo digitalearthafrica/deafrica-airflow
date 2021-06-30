@@ -191,7 +191,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
                 config.get("stac"),
             ],
             name=child_dag_name,
-            task_id=INDEXING_TASK_ID,
+            task_id="processing_id",
             get_logs=True,
             affinity=ONDEMAND_NODE_AFFINITY,
             is_delete_operator_pod=True,
@@ -244,7 +244,7 @@ with dag:
 
     # Start Indexing process
     INDEXING = SubDagOperator(
-        task_id="subdag_operator_id",
+        task_id=INDEXING_TASK_ID,
         subdag=indexing_subdag(
             DAG_NAME,
             INDEXING_TASK_ID,
