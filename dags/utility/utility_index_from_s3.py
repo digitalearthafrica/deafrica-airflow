@@ -15,7 +15,7 @@ dag_run.conf format:
 
 #### example conf in json format
     {
-        "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/*/**/*.json",
+        "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
         "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
         "products":"--all" or "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
         "no_sign_request":"True",
@@ -23,6 +23,7 @@ dag_run.conf format:
     }
 """
 import json
+import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -50,7 +51,7 @@ ADD_PRODUCT_TASK_ID = "add-product-task"
 
 INDEXING_TASK_ID = "batch-indexing-task"
 
-DAG_NAME = "utility_add_product_index_dataset_explorer_update"
+DAG_NAME = "utility_index_from_s3"
 
 DEFAULT_ARGS = {
     "owner": "Rodrigo",
@@ -97,6 +98,14 @@ def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: s
     """
     parse input
     """
+    logging.info(
+        f"Loading Arguments - "
+        f"s3_glob:{s3_glob} - "
+        f"products:{products} - "
+        f"no_sign_request:{no_sign_request} - "
+        f"stac:{stac} - "
+        f"kwargs:{kwargs}"
+    )
 
     if not s3_glob:
         raise Exception("Need to specify a s3_glob")
@@ -130,6 +139,7 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     """
     determine task needed to perform
     """
+    logging.info(f"check_dagrun_config - {product_definition_uri} - {s3_glob} - {kwargs}")
 
     if product_definition_uri and s3_glob:
         return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
@@ -164,6 +174,14 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
     """
      Make us a subdag
     """
+
+    logging.info(f"Indexing subdag - "
+                 f"parent_dag_name:{parent_dag_name} - "
+                 f"child_dag_name:{child_dag_name} - "
+                 f"args:{args} - "
+                 f"config_task_name:{config_task_name}"
+                 )
+
     subdag = DAG(
         dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
     )
@@ -176,6 +194,8 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         config = json.loads(config)
     except json.decoder.JSONDecodeError:
         config = {}
+
+    logging.info(f"Retrieved Config - {config}")
 
     with subdag:
         KubernetesPodOperator(
@@ -268,6 +288,6 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
-    ADD_PRODUCT >> GET_INDEXING_CONFIG >> INDEXING
+    ADD_PRODUCT >> GET_INDEXING_CONFIG
     GET_INDEXING_CONFIG >> INDEXING
     SET_PRODUCTS >> EXPLORER_SUMMARY
