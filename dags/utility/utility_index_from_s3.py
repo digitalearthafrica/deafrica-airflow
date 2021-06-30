@@ -125,7 +125,7 @@ def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: s
     if no_sign_request.lower() == "false":
         no_sign_request = ""
     elif no_sign_request.lower() == "true":
-        no_sign_request = "--no_sign_request"
+        no_sign_request = "--no-sign-request"
     else:
         raise ValueError(f"no_sign_request: expected one of 'true', 'false', found {no_sign_request}.")
 
@@ -214,7 +214,7 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
             labels={"step": "s3-to-dc"},
             arguments=[
                 "s3-to-dc",
-                "--no_sign_request",
+                "--no-sign-request",
                 "--stac",
                 "s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
                 "s2_l2a"
