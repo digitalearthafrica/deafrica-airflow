@@ -26,7 +26,7 @@ SENTINEL_2_SYNC_BUCKET_NAME = Variable.get(
 SENTINEL_1_SYNC_BUCKET_NAME = Variable.get("sentinel_1_sync_bucket_name", "")  # qa
 
 SENTINEL_1_INVENTORY_BUCKET_NAME = Variable.get(
-    "sentinel_1_inventory_bucket_name", ""
+    "sentinel_1_inventory_bucket_name", "deafrica-sentinel-1-inventory"
 )  # qa
 
 # #################### DEAFRICA ####################
@@ -36,4 +36,6 @@ DEAFRICA_SERVICES_BUCKET_NAME = Variable.get(
 
 
 # #################### INFRA DB ####################
-DB_DUMP_S3_BUCKET = Variable.get("db_dump_s3_bucketname", "deafrica-odc-db-dump")  # qa
+DB_DUMP_S3_BUCKET = Variable.get(
+    "db_dump_s3_bucketname", "deafrica-odc-db-dump"
+)  # qa
