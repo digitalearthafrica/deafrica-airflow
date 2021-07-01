@@ -161,7 +161,7 @@ def parse_dagrun_conf(product, path_template, stac, skip_lineage, key_name, key_
     }
 
 
-DAG_NAME = "utility_index_from_s3"
+DAG_NAME = "utility_index_from_s3_TEST"
 
 dag = DAG(
     dag_id=DAG_NAME,
