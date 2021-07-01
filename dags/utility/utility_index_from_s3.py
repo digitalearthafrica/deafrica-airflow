@@ -288,8 +288,8 @@ with dag:
         arguments=[
             "{{ dag_run.conf.s3_glob }}",
             "{{ dag_run.conf.products }}",
-            "{% if dag_run.conf.no_sign_request == true %}--no-sign-request{% end %}",
-            "{% if dag_run.conf.stac == true %}--stac{% end %}",
+            "{% if dag_run.conf.no_sign_request == true %}--no-sign-request{% endif %}",
+            "{% if dag_run.conf.stac == true %}--stac{% endif %}",
         ],
         name='INDEXING_TEST',
         task_id="indexing_id",
