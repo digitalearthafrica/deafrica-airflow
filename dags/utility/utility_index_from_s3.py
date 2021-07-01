@@ -153,11 +153,11 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     )
 
     if product_definition_uri and s3_glob:
-        return [ADD_PRODUCT_TASK_ID, LOADING_ARGUMENTS_TASK_ID]
+        return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
     elif product_definition_uri:
         return ADD_PRODUCT_TASK_ID
     elif s3_glob:
-        return LOADING_ARGUMENTS_TASK_ID
+        return INDEXING_TASK_ID
     else:
         raise ValueError('Neither product_definition_uri nor s3_glob was informed!')
 
@@ -292,7 +292,7 @@ with dag:
             "{{ dag_run.conf.products }}",
         ],
         name='INDEXING_TEST',
-        task_id="indexing_id",
+        task_id=INDEXING_TASK_ID,
         get_logs=True,
         affinity=ONDEMAND_NODE_AFFINITY,
         is_delete_operator_pod=True,
