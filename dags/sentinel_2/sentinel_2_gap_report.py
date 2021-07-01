@@ -17,7 +17,10 @@ from infra.s3_buckets import (
     SENTINEL_2_SYNC_BUCKET_NAME,
 )
 from infra.variables import REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
-from landsat_scenes_sync.variables import MANIFEST_SUFFIX, USGS_AWS_REGION
+from landsat_scenes_sync.variables import (
+    MANIFEST_SUFFIX,
+    USGS_AWS_REGION
+)
 from sentinel_2.variables import (
     AFRICA_TILES,
     REPORTING_PREFIX,
@@ -93,7 +96,6 @@ def generate_buckets_diff():
     s3_inventory_source = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        # region=REGION,
         region=USGS_AWS_REGION,
     )
     logging.info(
