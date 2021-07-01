@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 from textwrap import dedent
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
-from infra.variables import DB_HOSTNAME, DB_PORT, DB_DATABASE
+from infra.variables import DB_WRITER, DB_PORT, DB_DATABASE
 from infra.variables import SECRET_ODC_ADMIN_NAME, SECRET_EXPLORER_ADMIN_NAME
 
 # Templated DAG arguments
@@ -25,7 +25,7 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_PORT": DB_PORT,
         "DB_DATABASE": DB_DATABASE
     }

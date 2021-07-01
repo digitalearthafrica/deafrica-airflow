@@ -29,8 +29,8 @@ from subdags.subdag_ows_views import ows_update_extent_subdag
 
 from infra.variables import (
     DB_DATABASE,
-    DB_HOSTNAME,
-    SECRET_AWS_NAME,
+    DB_WRITER,
+    REGION,
 )
 
 UPDATE_EXTENT_PRODUCTS = []
@@ -48,14 +48,10 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
+        "AWS_DEFAULT_REGION": REGION,
     },
-    # Lift secrets into environment variables
-    "secrets": [
-        Secret("env", "AWS_DEFAULT_REGION", SECRET_AWS_NAME, "AWS_DEFAULT_REGION"),
-    ],
 }
 
 

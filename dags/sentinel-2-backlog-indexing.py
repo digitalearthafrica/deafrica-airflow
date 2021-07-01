@@ -9,13 +9,15 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
-
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.variables import (
-    DB_HOSTNAME,
-    SECRET_ODC_WRITER_NAME,
+    DB_DATABASE,
+    DB_WRITER,
+    DB_PORT,
+    INDEXING_FROM_SQS_USER_SECRET,
     SENTINEL_2_S3_COGS_FOLDER_NAME,
 )
+from infra.images import INDEXER_IMAGE
 
 DEFAULT_ARGS = {
     "owner": "Toktam Ebadi",
@@ -28,35 +30,19 @@ DEFAULT_ARGS = {
     "schedule_interval": "@once",
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
-        "WMS_CONFIG_PATH": "/env/config/ows_cfg.py",
-        "DATACUBE_OWS_CFG": "config.ows_cfg.ows_cfg",
+        "DB_HOSTNAME": DB_WRITER,
+        "DB_DATABASE": DB_DATABASE,
+        "DB_PORT": DB_PORT,
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
-        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
-        Secret("env", "DB_DATABASE", SECRET_ODC_WRITER_NAME, "database-name"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            "sentinel-2-indexing-user",
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", "sentinel-2-indexing-user", "AWS_ACCESS_KEY_ID"
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "sentinel-2-indexing-user",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
     ],
 }
-
-INDEXER_IMAGE = "opendatacube/datacube-index:0.0.12"
 
 dag = DAG(
     "Sentinel-2_indexing",

@@ -17,7 +17,7 @@ from airflow.operators.python_operator import PythonOperator
 from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
-    AWS_DEFAULT_REGION,
+    REGION,
     LANDSAT_SYNC_S3_C2_FOLDER_NAME,
 )
 from landsat_scenes_sync.variables import (
@@ -207,7 +207,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
             bucket_name=LANDSAT_INVENTORY_BUCKET_NAME,
-            region=AWS_DEFAULT_REGION,
+            region=REGION,
         )
 
         # Retrieve keys from inventory bucket
@@ -245,7 +245,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         s3_report.put_object(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             key=key,
-            region=AWS_DEFAULT_REGION,
+            region=REGION,
             body="\n".join(missing_scenes),
         )
 
@@ -258,7 +258,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
                 key=key,
-                region=AWS_DEFAULT_REGION,
+                region=REGION,
                 body="\n".join(orphaned_scenes),
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
