@@ -30,8 +30,7 @@ from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import BranchPythonOperator
-# from airflow.operators.python_operator import PythonOperator
-from airflow.operators.python import PythonOperator, get_current_context
+from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
 from airflow.utils.trigger_rule import TriggerRule
 
@@ -233,13 +232,6 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
     return subdag
 
 
-def print_value(value):
-    """Dummy function"""
-    ctx = get_current_context()
-    logging.info("The knights of Ni say: %s (at %s)", value, ctx['ts'])
-    return ctx
-
-
 # THE DAG
 dag = DAG(
     dag_id=DAG_NAME,
@@ -290,8 +282,6 @@ with dag:
         task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
     )
 
-    xcom_args_a = print_value("first!")
-
     # Start Indexing process
     INDEXING = SubDagOperator(
         task_id=INDEXING_TASK_ID,
@@ -318,4 +308,4 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, GET_INDEXING_CONFIG]
-    GET_INDEXING_CONFIG >> xcom_args_a >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
+    GET_INDEXING_CONFIG >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
