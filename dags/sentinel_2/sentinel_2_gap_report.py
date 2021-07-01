@@ -35,7 +35,7 @@ default_args = {
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
-    "email_on_success": True,
+    "email_on_success": False,
     "email_on_retry": False,
     "retries": 0,
 }

@@ -7,15 +7,27 @@ s3://deafrica-landsat-dev/<date>/status-report
 
 import logging
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    as_completed
+)
 from datetime import datetime
 from pathlib import Path
 
-from airflow import DAG
+from airflow import (
+    DAG,
+    AirflowException
+)
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
-from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
+from infra.connections import (
+    CONN_LANDSAT_SYNC,
+    CONN_LANDSAT_WRITE
+)
+from infra.s3_buckets import (
+    LANDSAT_INVENTORY_BUCKET_NAME,
+    LANDSAT_SYNC_BUCKET_NAME
+)
 from infra.variables import (
     REGION,
     LANDSAT_SYNC_S3_C2_FOLDER_NAME,
@@ -264,10 +276,15 @@ def generate_buckets_diff(landsat: str, file_name: str):
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
-        logging.info(
+        message = (
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
             f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
+
+        if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
+            raise AirflowException(message)
+
+        logging.info(message)
 
         logging.info(
             f"File {file_name} processed and sent in {time_process(start=start_timer)}"
