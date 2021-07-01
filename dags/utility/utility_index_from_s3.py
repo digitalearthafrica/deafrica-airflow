@@ -284,11 +284,14 @@ with dag:
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
         labels={"step": "s3-to-dc"},
-        cmds=["s3-to-dc"],
+        cmds=["bash"],
+        # cmds=["s3-to-dc"],
         arguments=[
-            "{% if dag_run.conf.stac %}--stac{% endif %}",
-            "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %}",
-            "{{ dag_run.conf.s3_glob }} ",
+            "-c",
+            "s3-to-dc "
+            "{% if dag_run.conf.stac %}--stac{% endif %} "
+            "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
+            "{{ dag_run.conf.s3_glob }} "
             "{{ dag_run.conf.products }}",
         ],
         name='INDEXING_TEST',
@@ -298,7 +301,6 @@ with dag:
         is_delete_operator_pod=True,
         trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
-
 
     # Start Indexing process
     # INDEXING = SubDagOperator(
