@@ -275,9 +275,9 @@ with dag:
     ]
 
     # Validate and retrieve required arguments
-    GET_INDEXING_CONFIG = PythonOperator(
-        task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
-    )
+    # GET_INDEXING_CONFIG = PythonOperator(
+    #     task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
+    # )
 
     INDEXING = KubernetesPodOperator(
         namespace="processing",
