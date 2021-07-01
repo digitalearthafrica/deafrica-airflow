@@ -13,7 +13,7 @@ from infra.connections import CONN_LANDSAT_WRITE, CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (
-    AWS_DEFAULT_REGION,
+    REGION,
     LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
 )
 from utils.aws_utils import S3, SQS
@@ -43,7 +43,7 @@ def publish_messages(message_list) -> None:
 
     def post_messages(messages_to_send):
         try:
-            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
+            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=REGION)
 
             sqs_queue.publish_to_sqs_queue(
                 queue_name=LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME,
@@ -94,7 +94,7 @@ def find_latest_report(landsat: str) -> str:
 
         resp = s3.list_objects(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=AWS_DEFAULT_REGION,
+            region=REGION,
             prefix=f"{LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME}/",
             continuation_token=continuation_token,
         )
@@ -144,7 +144,7 @@ def fill_the_gap(landsat: str) -> None:
 
         missing_scene_file = s3.get_s3_contents_and_attributes(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=AWS_DEFAULT_REGION,
+            region=REGION,
             key=latest_report,
         )
 

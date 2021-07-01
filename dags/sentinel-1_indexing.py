@@ -16,12 +16,16 @@ from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
-from infra.variables import DB_DATABASE, DB_HOSTNAME
+from infra.variables import (
+    DB_DATABASE,
+    DB_WRITER,
+    DB_PORT,
+    INDEXING_FROM_SQS_USER_SECRET,
+)
 from infra.images import INDEXER_IMAGE
 
 DAG_NAME = "sentinel-1_indexing"
 PRODUCT_NAME = "s1_rtc"
-INDEXING_USER_CREDS = "sentinel-1-indexing-user"
 
 
 DEFAULT_ARGS = {
@@ -34,28 +38,17 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
-        "DB_PORT": "5432",
+        "DB_PORT": DB_PORT,
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
         Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            INDEXING_USER_CREDS,
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            INDEXING_USER_CREDS,
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 

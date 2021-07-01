@@ -16,14 +16,17 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
-
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
 from infra.sqs_queues import SENTINEL_2_INDEX_SQS_NAME
-from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME
-from landsat_indexing import INDEXING_USER_CREDS
+from infra.variables import (
+    DB_DATABASE,
+    DB_WRITER,
+    DB_PORT,
+    INDEXING_FROM_SQS_USER_SECRET,
+)
 from sentinel_2.variables import AFRICA_TILES
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from subdags.subdag_ows_views import ows_update_extent_subdag
@@ -40,28 +43,17 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
-        "DB_PORT": "5432",
+        "DB_PORT": DB_PORT,
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
-        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            INDEXING_USER_CREDS,
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_USER_CREDS, "AWS_ACCESS_KEY_ID"),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            INDEXING_USER_CREDS,
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
+        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 

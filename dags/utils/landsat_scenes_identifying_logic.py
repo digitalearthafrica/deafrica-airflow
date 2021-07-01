@@ -11,7 +11,7 @@ from pathlib import Path
 from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
-from infra.variables import AWS_DEFAULT_REGION
+from infra.variables import REGION
 from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     BASE_BULK_CSV_URL,
@@ -37,7 +37,7 @@ def publish_messages(path_list):
 
     def post_messages(messages_to_send):
         try:
-            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
+            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=REGION)
 
             sqs_queue.publish_to_sqs_queue(
                 queue_name=LANDSAT_SYNC_SQS_NAME,
