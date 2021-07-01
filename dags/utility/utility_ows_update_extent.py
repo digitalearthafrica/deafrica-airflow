@@ -22,15 +22,13 @@ dag_run.conf format:
 from airflow import DAG
 from datetime import datetime, timedelta
 from airflow.operators.python_operator import PythonOperator
-
-from airflow.kubernetes.secret import Secret
 from airflow.operators.subdag_operator import SubDagOperator
 from subdags.subdag_ows_views import ows_update_extent_subdag
 
 from infra.variables import (
     DB_DATABASE,
-    DB_HOSTNAME,
-    SECRET_AWS_NAME,
+    DB_WRITER,
+    REGION,
 )
 
 UPDATE_EXTENT_PRODUCTS = []
@@ -48,14 +46,10 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
-    },
-    # Lift secrets into environment variables
-    "secrets": [
-        Secret("env", "AWS_DEFAULT_REGION", SECRET_AWS_NAME, "AWS_DEFAULT_REGION"),
-    ],
+        "AWS_DEFAULT_REGION": REGION,
+    }
 }
 
 

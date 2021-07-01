@@ -27,7 +27,7 @@ from infra.s3_buckets import (
 )
 from infra.sns_topics import SENTINEL_2_SYNC_SNS_ARN
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
-from infra.variables import AWS_DEFAULT_REGION
+from infra.variables import REGION
 from sentinel_2.variables import AFRICA_TILES, SENTINEL_COGS_BUCKET, SENTINEL_2_URL
 from utils.aws_utils import SQS
 from utils.sync_utils import read_csv_from_gzip
@@ -50,7 +50,7 @@ def get_messages(
     """
     Get messages from a queue resource.
     """
-    sqs_queue = SQS(CONN_SENTINEL_2_SYNC, AWS_DEFAULT_REGION)
+    sqs_queue = SQS(CONN_SENTINEL_2_SYNC, REGION)
     count = 0
     while True:
         messages = sqs_queue.receive_messages(

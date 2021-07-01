@@ -16,7 +16,7 @@ from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
 )
-from infra.variables import AWS_DEFAULT_REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
+from infra.variables import REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
 from landsat_scenes_sync.variables import MANIFEST_SUFFIX, USGS_AWS_REGION
 from sentinel_2.variables import (
     AFRICA_TILES,
@@ -92,11 +92,11 @@ def generate_buckets_diff():
     s3_inventory_source = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        # region=AWS_DEFAULT_REGION,
+        # region=REGION,
         region=USGS_AWS_REGION,
     )
     logging.info(
-        f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {AWS_DEFAULT_REGION}"
+        f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {REGION}"
     )
 
     # Retrieve keys from inventory bucket
@@ -106,7 +106,7 @@ def generate_buckets_diff():
     s3_inventory_destination = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_2_INVENTORY_BUCKET_NAME,
-        region=AWS_DEFAULT_REGION,
+        region=REGION,
     )
     logging.info(f"Connected to S3 destination {SENTINEL_2_INVENTORY_BUCKET_NAME}")
 
@@ -134,7 +134,7 @@ def generate_buckets_diff():
     # s3_report.put_object(
     #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
     #     key=key,
-    #     region=AWS_DEFAULT_REGION,
+    #     region=REGION,
     #     body="\n".join(missing_scenes),
     # )
     logging.info(
@@ -149,7 +149,7 @@ def generate_buckets_diff():
         # s3_report.put_object(
         #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
         #     key=key,
-        #     region=AWS_DEFAULT_REGION,
+        #     region=REGION,
         #     body="\n".join(orphaned_keys),
         # )
 

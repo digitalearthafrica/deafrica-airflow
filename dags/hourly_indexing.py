@@ -18,7 +18,13 @@ from infra.sqs_queues import (
 )
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
-from infra.variables import DB_DATABASE, DB_HOSTNAME, SECRET_ODC_WRITER_NAME
+from infra.variables import (
+    DB_DATABASE,
+    DB_WRITER,
+    DB_PORT,
+    SECRET_ODC_WRITER_NAME,
+    INDEXING_FROM_SQS_USER_SECRET,
+)
 from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 from subdags.subdag_ows_views import ows_update_extent_subdag
 
@@ -34,28 +40,16 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
-        "DB_PORT": "5432",
+        "DB_PORT": DB_PORT,
     },
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
         Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
-        Secret(
-            "env",
-            "AWS_DEFAULT_REGION",
-            "indexing-user-creds-dev",
-            "AWS_DEFAULT_REGION",
-        ),
-        Secret(
-            "env", "AWS_ACCESS_KEY_ID", "indexing-user-creds-dev", "AWS_ACCESS_KEY_ID"
-        ),
-        Secret(
-            "env",
-            "AWS_SECRET_ACCESS_KEY",
-            "indexing-user-creds-dev",
-            "AWS_SECRET_ACCESS_KEY",
-        ),
+        Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 
