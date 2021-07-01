@@ -183,8 +183,6 @@ def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
         parent_dag_name, config_task_name
     )
 
-    # config = f"{{{{ task_instance.xcom_pull(task_ids='{config_task_name}') }}}}"
-
     try:
         config = json.loads(config)
     except json.decoder.JSONDecodeError:
