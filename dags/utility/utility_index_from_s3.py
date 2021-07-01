@@ -18,11 +18,10 @@ dag_run.conf format:
         "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
         "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
         "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
-        "no_sign_request":"True",
-        "stac":"True"
+        "no_sign_request":true,
+        "stac":true
     }
 """
-import json
 import logging
 from datetime import datetime, timedelta
 
@@ -31,10 +30,8 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.python_operator import PythonOperator
-from airflow.operators.subdag_operator import SubDagOperator
 from airflow.utils.trigger_rule import TriggerRule
 
-from subdags.subdag_explorer_summary import explorer_refresh_operator
 from infra.images import INDEXER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
@@ -46,10 +43,9 @@ from infra.variables import (
     REGION,
     DB_PORT,
 )
+from subdags.subdag_explorer_summary import explorer_refresh_operator
 
 ADD_PRODUCT_TASK_ID = "add-product-task"
-
-LOADING_ARGUMENTS_TASK_ID = "loading_arguments_task"
 
 INDEXING_TASK_ID = "batch-indexing-task"
 
@@ -85,61 +81,6 @@ def parse_dagrun_conf(products, **kwargs):
     return products
 
 
-def loading_arguments(s3_glob: str, products: str, no_sign_request: str, stac: str, **kwargs) -> str:
-    """
-    parse input
-    """
-    logging.info(
-        f"Loading Arguments - "
-        f"s3_glob:{s3_glob} - "
-        f"products:{products} - "
-        f"no_sign_request:{no_sign_request} - "
-        f"stac:{stac} - "
-        f"kwargs:{kwargs}"
-    )
-
-    if not s3_glob:
-        raise Exception("Need to specify a s3_glob")
-
-    if not products:
-        raise Exception("Need to specify a lost of products")
-
-    if stac.lower() == "false":
-        stac = ""
-    elif stac.lower() == "true":
-        stac = "--stac"
-    else:
-        raise ValueError(f"stac: expected one of 'true', 'false', found {stac}.")
-
-    if no_sign_request.lower() == "false":
-        no_sign_request = ""
-    elif no_sign_request.lower() == "true":
-        no_sign_request = "--no-sign-request"
-    else:
-        raise ValueError(f"no_sign_request: expected one of 'true', 'false', found {no_sign_request}.")
-
-    to_return = f'{no_sign_request} {stac} {s3_glob} {products}'
-    logging.info(to_return)
-    return to_return
-
-    # logging.info(
-    #     {
-    #         "s3_glob": s3_glob,
-    #         "products": products,
-    #         "stac": stac,
-    #         "no_sign_request": no_sign_request,
-    #     }
-    # )
-    # return json.dumps(
-    #     {
-    #         "s3_glob": s3_glob,
-    #         "products": products,
-    #         "stac": stac,
-    #         "no_sign_request": no_sign_request,
-    #     }
-    # )
-
-
 def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     """
     determine task needed to perform
@@ -163,69 +104,6 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
 
 SET_REFRESH_PRODUCT_TASK_NAME = "parse_dagrun_conf"
 CHECK_DAGRUN_CONFIG = "check_dagrun_config"
-
-
-def indexing_subdag(parent_dag_name, child_dag_name, args, config_task_name):
-    """
-     Make us a subdag
-    """
-
-    logging.info(
-        f"Indexing subdag - "
-        f"parent_dag_name:{parent_dag_name} - "
-        f"child_dag_name:{child_dag_name} - "
-        f"args:{args} - "
-        f"config_task_name:{config_task_name}"
-    )
-
-    config = "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
-        parent_dag_name, config_task_name
-    )
-
-    # try:
-    #     config = json.loads(config)
-    # except json.decoder.JSONDecodeError:
-    #     raise Exception(f'JSON EXCEPTION CONFIG {config} - {type(config)}')
-    #     # config = {}
-
-    # if config.get("stac"):
-    #     raise Exception(f'STACCCCCC {config.get("stac")}')
-    #
-    # if config.get("no_sign_request"):
-    #     raise Exception(f'no_sign_request --------- {config.get("no_sign_request")}')
-
-    subdag = DAG(
-        dag_id=f"{parent_dag_name}.{child_dag_name}", default_args=args, catchup=False
-    )
-
-    with subdag:
-        KubernetesPodOperator(
-            namespace="processing",
-            image=INDEXER_IMAGE,
-            image_pull_policy="Always",
-            labels={"step": "s3-to-dc"},
-            # cmds=["s3-to-dc"],
-            # arguments=arguments,
-            # "s3-to-dc s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a --no_sign_request --stac"
-            arguments=[
-                # "s3-to-dc --no-sign-request --stac s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json s2_l2a"
-                f"s3-to-dc {config}"
-                # "s3-to-dc",
-                # config
-                # config.get("no_sign_request"),
-                # config.get("stac"),
-                # config.get("s3_glob"),
-                # config.get("products"),
-            ],
-            name=child_dag_name,
-            task_id="indexing_id",
-            get_logs=True,
-            affinity=ONDEMAND_NODE_AFFINITY,
-            is_delete_operator_pod=True,
-            trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
-        )
-
-    return subdag
 
 
 # THE DAG
@@ -273,21 +151,15 @@ with dag:
         "{{ dag_run.conf.stac }}",
     ]
 
-    # Validate and retrieve required arguments
-    # GET_INDEXING_CONFIG = PythonOperator(
-    #     task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
-    # )
-
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
         image_pull_policy="Always",
         labels={"step": "s3-to-dc"},
         cmds=["bash"],
-        # cmds=["s3-to-dc"],
         arguments=[
             "-c",
-            "s3-to-dc "
+            "s3-to-dc {stac} {no_sign_request} {s3_glob} {products}"
             "{% if dag_run.conf.stac %}--stac{% endif %} "
             "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
@@ -300,19 +172,6 @@ with dag:
         is_delete_operator_pod=True,
         trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
-
-    # Start Indexing process
-    # INDEXING = SubDagOperator(
-    #     task_id=INDEXING_TASK_ID,
-    #     subdag=indexing_subdag(
-    #         DAG_NAME,
-    #         INDEXING_TASK_ID,
-    #         DEFAULT_ARGS,
-    #         LOADING_ARGUMENTS_TASK_ID,
-    #     ),
-    #     default_args=DEFAULT_ARGS,
-    #     dag=dag,
-    # )
 
     # Retrieve product name argument to be sent to Explorer refresh process
     SET_PRODUCTS = PythonOperator(
@@ -327,4 +186,5 @@ with dag:
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, INDEXING]
+    ADD_PRODUCT >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
     INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
