@@ -23,11 +23,12 @@ from sentinel_2.variables import (
     REPORTING_PREFIX,
     SENTINEL_COGS_INVENTORY_BUCKET,
 )
+from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
 
 default_args = {
-    "owner": "Airflow",
+    "owner": "Rodrigo Carvalho",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
@@ -129,14 +130,14 @@ def generate_buckets_diff():
     key = REPORTING_PREFIX + output_filename
 
     # Store report in the S3 bucket
-    # s3_report = S3(conn_id=CONN_SENTINEL_2_SYNC)
-    #
-    # s3_report.put_object(
-    #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-    #     key=key,
-    #     region=REGION,
-    #     body="\n".join(missing_scenes),
-    # )
+    s3_report = S3(conn_id=CONN_SENTINEL_2_SYNC)
+
+    s3_report.put_object(
+        bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+        key=key,
+        region=REGION,
+        body="\n".join(missing_scenes),
+    )
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
@@ -146,12 +147,12 @@ def generate_buckets_diff():
     if len(orphaned_keys) > 0:
         output_filename = datetime.today().isoformat() + "_orphaned.txt"
         key = REPORTING_PREFIX + output_filename
-        # s3_report.put_object(
-        #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-        #     key=key,
-        #     region=REGION,
-        #     body="\n".join(orphaned_keys),
-        # )
+        s3_report.put_object(
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+            key=key,
+            region=REGION,
+            body="\n".join(orphaned_keys),
+        )
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
 
@@ -171,8 +172,7 @@ def generate_buckets_diff():
 with DAG(
     "sentinel-2_gap_detection",
     default_args=default_args,
-    # DEV does not need to be updated
-    schedule_interval=None,
+    schedule_interval="@weekly",
     tags=["Sentinel-2", "status"],
     catchup=False,
 ) as dag:
