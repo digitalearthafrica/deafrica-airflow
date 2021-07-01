@@ -15,6 +15,7 @@ from infra.variables import (
     DB_WRITER,
     DB_PORT,
     INDEXING_FROM_SQS_USER_SECRET,
+    SECRET_ODC_WRITER_NAME,
     SENTINEL_2_S3_COGS_FOLDER_NAME,
 )
 from infra.images import INDEXER_IMAGE
@@ -36,8 +37,8 @@ DEFAULT_ARGS = {
     },
     # Lift secrets into environment variables
     "secrets": [
-        Secret("env", "DB_USERNAME", "odc-writer", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "odc-writer", "postgres-password"),
+        Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
         Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
         Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
         Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
