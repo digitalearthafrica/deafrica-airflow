@@ -286,10 +286,10 @@ with dag:
         labels={"step": "s3-to-dc"},
         cmds=["s3-to-dc"],
         arguments=[
-            "{{ dag_run.conf.s3_glob }}",
+            "{% if dag_run.conf.stac %}--stac{% endif %}",
+            "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %}",
+            "{{ dag_run.conf.s3_glob }} ",
             "{{ dag_run.conf.products }}",
-            "{% if dag_run.conf.no_sign_request == true %}--no-sign-request{% endif %}",
-            "{% if dag_run.conf.stac == true %}--stac{% endif %}",
         ],
         name='INDEXING_TEST',
         task_id="indexing_id",
