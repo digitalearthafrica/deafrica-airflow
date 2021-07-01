@@ -279,18 +279,39 @@ with dag:
         task_id=LOADING_ARGUMENTS_TASK_ID, python_callable=loading_arguments, op_args=op_args
     )
 
-    # Start Indexing process
-    INDEXING = SubDagOperator(
-        task_id=INDEXING_TASK_ID,
-        subdag=indexing_subdag(
-            DAG_NAME,
-            INDEXING_TASK_ID,
-            DEFAULT_ARGS,
-            LOADING_ARGUMENTS_TASK_ID,
-        ),
-        default_args=DEFAULT_ARGS,
-        dag=dag,
+    INDEXING = KubernetesPodOperator(
+        namespace="processing",
+        image=INDEXER_IMAGE,
+        image_pull_policy="Always",
+        labels={"step": "s3-to-dc"},
+        cmds=["s3-to-dc"],
+        arguments=[
+            "{{ dag_run.conf.s3_glob }}",
+            "{{ dag_run.conf.products }}",
+            "{% if dag_run.conf.no_sign_request == true %}--no-sign-request{% end %}",
+            "{% if dag_run.conf.stac == true %}--stac{% end %}",
+        ],
+        name='INDEXING_TEST',
+        task_id="indexing_id",
+        get_logs=True,
+        affinity=ONDEMAND_NODE_AFFINITY,
+        is_delete_operator_pod=True,
+        trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
+
+
+    # Start Indexing process
+    # INDEXING = SubDagOperator(
+    #     task_id=INDEXING_TASK_ID,
+    #     subdag=indexing_subdag(
+    #         DAG_NAME,
+    #         INDEXING_TASK_ID,
+    #         DEFAULT_ARGS,
+    #         LOADING_ARGUMENTS_TASK_ID,
+    #     ),
+    #     default_args=DEFAULT_ARGS,
+    #     dag=dag,
+    # )
 
     # Retrieve product name argument to be sent to Explorer refresh process
     SET_PRODUCTS = PythonOperator(
