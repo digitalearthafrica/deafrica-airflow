@@ -23,7 +23,7 @@ from landsat_scenes_sync.variables import (
     USGS_INDEX_URL,
     AFRICA_S3_BUCKET_PATH,
     USGS_DATA_URL,
-    AWS_DEFAULT_REGION,
+    REGION,
     AFRICA_S3_ENDPOINT,
     USGS_S3_BUCKET_NAME,
     USGS_AWS_REGION,
@@ -247,7 +247,7 @@ class ScenesSyncProcess:
                     USGS_S3_BUCKET_NAME,
                     LANDSAT_SYNC_BUCKET_NAME,
                     USGS_AWS_REGION,
-                    AWS_DEFAULT_REGION,
+                    REGION,
                     link,
                     link,
                     "requester",
@@ -516,7 +516,7 @@ def get_messages(
     logging.info(f"Reading messages with {CONN_LANDSAT_SYNC}")
     logging.info(f"Connecting to AWS SQS {LANDSAT_SYNC_SQS_NAME}")
 
-    sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=AWS_DEFAULT_REGION)
+    sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=REGION)
 
     count = 0
     while True:

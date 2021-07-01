@@ -18,11 +18,10 @@ from airflow.kubernetes.secret import Secret
 from airflow.operators.dummy_operator import DummyOperator
 from datetime import datetime, timedelta
 from infra.images import EXPLORER_IMAGE
+from infra.variables import DB_WRITER, DB_DATABASE, DB_PORT, REGION
+from infra.variables import SECRET_EXPLORER_ADMIN_NAME
 
 local_tz = pendulum.timezone("Africa/Johannesburg")
-
-# Templated DAG arguments
-DB_HOSTNAME = "db-writer"
 
 DEFAULT_ARGS = {
     "owner": "Tisham Dhar",
@@ -34,17 +33,17 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "AWS_DEFAULT_REGION": "af-south-1",
-        "DB_HOSTNAME": DB_HOSTNAME,
-        "DB_PORT": "5432",
+        "AWS_DEFAULT_REGION": REGION,
+        "DB_HOSTNAME": DB_WRITER,
+        "DB_DATABASE": DB_DATABASE,
+        "DB_PORT": DB_PORT,
     },
     # Use K8S secrets to send DB Creds
     # Lift secrets into environment variables for datacube database connectivity
     # Use this db-users to run cubedash update-summary
     "secrets": [
-        Secret("env", "DB_DATABASE", "explorer-admin", "database-name"),
-        Secret("env", "DB_USERNAME", "explorer-admin", "postgres-username"),
-        Secret("env", "DB_PASSWORD", "explorer-admin", "postgres-password"),
+        Secret("env", "DB_USERNAME", SECRET_EXPLORER_ADMIN_NAME, "postgres-username"),
+        Secret("env", "DB_PASSWORD", SECRET_EXPLORER_ADMIN_NAME, "postgres-password"),
     ],
 }
 

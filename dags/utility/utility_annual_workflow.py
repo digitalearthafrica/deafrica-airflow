@@ -25,9 +25,10 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from infra.images import INDEXER_IMAGE
 from infra.variables import (
     DB_DATABASE,
-    DB_HOSTNAME,
+    DB_WRITER,
+    DB_PORT,
     SECRET_ODC_WRITER_NAME,
-    SECRET_AWS_NAME,
+    INDEXING_FROM_SQS_USER_SECRET,
 )
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
@@ -46,20 +47,17 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
-        "DB_PORT": "5432",
+        "DB_PORT": DB_PORT,
     },
     # Lift secrets into environment variables
     "secrets": [
         Secret("env", "DB_USERNAME", SECRET_ODC_WRITER_NAME, "postgres-username"),
         Secret("env", "DB_PASSWORD", SECRET_ODC_WRITER_NAME, "postgres-password"),
-        Secret("env", "AWS_DEFAULT_REGION", SECRET_AWS_NAME, "AWS_DEFAULT_REGION"),
-        Secret("env", "AWS_ACCESS_KEY_ID", SECRET_AWS_NAME, "AWS_ACCESS_KEY_ID"),
-        Secret(
-            "env", "AWS_SECRET_ACCESS_KEY", SECRET_AWS_NAME, "AWS_SECRET_ACCESS_KEY"
-        ),
+        Secret("env", "AWS_DEFAULT_REGION", INDEXING_FROM_SQS_USER_SECRET, "AWS_DEFAULT_REGION"),
+        Secret("env", "AWS_ACCESS_KEY_ID", INDEXING_FROM_SQS_USER_SECRET, "AWS_ACCESS_KEY_ID"),
+        Secret("env", "AWS_SECRET_ACCESS_KEY", INDEXING_FROM_SQS_USER_SECRET, "AWS_SECRET_ACCESS_KEY"),
     ],
 }
 

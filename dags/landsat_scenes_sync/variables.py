@@ -2,7 +2,7 @@
     Variables to support on the Landsat process
 """
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
-from infra.variables import AWS_DEFAULT_REGION
+from infra.variables import REGION
 
 # ######### USGS ############
 
@@ -35,7 +35,7 @@ AFRICA_S3_PRODUCT_EXPLORER = "https://explorer.digitalearth.africa/products/"
 AFRICA_S3_ENDPOINT = "s3.af-south-1.amazonaws.com"
 
 AFRICA_S3_BUCKET_URL = (
-    f"https://{LANDSAT_SYNC_BUCKET_NAME}.s3.{AWS_DEFAULT_REGION}.amazonaws.com/"
+    f"https://{LANDSAT_SYNC_BUCKET_NAME}.s3.{REGION}.amazonaws.com/"
 )
 
 MAIN_GITHUB_DIGITALAFRICA_URL = (

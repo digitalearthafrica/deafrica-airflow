@@ -41,9 +41,9 @@ from infra.podconfig import (
 )
 from infra.variables import (
     DB_DATABASE,
-    DB_HOSTNAME,
+    DB_WRITER,
     SECRET_ODC_WRITER_NAME,
-    AWS_DEFAULT_REGION,
+    REGION,
     DB_PORT,
 )
 
@@ -65,11 +65,10 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        # TODO: Pass these via templated params in DAG Run
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
         "DB_PORT": DB_PORT,
-        "AWS_DEFAULT_REGION": AWS_DEFAULT_REGION,
+        "AWS_DEFAULT_REGION": REGION,
     },
     # Lift secrets into environment variables
     "secrets": [

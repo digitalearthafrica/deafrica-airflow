@@ -16,8 +16,8 @@ from airflow.kubernetes.volume_mount import VolumeMount
 from textwrap import dedent
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.images import INDEXER_IMAGE
-from infra.variables import SECRET_DBA_ADMIN_NAME, DB_DATABASE, DB_HOSTNAME
-from infra.variables import AWS_DEFAULT_REGION
+from infra.variables import SECRET_DBA_ADMIN_NAME, DB_DATABASE, DB_WRITER, DB_PORT
+from infra.variables import REGION
 from infra.s3_buckets import DB_DUMP_S3_BUCKET
 from infra.iam_roles import DB_DUMP_S3_ROLE
 
@@ -50,10 +50,11 @@ DEFAULT_ARGS = {
     "retries": 1,
     "retry_delay": timedelta(minutes=5),
     "env_vars": {
-        "DB_HOSTNAME": DB_HOSTNAME,
+        "DB_HOSTNAME": DB_WRITER,
         "DB_DATABASE": DB_DATABASE,
+        "DB_PORT": DB_PORT,
         "DB_DUMP_MOUNT_PATH": DB_DUMP_MOUNT_PATH,
-        "AWS_DEFAULT_REGION": AWS_DEFAULT_REGION,
+        "AWS_DEFAULT_REGION": REGION,
     },
     # Lift secrets into environment variables
     "secrets": [
