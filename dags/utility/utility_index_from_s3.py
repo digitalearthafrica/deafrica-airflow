@@ -32,10 +32,11 @@ from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.python_operator import PythonOperator
 from airflow.utils.trigger_rule import TriggerRule
 
-from infra.images import INDEXER_IMAGE
+from infra.images import INDEXER_IMAGE, EXPLORER_IMAGE
 from infra.podconfig import (
     ONDEMAND_NODE_AFFINITY,
 )
+from infra.pools import DEA_NEWDATA_PROCESSING_POOL
 from infra.variables import (
     DB_DATABASE,
     DB_WRITER,
@@ -43,7 +44,7 @@ from infra.variables import (
     REGION,
     DB_PORT,
 )
-from subdags.subdag_explorer_summary import explorer_refresh_operator
+from subdags.subdag_explorer_summary import explorer_refresh_operator, EXPLORER_SECRETS
 
 ADD_PRODUCT_TASK_ID = "add-product-task"
 
@@ -173,18 +174,25 @@ with dag:
         trigger_rule=TriggerRule.NONE_FAILED_OR_SKIPPED,  # Needed in case add product was skipped
     )
 
-    # Retrieve product name argument to be sent to Explorer refresh process
-    SET_PRODUCTS = PythonOperator(
-        task_id=SET_REFRESH_PRODUCT_TASK_NAME,
-        python_callable=parse_dagrun_conf,
-        op_args=["{{ dag_run.conf.products }}"],
-    )
-
-    # Execute Explorer Refresh process based on the product name
-    EXPLORER_SUMMARY = explorer_refresh_operator(
-        xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+    explorer_bash_command = [
+        "bash",
+        "-c",
+        "cubedash-gen -v --no-init-database --refresh-stats {{ dag_run.conf.products }}",
+    ]
+    EXPLORER_SUMMARY = KubernetesPodOperator(
+        namespace="processing",
+        image=EXPLORER_IMAGE,
+        arguments=explorer_bash_command,
+        secrets=EXPLORER_SECRETS,
+        labels={"step": "explorer-refresh-stats"},
+        name="explorer-summary",
+        task_id="explorer-summary-task",
+        get_logs=True,
+        is_delete_operator_pod=True,
+        affinity=ONDEMAND_NODE_AFFINITY,
+        pool=DEA_NEWDATA_PROCESSING_POOL,
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, INDEXING]
-    ADD_PRODUCT >> INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
-    INDEXING >> SET_PRODUCTS >> EXPLORER_SUMMARY
+    ADD_PRODUCT >> INDEXING >> EXPLORER_SUMMARY
+    INDEXING >> EXPLORER_SUMMARY
