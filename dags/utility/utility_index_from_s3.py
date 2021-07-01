@@ -145,13 +145,6 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    op_args = [
-        "{{ dag_run.conf.s3_glob }}",
-        "{{ dag_run.conf.products }}",
-        "{{ dag_run.conf.no_sign_request }}",
-        "{{ dag_run.conf.stac }}",
-    ]
-
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
@@ -160,7 +153,7 @@ with dag:
         cmds=["bash"],
         arguments=[
             "-c",
-            "s3-to-dc {stac} {no_sign_request} {s3_glob} {products}"
+            "s3-to-dc "
             "{% if dag_run.conf.stac %}--stac{% endif %} "
             "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
