@@ -36,7 +36,6 @@ class InventoryUtils:
         :param suffix:
         :param sub_key: string to be present in the object name
         """
-        # TODO Talk to Alex to see if we can speed it up, this part is taking about 10 min.
         continuation_token = None
         while True:
             # The S3 API response is a large blob of metadata.
@@ -66,7 +65,9 @@ class InventoryUtils:
         """
         Return a dictionary of a manifest file"
         """
-        logging.info("Start Looking for latest manifest file")
+        logging.info(
+            f"Start Looking for latest manifest file on {self.bucket_name} - {self.region}"
+        )
 
         today = datetime.now()
         # get latest manifest file

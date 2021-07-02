@@ -5,16 +5,11 @@ to copy the data to Cape Town and upgrade the STAC metadata and create a notific
 ## Development
 
 ### DAGs
-- landsat-scenes-identifying
-  * This Dag will start a Python process which will download tar.gz files for each satellite from USGS
-    file server, and filter by execution date, bbox, and pathrow resulting in a list of valid ids. After that,
-    the process will consult USGS API to have its metadata which will be sent to thr SQS queue as JSON.
-
 - landsat-scenes-indexing
   * This Dag will be started by the scheduler to pull the messages from a second SQS queue, which is
     filled automatically by the SNS, and will index into the Datacube.
 
-- landsat_scenes_consistency_report
+- landsat_scenes_gap_report
   * This Dag will start a Python process which will download tar.gz files for each satellite from USGS
     file server, and filter by execution date, bbox, and pathrow resulting in a list of valid ids. After that,
     the process will compare with Landsat bucket in PDS and save a file with the differences.

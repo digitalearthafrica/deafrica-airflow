@@ -30,7 +30,7 @@ from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
 
 default_args = {
-    "owner": "Rodrigo Carvalho",
+    "owner": "Rodrigo.Carvalho",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,

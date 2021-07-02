@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 
 import pandas as pd
 import requests
-from airflow.utils.email import send_email
 from pystac import Item
 
 
@@ -176,27 +175,3 @@ def time_process(start: float):
     (t_hour, t_min) = divmod(t_min, 60)
 
     return f"{t_hour} hour: {t_min} min: {t_sec} sec"
-
-
-def notify_email(task_name: str, warning_message: str, **kwargs):
-    """Send custom email alerts."""
-
-    # email title.
-    title = f"Airflow alert: {task_name} Failed"
-
-    # email contents
-    body = """
-    Warning,
-    <br>
-    <br>
-    There's been an warning in the {task_name} job.<br>
-    <br>
-    {warning_message}
-    <br>
-    Kind regards,<br>
-    Airflow bot <br>
-    """.format(
-        task_name=task_name, warning_message=warning_message
-    )
-
-    send_email("rodrigo.carvalho@ga.gov.au", title, body)
