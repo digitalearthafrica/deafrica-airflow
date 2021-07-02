@@ -18,7 +18,6 @@ dag_run.conf format:
         "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
         "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
         "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
-        "no_sign_request":true,
         "stac":true
     }
 """
@@ -142,13 +141,6 @@ with dag:
         is_delete_operator_pod=True,
     )
 
-    op_args = [
-        "{{ dag_run.conf.s3_glob }}",
-        "{{ dag_run.conf.products }}",
-        "{{ dag_run.conf.no_sign_request }}",
-        "{{ dag_run.conf.stac }}",
-    ]
-
     INDEXING = KubernetesPodOperator(
         namespace="processing",
         image=INDEXER_IMAGE,
@@ -158,8 +150,8 @@ with dag:
         arguments=[
             "-c",
             "s3-to-dc"
+            "--no-sign-request"
             "{% if dag_run.conf.stac %}--stac{% endif %} "
-            "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
             "{{ dag_run.conf.products }}",
         ],
