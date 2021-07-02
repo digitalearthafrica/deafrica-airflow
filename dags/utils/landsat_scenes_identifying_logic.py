@@ -25,7 +25,6 @@ from utils.sync_utils import (
     download_file_to_tmp,
     read_big_csv_files_from_gzip,
     convert_str_to_date,
-    notify_email,
 )
 
 
@@ -202,14 +201,6 @@ def retrieve_list_of_files(scene_list):
 
             logging.error(msg)
 
-            try:
-                notify_email(
-                    task_name=f"Landsat Identifying - {scene['Satellite']}",
-                    warning_message=msg,
-                )
-            except Exception as error:
-                logging.error(error)
-
             return
 
         mtl_sr_st_files = {}
@@ -230,14 +221,6 @@ def retrieve_list_of_files(scene_list):
             create_fail_report(folder_path=fail_folder_path, error_message=msg)
 
             logging.error(msg)
-
-            try:
-                notify_email(
-                    task_name=f"Landsat Identifying - {scene['Satellite']}",
-                    warning_message=msg,
-                )
-            except Exception as error:
-                logging.error(error)
 
             return
 

@@ -19,19 +19,18 @@ dag_run.conf format:
     "products": "s2a_nrt_granule s2b_nrt_granule"
 """
 
-from airflow import DAG
 from datetime import datetime, timedelta
-from airflow.operators.python_operator import PythonOperator
 
-from airflow.kubernetes.secret import Secret
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
-from subdags.subdag_ows_views import ows_update_extent_subdag
 
 from infra.variables import (
     DB_DATABASE,
     DB_WRITER,
     REGION,
 )
+from subdags.subdag_ows_views import ows_update_extent_subdag
 
 UPDATE_EXTENT_PRODUCTS = []
 
@@ -67,6 +66,7 @@ dag = DAG(
 
 
 def parse_dagrun_conf(products, **kwargs):
+    """parse para"""
     if products:
         return products
     else:

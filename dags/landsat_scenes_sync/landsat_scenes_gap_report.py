@@ -7,27 +7,15 @@ s3://deafrica-landsat-dev/<date>/status-report
 
 import logging
 import time
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    as_completed
-)
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-from airflow import (
-    DAG,
-    AirflowException
-)
+from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
-from infra.connections import (
-    CONN_LANDSAT_SYNC,
-    CONN_LANDSAT_WRITE
-)
-from infra.s3_buckets import (
-    LANDSAT_INVENTORY_BUCKET_NAME,
-    LANDSAT_SYNC_BUCKET_NAME
-)
+from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
+from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     REGION,
 )
@@ -39,7 +27,7 @@ from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
-    C2_FOLDER_NAME,
+    C2_FOLDER_NAME
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
@@ -53,7 +41,8 @@ from utils.sync_utils import (
 )
 
 REPORTING_PREFIX = "status-report/"
-SCHEDULE_INTERVAL = "@weekly"
+# Dev does not need to be updated
+SCHEDULE_INTERVAL = None
 
 default_args = {
     "owner": "rodrigo.carvalho",
@@ -276,15 +265,10 @@ def generate_buckets_diff(landsat: str, file_name: str):
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
-        message = (
+        logging.info(
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
             f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
-
-        if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
-            raise AirflowException(message)
-
-        logging.info(message)
 
         logging.info(
             f"File {file_name} processed and sent in {time_process(start=start_timer)}"
