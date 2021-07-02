@@ -27,7 +27,7 @@ from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
-    LANDSAT_SYNC_S3_C2_FOLDER_NAME
+    C2_FOLDER_NAME
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
@@ -137,8 +137,8 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_keys
         if (
-            # Filter to remove any folder despite LANDSAT_SYNC_S3_C2_FOLDER_NAME
-            key.startswith(LANDSAT_SYNC_S3_C2_FOLDER_NAME)
+            # Filter to remove any folder despite C2_FOLDER_NAME
+            key.startswith(C2_FOLDER_NAME)
             # Ensure the filter to the right satellite
             and key.split("/")[-1].startswith(prefix)
         )

@@ -7,9 +7,11 @@
 # #################### COGS ####################
 SENTINEL_COGS_BUCKET = "sentinel-cogs"
 
+SENTINEL_COGS_AWS_REGION = "us-west-2"
+
 SENTINEL_COGS_INVENTORY_BUCKET = f"{SENTINEL_COGS_BUCKET}-inventory"
 
-SENTINEL_2_URL = f"https://{SENTINEL_COGS_BUCKET}.s3.us-west-2.amazonaws.com"
+SENTINEL_2_URL = f"https://{SENTINEL_COGS_BUCKET}.s3.{SENTINEL_COGS_AWS_REGION}.amazonaws.com"
 
 
 # ######### AFRICA ############
@@ -20,4 +22,4 @@ MANIFEST_SUFFIX = "manifest.json"
 
 REPORTING_PREFIX = "status-report/"
 
-SENTINEL_2_S3_COGS_FOLDER_NAME = "sentinel-s2-l2a-cogs"
+COGS_FOLDER_NAME = "sentinel-s2-l2a-cogs"
