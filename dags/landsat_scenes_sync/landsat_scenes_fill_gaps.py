@@ -14,6 +14,8 @@ from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (
     REGION,
+)
+from landsat_scenes_sync.variables import (
     LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
 )
 from utils.aws_utils import S3, SQS

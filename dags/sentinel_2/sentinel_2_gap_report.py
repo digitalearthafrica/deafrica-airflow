@@ -16,12 +16,13 @@ from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
 )
-from infra.variables import REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
+from infra.variables import REGION
 from landsat_scenes_sync.variables import MANIFEST_SUFFIX, USGS_AWS_REGION
 from sentinel_2.variables import (
     AFRICA_TILES,
     REPORTING_PREFIX,
     SENTINEL_COGS_INVENTORY_BUCKET,
+    SENTINEL_2_S3_COGS_FOLDER_NAME
 )
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip

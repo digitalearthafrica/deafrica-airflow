@@ -18,7 +18,6 @@ from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
 from infra.variables import (
     REGION,
-    LANDSAT_SYNC_S3_C2_FOLDER_NAME,
 )
 from landsat_scenes_sync.variables import (
     MANIFEST_SUFFIX,
@@ -28,6 +27,7 @@ from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
+    LANDSAT_SYNC_S3_C2_FOLDER_NAME
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils

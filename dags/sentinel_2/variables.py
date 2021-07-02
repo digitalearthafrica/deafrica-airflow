@@ -19,3 +19,5 @@ AFRICA_TILES = "https://raw.githubusercontent.com/digitalearthafrica/deafrica-ex
 MANIFEST_SUFFIX = "manifest.json"
 
 REPORTING_PREFIX = "status-report/"
+
+SENTINEL_2_S3_COGS_FOLDER_NAME = "sentinel-s2-l2a-cogs"
