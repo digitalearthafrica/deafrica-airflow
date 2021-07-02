@@ -16,15 +16,14 @@ from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
 )
-from infra.variables import REGION, SENTINEL_2_S3_COGS_FOLDER_NAME
-from landsat_scenes_sync.variables import (
-    MANIFEST_SUFFIX,
-    USGS_AWS_REGION
-)
+from infra.variables import REGION
 from sentinel_2.variables import (
+    MANIFEST_SUFFIX,
+    SENTINEL_COGS_AWS_REGION,
     AFRICA_TILES,
     REPORTING_PREFIX,
     SENTINEL_COGS_INVENTORY_BUCKET,
+    COGS_FOLDER_NAME,
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
@@ -60,7 +59,7 @@ def get_and_filter_source_keys(s3_bucket_client):
         for key in list_keys
         if (
             ".json" in key
-            and key.startswith(SENTINEL_2_S3_COGS_FOLDER_NAME)
+            and key.startswith(COGS_FOLDER_NAME)
             and key.split("/")[-2].split("_")[1] in africa_tile_ids
             # We need to ensure we're ignoring the old format data
             and re.match(r"sentinel-s2-l2a-cogs/\d{4}/", key) is None
@@ -82,7 +81,7 @@ def get_and_filter_destination_keys(s3_bucket_client):
     return set(
         key
         for key in list_keys
-        if ".json" in key and key.startswith(SENTINEL_2_S3_COGS_FOLDER_NAME)
+        if ".json" in key and key.startswith(COGS_FOLDER_NAME)
     )
 
 
@@ -96,7 +95,7 @@ def generate_buckets_diff():
     s3_inventory_source = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        region=USGS_AWS_REGION,
+        region=SENTINEL_COGS_AWS_REGION,
     )
     logging.info(
         f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {REGION}"

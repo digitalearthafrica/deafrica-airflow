@@ -4,18 +4,9 @@
 """
 from airflow.models import Variable
 
-LANDSAT_SYNC_S3_C2_FOLDER_NAME = Variable.get("landsat_c2_folder_name", "collection02")
-
-LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME = Variable.get(
-    "LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME", "status-report"
-)
-
-SENTINEL_2_S3_COGS_FOLDER_NAME = Variable.get(
-    "deafrica_sentinel_2_cogs_folder", "sentinel-s2-l2a-cogs"
-)
-
 REGION = Variable.get("region", "af-south-1")
 INDEXING_FROM_SQS_USER_SECRET = Variable.get("indexing_from_sqs_user_secret", "indexing-user-creds-dev")
+ODC_ADMIN_USER_SECRET = Variable.get("odc_admin_user_secret", "odc-admin-user-creds")
 
 ###### DB config
 DB_DATABASE = Variable.get("db_database", "odc")
