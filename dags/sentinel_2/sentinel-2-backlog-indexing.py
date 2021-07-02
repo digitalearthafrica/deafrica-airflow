@@ -16,8 +16,8 @@ from infra.variables import (
     DB_PORT,
     INDEXING_FROM_SQS_USER_SECRET,
     SECRET_ODC_WRITER_NAME,
-    SENTINEL_2_S3_COGS_FOLDER_NAME,
 )
+from sentinel_2.variables import COGS_FOLDER_NAME
 from infra.images import INDEXER_IMAGE
 
 DEFAULT_ARGS = {
@@ -73,7 +73,7 @@ with DAG(
                 "--stac",
                 "--no-sign-request",
                 f"s3://{SENTINEL_2_SYNC_BUCKET_NAME}/"
-                f"{SENTINEL_2_S3_COGS_FOLDER_NAME}/{utm_zone}/**/*.json",
+                f"{COGS_FOLDER_NAME}/{utm_zone}/**/*.json",
                 "s2_l2a",
             ],
             labels={"backlog": "s3-to-dc"},

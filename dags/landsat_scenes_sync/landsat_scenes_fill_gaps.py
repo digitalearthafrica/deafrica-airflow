@@ -14,7 +14,9 @@ from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (
     REGION,
-    LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME,
+)
+from landsat_scenes_sync.variables import (
+    STATUS_REPORT_FOLDER_NAME,
 )
 from utils.aws_utils import S3, SQS
 
@@ -95,14 +97,14 @@ def find_latest_report(landsat: str) -> str:
         resp = s3.list_objects(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             region=REGION,
-            prefix=f"{LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME}/",
+            prefix=f"{STATUS_REPORT_FOLDER_NAME}/",
             continuation_token=continuation_token,
         )
 
         if not resp.get("Contents"):
             raise Exception(
                 f"Report not found at "
-                f"{LANDSAT_SYNC_BUCKET_NAME}/{LANDSAT_SYNC_S3_STATUS_REPORT_FOLDER_NAME}/"
+                f"{LANDSAT_SYNC_BUCKET_NAME}/{STATUS_REPORT_FOLDER_NAME}/"
                 f"  - returned {resp}"
             )
 
