@@ -27,7 +27,7 @@ DEFAULT_ARGS = {
     "owner": "Nikita Gandhi",
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 10, tzinfo=local_tz),
-    "email": ["nikita.gandhi@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
@@ -55,21 +55,25 @@ dag = DAG(
     concurrency=1,
     max_active_runs=1,
     tags=["k8s"],
-    schedule_interval=None,    # Fully manual migrations
+    schedule_interval=None,  # Fully manual migrations
 )
 
 affinity = {
     "nodeAffinity": {
         "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [{
-                "matchExpressions": [{
-                    "key": "nodetype",
-                    "operator": "In",
-                    "values": [
-                        "ondemand",
+            "nodeSelectorTerms": [
+                {
+                    "matchExpressions": [
+                        {
+                            "key": "nodetype",
+                            "operator": "In",
+                            "values": [
+                                "ondemand",
+                            ],
+                        }
                     ]
-                }]
-            }]
+                }
+            ]
         }
     }
 }
@@ -94,7 +98,6 @@ with dag:
 
     # Task complete
     COMPLETE = DummyOperator(task_id="done")
-
 
     START >> UPDATE_SCHEMA
     UPDATE_SCHEMA >> COMPLETE

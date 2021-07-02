@@ -19,7 +19,7 @@ DEFAULT_ARGS = {
     "owner": "Nikita Gandhi",
     "depends_on_past": False,
     "start_date": datetime(2021, 6, 11),
-    "email": ["nikita.gandhi@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 1,
@@ -27,8 +27,8 @@ DEFAULT_ARGS = {
     "env_vars": {
         "DB_HOSTNAME": DB_WRITER,
         "DB_PORT": DB_PORT,
-        "DB_DATABASE": DB_DATABASE
-    }
+        "DB_DATABASE": DB_DATABASE,
+    },
 }
 
 # Lift secrets database connectivity

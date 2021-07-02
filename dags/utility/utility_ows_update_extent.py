@@ -22,8 +22,6 @@ dag_run.conf format:
 from airflow import DAG
 from datetime import datetime, timedelta
 from airflow.operators.python_operator import PythonOperator
-
-from airflow.kubernetes.secret import Secret
 from airflow.operators.subdag_operator import SubDagOperator
 from subdags.subdag_ows_views import ows_update_extent_subdag
 
