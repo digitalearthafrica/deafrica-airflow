@@ -16,6 +16,7 @@ SENTINEL_2_S3_COGS_FOLDER_NAME = Variable.get(
 
 REGION = Variable.get("region", "af-south-1")
 INDEXING_FROM_SQS_USER_SECRET = Variable.get("indexing_from_sqs_user_secret", "indexing-user-creds-dev")
+ODC_ADMIN_USER_SECRET = Variable.get("odc_admin_user_secret", "odc-admin-user-creds")
 
 ###### DB config
 DB_DATABASE = Variable.get("db_database", "odc")
