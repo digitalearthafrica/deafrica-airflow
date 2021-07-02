@@ -6,10 +6,10 @@ This subdag can be called by other dags
 from airflow import DAG
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 from airflow.kubernetes.secret import Secret
+
 from infra.images import EXPLORER_IMAGE
-from infra.pools import DEA_NEWDATA_PROCESSING_POOL
-from infra.variables import SECRET_EXPLORER_WRITER_NAME
 from infra.podconfig import ONDEMAND_NODE_AFFINITY
+from infra.variables import SECRET_EXPLORER_WRITER_NAME
 from webapp_update.update_list import EXPLORER_UPDATE_LIST
 
 EXPLORER_SECRETS = [
@@ -44,7 +44,7 @@ def explorer_refresh_stats_subdag(
     else:
         products = " ".join(INDEXING_PRODUCTS)
 
-    EXPLORER_BASH_COMMAND = [
+    explorer_bah_command = [
         "bash",
         "-c",
         f"cubedash-gen --no-init-database --refresh-stats {products}",
@@ -59,7 +59,7 @@ def explorer_refresh_stats_subdag(
     KubernetesPodOperator(
         namespace="processing",
         image=EXPLORER_IMAGE,
-        arguments=EXPLORER_BASH_COMMAND,
+        arguments=explorer_bah_command,
         secrets=EXPLORER_SECRETS,
         labels={"step": "explorer-refresh-stats"},
         name="explorer-summary",
@@ -98,6 +98,5 @@ def explorer_refresh_operator(xcom_task_id):
         task_id="explorer-summary-task",
         get_logs=True,
         is_delete_operator_pod=True,
-        affinity=ONDEMAND_NODE_AFFINITY,
-        pool=DEA_NEWDATA_PROCESSING_POOL,
+        affinity=ONDEMAND_NODE_AFFINITY
     )

@@ -19,20 +19,18 @@ dag_run.conf format:
     "products": "s2a_nrt_granule s2b_nrt_granule"
 """
 
-from airflow import DAG
 from datetime import datetime, timedelta
-from airflow.operators.python_operator import PythonOperator
 
-from airflow.kubernetes.secret import Secret
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
 from airflow.operators.subdag_operator import SubDagOperator
-from subdags.subdag_explorer_summary import (
-    explorer_refresh_stats_subdag,
-)
+
 from infra.variables import (
     DB_DATABASE,
     DB_WRITER,
     REGION,
 )
+from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 
 INDEXING_PRODUCTS = []
 
