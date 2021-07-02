@@ -30,6 +30,7 @@ from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOpera
 from airflow.kubernetes.secret import Secret
 from airflow.operators.python_operator import BranchPythonOperator
 from airflow.operators.python_operator import PythonOperator
+from airflow.operators.subdag_operator import SubDagOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 from infra.images import INDEXER_IMAGE
@@ -43,7 +44,7 @@ from infra.variables import (
     REGION,
     DB_PORT,
 )
-from subdags.subdag_explorer_summary import explorer_refresh_operator
+from subdags.subdag_explorer_summary import explorer_refresh_stats_subdag
 
 ADD_PRODUCT_TASK_ID = "add-product-task"
 
@@ -178,9 +179,14 @@ with dag:
         op_args=["{{ dag_run.conf.products }}"],
     )
 
-    # Execute Explorer Refresh process based on the product name
-    EXPLORER_SUMMARY = explorer_refresh_operator(
-        xcom_task_id=SET_REFRESH_PRODUCT_TASK_NAME,
+    EXPLORER_SUMMARY = SubDagOperator(
+        task_id="run-cubedash-gen-refresh-stat",
+        subdag=explorer_refresh_stats_subdag(
+            DAG_NAME,
+            "run-cubedash-gen-refresh-stat",
+            DEFAULT_ARGS,
+            SET_REFRESH_PRODUCT_TASK_NAME,
+        ),
     )
 
     TASK_PLANNER >> [ADD_PRODUCT, INDEXING]
