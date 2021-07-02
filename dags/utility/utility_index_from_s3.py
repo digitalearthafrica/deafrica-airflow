@@ -93,10 +93,8 @@ def check_dagrun_config(product_definition_uri: str, s3_glob: str, **kwargs):
     )
 
     if product_definition_uri and s3_glob:
-        return [ADD_PRODUCT_TASK_ID, INDEXING_TASK_ID]
-    elif product_definition_uri:
         return ADD_PRODUCT_TASK_ID
-    elif s3_glob:
+    elif not product_definition_uri and s3_glob:
         return INDEXING_TASK_ID
     else:
         raise ValueError('Neither product_definition_uri nor s3_glob was informed!')
