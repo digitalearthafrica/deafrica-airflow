@@ -20,6 +20,7 @@ from datetime import datetime, timedelta
 from infra.images import EXPLORER_IMAGE
 from infra.variables import DB_WRITER, DB_DATABASE, DB_PORT, REGION
 from infra.variables import SECRET_EXPLORER_ADMIN_NAME
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 
 local_tz = pendulum.timezone("Africa/Johannesburg")
 
@@ -58,21 +59,7 @@ dag = DAG(
     schedule_interval=None,    # Fully manual migrations
 )
 
-affinity = {
-    "nodeAffinity": {
-        "requiredDuringSchedulingIgnoredDuringExecution": {
-            "nodeSelectorTerms": [{
-                "matchExpressions": [{
-                    "key": "nodetype",
-                    "operator": "In",
-                    "values": [
-                        "ondemand",
-                    ]
-                }]
-            }]
-        }
-    }
-}
+affinity = ONDEMAND_NODE_AFFINITY
 
 with dag:
     START = DummyOperator(task_id="odc-db-update-schema")
