@@ -25,10 +25,10 @@ from infra.podconfig import ONDEMAND_NODE_AFFINITY
 local_tz = pendulum.timezone("Africa/Johannesburg")
 
 DEFAULT_ARGS = {
-    "owner": "Tisham Dhar",
+    "owner": "Nikita Gandhi",
     "depends_on_past": False,
     "start_date": datetime(2021, 2, 10, tzinfo=local_tz),
-    "email": ["tisham.dhar@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 1,
