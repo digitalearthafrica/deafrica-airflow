@@ -33,7 +33,7 @@ default_args = {
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
-    "email_on_success": True,
+    "email_on_success": False,
     "email_on_retry": False,
     "retries": 0,
 }
@@ -94,7 +94,6 @@ def generate_buckets_diff():
     s3_inventory_source = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
         bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        # region=REGION,
         region=SENTINEL_COGS_AWS_REGION,
     )
     logging.info(

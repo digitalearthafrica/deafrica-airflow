@@ -27,9 +27,9 @@ PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
 
 default_args = {
-    "owner": "Airflow",
+    "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
-    "email": ["alex.leith@ga.gov.au"],
+    "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
@@ -188,7 +188,7 @@ def prepare_and_send_messages(dag_run, **kwargs):
 
 
 with DAG(
-    "sentinel-2-gap-fill",
+    "sentinel-2-gap-filler",
     default_args=default_args,
     schedule_interval=SCHEDULE_INTERVAL,
     tags=["Sentinel-2", "gap-fill"],

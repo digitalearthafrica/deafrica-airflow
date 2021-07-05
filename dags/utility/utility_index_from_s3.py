@@ -5,7 +5,7 @@ This is utility is to provide administrators the easy accessiblity to run s3-to-
 
 #### Utility utilization
 The DAG must be parameterized with run time configurations `s3_glob` and `products`
-In addiction the DAG can receive the parameters `no_sign_request` and `stac`
+In addiction the DAG can receive the parameters `stac`
 
 A list of products must be provided, separated by space,
 i.e. `s2_l2a ls5_sr ls5_st ls7_sr ls7_st`
@@ -17,7 +17,6 @@ product_definition_uri is optional and if provided will read the YML file and ad
         "s3_glob":"s3://deafrica-sentinel-2-dev/sentinel-s2-l2a-cogs/**/*.json",
         "product_definition_uri":"https://raw.githubusercontent.com/digitalearthafrica/config/master/products/ls5_c2l2.odc-product.yaml",
         "products":"s2_l2a ls5_sr ls5_st ls7_sr ls7_st",
-        "no_sign_request":true,
         "stac":true
     }
 """
@@ -33,9 +32,7 @@ from airflow.operators.subdag_operator import SubDagOperator
 from airflow.utils.trigger_rule import TriggerRule
 
 from infra.images import INDEXER_IMAGE
-from infra.podconfig import (
-    ONDEMAND_NODE_AFFINITY,
-)
+from infra.podconfig import ONDEMAND_NODE_AFFINITY
 from infra.variables import (
     DB_DATABASE,
     DB_WRITER,
@@ -158,12 +155,12 @@ with dag:
         arguments=[
             "-c",
             "s3-to-dc "
+            "--no-sign-request "
             "{% if dag_run.conf.stac %}--stac{% endif %} "
-            "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
             "{{ dag_run.conf.products }}",
         ],
-        name='INDEXING_TEST',
+        name='INDEXING_S3_TO_DC',
         task_id=INDEXING_TASK_ID,
         get_logs=True,
         affinity=ONDEMAND_NODE_AFFINITY,

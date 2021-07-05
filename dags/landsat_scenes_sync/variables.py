@@ -30,7 +30,7 @@ AFRICA_S3_BUCKET_PATH = f"s3://{LANDSAT_SYNC_BUCKET_NAME}/"
 
 AFRICA_S3_PRODUCT_EXPLORER = "https://explorer.digitalearth.africa/products/"
 
-AFRICA_S3_ENDPOINT = "s3.af-south-1.amazonaws.com"
+AFRICA_S3_ENDPOINT = f"s3.{REGION}.amazonaws.com"
 
 AFRICA_S3_BUCKET_URL = f"https://{LANDSAT_SYNC_BUCKET_NAME}.s3.{REGION}.amazonaws.com/"
 

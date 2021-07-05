@@ -22,7 +22,7 @@ from infra.s3_buckets import DB_DUMP_S3_BUCKET
 from infra.iam_roles import DB_DUMP_S3_ROLE
 
 DAG_NAME = "utility_odc_db_dump_to_s3"
-DB_DUMP_MOUNT_PATH = "/dbdump"
+DB_DUMP_MOUNT_PATH = '/dbdump'
 
 odc_db_dump_volume_mount = VolumeMount(
     name="odc-db-dump-volume",
