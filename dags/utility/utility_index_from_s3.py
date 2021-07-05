@@ -158,7 +158,7 @@ with dag:
         cmds=["bash"],
         arguments=[
             "-c",
-            "s3-to-dc"
+            "s3-to-dc "
             "{% if dag_run.conf.stac %}--stac{% endif %} "
             "{% if dag_run.conf.no_sign_request %}--no-sign-request{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
