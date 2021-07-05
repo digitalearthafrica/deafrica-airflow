@@ -5,13 +5,12 @@ This is utility is to provide administrators the easy accessiblity to run s3-to-
 
 #### Utility utilization
 The DAG must be parameterized with run time configurations `s3_glob` and `products`
-In addiction the DAG can receive the parameters `no_sign_request` and , `stac`
+In addiction the DAG can receive the parameters `no_sign_request` and `stac`
 
-To run with all, set `dag_run.conf.products` to `--all`
-otherwise provide list of products, to be refreshed, separated by space,
+A list of products must be provided, separated by space,
 i.e. `s2_l2a ls5_sr ls5_st ls7_sr ls7_st`
 
-dag_run.conf format:
+product_definition_uri is optional and if provided will read the YML file and add to Datacube, before index and refresh Explorer.
 
 #### example conf in json format
     {
