@@ -1,5 +1,6 @@
 """
-# Alchemist Landsat indexing automation
+# indexing automation
+# This process indexes Landsat, Sentinel 2 and Sentinel 1
 """
 from datetime import datetime, timedelta
 
