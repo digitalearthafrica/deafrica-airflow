@@ -11,7 +11,7 @@ from datetime import datetime
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_SENTINEL_2_SYNC
+from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
@@ -131,7 +131,7 @@ def generate_buckets_diff():
     key = REPORTING_PREFIX + output_filename
 
     # Store report in the S3 bucket
-    s3_report = S3(conn_id=CONN_SENTINEL_2_SYNC)
+    s3_report = S3(conn_id=CONN_SENTINEL_2_WRITE)
 
     s3_report.put_object(
         bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
