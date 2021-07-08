@@ -11,7 +11,7 @@ from datetime import datetime
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_SENTINEL_2_SYNC
+from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
@@ -25,11 +25,12 @@ from sentinel_2.variables import (
     SENTINEL_COGS_INVENTORY_BUCKET,
     COGS_FOLDER_NAME,
 )
+from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
 
 default_args = {
-    "owner": "Rodrigo Carvalho",
+    "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
@@ -130,14 +131,14 @@ def generate_buckets_diff():
     key = REPORTING_PREFIX + output_filename
 
     # Store report in the S3 bucket
-    # s3_report = S3(conn_id=CONN_SENTINEL_2_SYNC)
-    #
-    # s3_report.put_object(
-    #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-    #     key=key,
-    #     region=REGION,
-    #     body="\n".join(missing_scenes),
-    # )
+    s3_report = S3(conn_id=CONN_SENTINEL_2_WRITE)
+
+    s3_report.put_object(
+        bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+        key=key,
+        region=REGION,
+        body="\n".join(missing_scenes),
+    )
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
@@ -147,12 +148,12 @@ def generate_buckets_diff():
     if len(orphaned_keys) > 0:
         output_filename = datetime.today().isoformat() + "_orphaned.txt"
         key = REPORTING_PREFIX + output_filename
-        # s3_report.put_object(
-        #     bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
-        #     key=key,
-        #     region=REGION,
-        #     body="\n".join(orphaned_keys),
-        # )
+        s3_report.put_object(
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+            key=key,
+            region=REGION,
+            body="\n".join(orphaned_keys),
+        )
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
 
