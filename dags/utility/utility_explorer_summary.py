@@ -40,7 +40,7 @@ DAG_NAME = "utility_explorer-refresh-stats"
 
 # DAG CONFIGURATION
 DEFAULT_ARGS = {
-    "owner": "Rodrigo",
+    "owner": "RODRIGO",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
     "email": ["systems@digitalearthafrica.org"],
