@@ -156,7 +156,6 @@ with dag:
             "-c",
             "s3-to-dc "
             "--no-sign-request "
-            "--n-threads 200 "
             "{% if dag_run.conf.stac %}--stac{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
             "{{ dag_run.conf.products }}",
