@@ -57,7 +57,7 @@ REPORTING_PREFIX = "status-report/"
 SCHEDULE_INTERVAL = None
 
 default_args = {
-    "owner": "rodrigo.carvalho",
+    "owner": "RODRIGO",
     "start_date": datetime(2021, 3, 29),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,

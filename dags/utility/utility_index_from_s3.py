@@ -49,7 +49,7 @@ INDEXING_TASK_ID = "batch-indexing-task"
 DAG_NAME = "utility_index_from_s3"
 
 DEFAULT_ARGS = {
-    "owner": "Rodrigo",
+    "owner": "RODRIGO",
     "depends_on_past": False,
     "start_date": datetime(2020, 6, 14),
     "email": ["systems@digitalearthafrica.org"],
@@ -156,6 +156,7 @@ with dag:
             "-c",
             "s3-to-dc "
             "--no-sign-request "
+            "--n-threads 200 "
             "{% if dag_run.conf.stac %}--stac{% endif %} "
             "{{ dag_run.conf.s3_glob }} "
             "{{ dag_run.conf.products }}",
