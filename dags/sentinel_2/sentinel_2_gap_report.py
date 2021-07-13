@@ -8,10 +8,16 @@ import logging
 import re
 from datetime import datetime
 
-from airflow import DAG, AirflowException
+from airflow import (
+    DAG,
+    AirflowException
+)
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
+from infra.connections import (
+    CONN_SENTINEL_2_SYNC,
+    CONN_SENTINEL_2_WRITE
+)
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,

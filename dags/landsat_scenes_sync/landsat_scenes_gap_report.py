@@ -143,8 +143,9 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         manifest_sufix=MANIFEST_SUFFIX
     )
 
-    logging.info(f"Filterring by prefix {prefix}")
+    logging.info(f"Filtering by prefix {prefix}")
 
+    # TODO check for .json file
     return set(
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_keys
