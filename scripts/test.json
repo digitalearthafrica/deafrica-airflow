@@ -5,47 +5,47 @@
         "view",
         "https://landsat.usgs.gov/stac/landsat-extension/v1.0.1/schema.json"
     ],
-    "id": "LE07_L2SR_156058_20061031_20200913_02_T2_SR",
+    "id": "LE07_L2SP_185046_20210613_20210709_02_T1_SR",
     "type": "Feature",
     "bbox": [
-        55.50327354211105,
-        1.9573269117087781,
-        57.49915380669114,
-        3.8385309586258987
+        14.402177927955522,
+        19.305481505484273,
+        16.612421888138584,
+        21.174829577964974
     ],
     "geometry": {
         "type": "Polygon",
         "coordinates": [
             [
                 [
-                    55.85112208721818,
-                    3.8385309586258987
+                    14.763552795574022,
+                    21.174829577964974
                 ],
                 [
-                    57.49915380669114,
-                    3.602500642563611
+                    16.612421888138584,
+                    20.909056475271747
                 ],
                 [
-                    57.147512921666205,
-                    1.9573269117087781
+                    16.22664901932932,
+                    19.305481505484273
                 ],
                 [
-                    55.50327354211105,
-                    2.202208827178366
+                    14.402177927955522,
+                    19.568073113440736
                 ],
                 [
-                    55.85112208721818,
-                    3.8385309586258987
+                    14.763552795574022,
+                    21.174829577964974
                 ]
             ]
         ]
     },
     "description": "Landsat Collection 2 Level-2 Surface Reflectance Product",
     "properties": {
-        "datetime": "2006-10-31T06:17:33.632229Z",
-        "eo:cloud_cover": 2.0,
-        "view:sun_azimuth": 124.95213018,
-        "view:sun_elevation": 59.84930576,
+        "datetime": "2021-06-13T08:27:49.159322Z",
+        "eo:cloud_cover": 0.0,
+        "view:sun_azimuth": 78.09314002,
+        "view:sun_elevation": 55.06347915,
         "platform": "LANDSAT_7",
         "eo:instrument": [
             "ETM"
@@ -53,15 +53,15 @@
         "view:off_nadir": 0,
         "landsat:cloud_cover_land": 0.0,
         "landsat:wrs_type": "2",
-        "landsat:wrs_path": "156",
-        "landsat:wrs_row": "058",
-        "landsat:scene_id": "LE71560582006304ASN00",
-        "landsat:collection_category": "T2",
+        "landsat:wrs_path": "185",
+        "landsat:wrs_row": "046",
+        "landsat:scene_id": "LE71850462021164SG100",
+        "landsat:collection_category": "T1",
         "landsat:collection_number": "02"
     },
     "assets": {
         "thumbnail": {
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_thumb_small.jpeg",
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_thumb_small.jpeg",
             "title": "Thumbnail image",
             "type": "image/jpeg",
             "roles": [
@@ -69,7 +69,7 @@
             ]
         },
         "reduced_resolution_browse": {
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_thumb_large.jpeg",
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_thumb_large.jpeg",
             "title": "Reduced resolution browse image",
             "type": "image/jpeg",
             "roles": [
@@ -77,7 +77,7 @@
             ]
         },
         "index": {
-            "href": "https://landsatlook.usgs.gov/stac-browser/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2",
+            "href": "https://landsatlook.usgs.gov/stac-browser/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1",
             "title": "HTML index page",
             "type": "text/html",
             "roles": [
@@ -99,7 +99,7 @@
                     "center_wavelength": 0.48
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B1.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B1.TIF"
         },
         "SR_B2.TIF": {
             "title": "Green Band (B2)",
@@ -116,7 +116,7 @@
                     "center_wavelength": 0.56
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B2.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B2.TIF"
         },
         "SR_B3.TIF": {
             "title": "Red Band (B3)",
@@ -133,7 +133,7 @@
                     "center_wavelength": 0.65
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B3.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B3.TIF"
         },
         "SR_B4.TIF": {
             "title": "Near Infrared Band 0.8 (B4)",
@@ -150,7 +150,7 @@
                     "center_wavelength": 0.86
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B4.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B4.TIF"
         },
         "SR_B5.TIF": {
             "title": "Short-wave Infrared Band 1.6 (B5)",
@@ -167,7 +167,7 @@
                     "center_wavelength": 1.6
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B5.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B5.TIF"
         },
         "SR_B7.TIF": {
             "title": "Short-wave Infrared Band 2.2 (B7)",
@@ -184,7 +184,7 @@
                     "center_wavelength": 2.2
                 }
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_B7.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_B7.TIF"
         },
         "SR_ATMOS_OPACITY.TIF": {
             "title": "Atmospheric Opacity Band",
@@ -193,7 +193,7 @@
             "roles": [
                 "data"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_ATMOS_OPACITY.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_ATMOS_OPACITY.TIF"
         },
         "SR_CLOUD_QA.TIF": {
             "title": "Cloud Quality Analysis Band",
@@ -202,7 +202,7 @@
             "roles": [
                 "data"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_CLOUD_QA.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_CLOUD_QA.TIF"
         },
         "ANG.txt": {
             "title": "Angle Coefficients File",
@@ -211,7 +211,7 @@
             "roles": [
                 "metadata"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_ANG.txt"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_ANG.txt"
         },
         "MTL.txt": {
             "title": "Product Metadata File",
@@ -220,7 +220,7 @@
             "roles": [
                 "metadata"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_MTL.txt"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_MTL.txt"
         },
         "MTL.xml": {
             "title": "Product Metadata File (xml)",
@@ -229,7 +229,7 @@
             "roles": [
                 "metadata"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_MTL.xml"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_MTL.xml"
         },
         "MTL.json": {
             "title": "Product Metadata File (json)",
@@ -238,7 +238,7 @@
             "roles": [
                 "metadata"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_MTL.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_MTL.json"
         },
         "QA_PIXEL.TIF": {
             "title": "Pixel Quality Assessment Band",
@@ -247,7 +247,7 @@
             "roles": [
                 "data"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_QA_PIXEL.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_QA_PIXEL.TIF"
         },
         "QA_RADSAT.TIF": {
             "title": "Radiometric Saturation Quality Assessment Band",
@@ -256,14 +256,17 @@
             "roles": [
                 "data"
             ],
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_QA_RADSAT.TIF"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_QA_RADSAT.TIF"
         }
     },
     "links": [
-
+        {
+            "rel": "root",
+            "href": "https://landsatlook.usgs.gov/data/catalog.json"
+        },
         {
             "rel": "parent",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/catalog.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/catalog.json"
         },
         {
             "rel": "collection",
@@ -271,7 +274,7 @@
         },
         {
             "rel": "self",
-            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2006/156/058/LE07_L2SR_156058_20061031_20200913_02_T2/LE07_L2SR_156058_20061031_20200913_02_T2_SR_stac.json"
+            "href": "https://landsatlook.usgs.gov/data/collection02/level-2/standard/etm/2021/185/046/LE07_L2SP_185046_20210613_20210709_02_T1/LE07_L2SP_185046_20210613_20210709_02_T1_SR_stac.json"
         }
     ],
     "collection": "landsat-c2l2-sr"

@@ -1,5 +1,4 @@
 """Just tests, must be deleted"""
-import datetime
 import json
 import os
 import unittest
@@ -85,8 +84,16 @@ def compare(landsat5, landsat7, landsat8):
 def rasterio_test(item: Item):
     item.ext.enable("projection")
 
+    ca = os.path.join(
+        "C:/Users/cario/work/deafrica-airflow/scripts/", "cacert-2021-07-05.pem"
+    )
     with rasterio.Env(
-        aws_unsigned=True,
+            aws_unsigned=True,
+            CURL_CA_BUNDLE=ca,
+            AWS_S3_ENDPOINT=f"s3.af-south-1.amazonaws.com",
+            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            GDAL_HTTP_MAX_RETRY="10",
+            GDAL_HTTP_RETRY_DELAY="0.5",
     ):
         for name, asset in item.assets.items():
             if "geotiff" in asset.media_type:
@@ -96,12 +103,9 @@ def rasterio_test(item: Item):
                         "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
                     ).replace(
                         "https://landsatlook.usgs.gov/data/",
-                        "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
+                        "https://deafrica-landsat.s3.af-south-1.amazonaws.com/",
                     )
-                    # ).replace(
-                    #     "https://landsatlook.usgs.gov/data/",
-                    #     "https://deafrica-landsat-dev.s3.af-south-1.amazonaws.com/",
-                    # )
+
                     with rasterio.open(href) as opened_asset:
                         shape = opened_asset.shape
                         transform = opened_asset.transform
@@ -116,7 +120,6 @@ def rasterio_test(item: Item):
                     # print(f"error {error}")
                     # print(RasterioIOError == type(error))
                     raise error
-                    # raise Exception('test')
                     # continue
     return item
 
@@ -137,14 +140,15 @@ class class_test(unittest.TestCase):
         )
         print(item.stac_extensions)
 
-    @unittest.skip
+    # @unittest.skip
     def test_rasterio(self):
         json_landsat82 = os.path.join(
-            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+            "C:/Users/cario/work/deafrica-airflow/scripts/", "test.json"
         )
         with self.assertRaises(RasterioIOError):
             rasterio_test(convert(json_path=json_landsat82))
 
+    @unittest.skip
     def test_transform_static_stac_missing_asset_b2_b10(self):
         """It has to be able to gather the right information from other geotiff files"""
 
@@ -185,6 +189,5 @@ if __name__ == "__main__":
     # get_queue_attributes_test()
     # convert(json_path=json_file)
     # compare(json_landsat5, json_landsat7, json_landsat8)
-    # rasterio_test(json_file)
     unittest.main()
     # count_scenes()
