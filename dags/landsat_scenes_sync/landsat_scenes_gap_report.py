@@ -40,8 +40,6 @@ from landsat_scenes_sync.variables import (
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
     C2_FOLDER_NAME,
-    USGS_S3_BUCKET_NAME,
-    USGS_AWS_REGION,
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
@@ -147,25 +145,17 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
 
     logging.info(f"Filterring by prefix {prefix}")
 
-    for key in list_keys:
+    # TODO check for .json file
+    return set(
+        f"{key.rsplit('/', 1)[0]}/"
+        for key in list_keys
         if (
-                # Filter to remove any folder despite C2_FOLDER_NAME
-                key.startswith(C2_FOLDER_NAME)
-                # Ensure the filter to the right satellite
-                and key.split("/")[-1].startswith(prefix)
-        ):
-            yield f"{key.rsplit('/', 1)[0]}/"
-
-    # return set(
-    #     f"{key.rsplit('/', 1)[0]}/"
-    #     for key in list_keys
-    #     if (
-    #         # Filter to remove any folder despite C2_FOLDER_NAME
-    #         key.startswith(C2_FOLDER_NAME)
-    #         # Ensure the filter to the right satellite
-    #         and key.split("/")[-1].startswith(prefix)
-    #     )
-    # )
+            # Filter to remove any folder despite C2_FOLDER_NAME
+            key.startswith(C2_FOLDER_NAME)
+            # Ensure the filter to the right satellite
+            and key.split("/")[-1].startswith(prefix)
+        )
+    )
 
 
 def build_s3_url_from_api_metadata(display_ids):
@@ -207,59 +197,6 @@ def build_s3_url_from_api_metadata(display_ids):
                 yield future.result()
 
 
-def check_for_stac_files(dest_paths):
-    """
-    If there is a missing stac, either ST or SR, and the stac is present in USGS, consider a not transfer scene
-    """
-    def find_stac_files(prefix):
-
-        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
-
-        scene = prefix.split('/')[-2]
-
-        # Checking SR File in Africa
-        sr_file = s3.list_objects(
-            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=REGION,
-            prefix=f"{prefix}{scene}_SR_stac.json"
-        )
-
-        if not sr_file.get("Contents"):
-            # Checking SR file in USGS
-            sr_usgs_file = s3.list_objects(
-                bucket_name=USGS_S3_BUCKET_NAME,
-                region=USGS_AWS_REGION,
-                prefix=f"{prefix}{scene}_SR_stac.json"
-            )
-            if sr_usgs_file.get("Contents"):
-                return
-
-        # Checking ST file in Africa
-        st_file = s3.list_objects(
-            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=REGION,
-            prefix=f"{prefix}{scene}_ST_stac.json"
-        )
-
-        if not st_file.get("Contents"):
-            # Checking ST file in USGS
-            st_usgs_file = s3.list_objects(
-                bucket_name=USGS_S3_BUCKET_NAME,
-                region=USGS_AWS_REGION,
-                prefix=f"{prefix}{scene}_ST_stac.json"
-            )
-            if st_usgs_file.get("Contents"):
-                return
-
-        return prefix
-
-    with ThreadPoolExecutor(max_workers=200) as executor:
-
-        tasks = [executor.submit(find_stac_files, path) for path in dest_paths]
-
-        return set(future.result() for future in as_completed(tasks) if future.result())
-
-
 def generate_buckets_diff(landsat: str, file_name: str):
     """
     Compare USGS bulk files and Africa inventory bucket detecting differences
@@ -289,11 +226,9 @@ def generate_buckets_diff(landsat: str, file_name: str):
 
         # Retrieve keys from inventory bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
-        dest = get_and_filter_keys(
+        dest_paths = get_and_filter_keys(
             s3_bucket_client=s3_inventory_dest, landsat=landsat
         )
-
-        dest_paths = check_for_stac_files(dest_paths=dest)
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
         logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
