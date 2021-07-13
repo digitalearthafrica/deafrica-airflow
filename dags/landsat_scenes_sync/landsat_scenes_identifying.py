@@ -54,8 +54,8 @@ with dag:
     processes = []
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
-        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
-        "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
+        # "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        # "Landsat_4_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
     for sat, file in files.items():
