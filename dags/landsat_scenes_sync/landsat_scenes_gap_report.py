@@ -39,7 +39,9 @@ from landsat_scenes_sync.variables import (
     AFRICA_GZ_PATHROWS_URL,
     USGS_S3_BUCKET_PATH,
     AFRICA_S3_BUCKET_PATH,
-    C2_FOLDER_NAME, USGS_S3_BUCKET_NAME, USGS_AWS_REGION,
+    C2_FOLDER_NAME,
+    USGS_S3_BUCKET_NAME,
+    USGS_AWS_REGION,
 )
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
