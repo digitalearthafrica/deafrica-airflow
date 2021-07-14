@@ -93,7 +93,7 @@ def get_and_filter_keys_from_files(file_path: Path):
         )
 
     # Download updated Pathrows
-    logging.info("Retrieving allowed Africa Pathrows")
+    logging.info(f"Retrieving allowed Africa Pathrows from {AFRICA_GZ_PATHROWS_URL}")
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
@@ -153,18 +153,6 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_json_keys
     )
-
-    # TODO check for .json file
-    # return set(
-    #     f"{key.rsplit('/', 1)[0]}/"
-    #     for key in list_json_keys
-    #     if (
-    #         # Filter to remove any folder despite C2_FOLDER_NAME
-    #         key.startswith(C2_FOLDER_NAME)
-    #         # Ensure the filter to the right satellite
-    #         and key.split("/")[-1].startswith(prefix)
-    #     )
-    # )
 
 
 def build_s3_url_from_api_metadata(display_ids):

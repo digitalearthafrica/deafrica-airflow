@@ -168,8 +168,8 @@ class InventoryUtils:
             for future in as_completed(tasks):
                 for key in future.result():
                     if (
-                            key.startswith(prefix=prefix) and
-                            key.endswith(suffix=suffix) and
+                            key.startswith(prefix) and
+                            key.endswith(suffix) and
                             contains in key
                     ):
                         yield key
