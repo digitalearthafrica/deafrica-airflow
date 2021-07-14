@@ -128,34 +128,42 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     :return:
     """
 
-    prefix = None
+    sat_prefix = None
     if landsat == "landsat_8":
-        prefix = "LC08"
+        sat_prefix = "LC08"
     elif landsat == "landsat_7":
-        prefix = "LE07"
+        sat_prefix = "LE07"
     elif landsat == "Landsat_5":
-        prefix = "LT05"
+        sat_prefix = "LT05"
 
-    if not prefix:
+    if not sat_prefix:
         raise Exception(f"prefix not defined")
 
-    list_keys = s3_bucket_client.retrieve_keys_from_inventory(
-        manifest_sufix=MANIFEST_SUFFIX
+    list_json_keys = s3_bucket_client.retrieve_json_keys_from_inventory(
+        manifest_sufix=MANIFEST_SUFFIX,
+        prefix=C2_FOLDER_NAME,
+        suffix='_stac.json',
+        contains=sat_prefix
     )
 
-    logging.info(f"Filtering by prefix {prefix}")
+    logging.info(f"Filtering by sat prefix {sat_prefix}")
 
-    # TODO check for .json file
     return set(
         f"{key.rsplit('/', 1)[0]}/"
-        for key in list_keys
-        if (
-            # Filter to remove any folder despite C2_FOLDER_NAME
-            key.startswith(C2_FOLDER_NAME)
-            # Ensure the filter to the right satellite
-            and key.split("/")[-1].startswith(prefix)
-        )
+        for key in list_json_keys
     )
+
+    # TODO check for .json file
+    # return set(
+    #     f"{key.rsplit('/', 1)[0]}/"
+    #     for key in list_json_keys
+    #     if (
+    #         # Filter to remove any folder despite C2_FOLDER_NAME
+    #         key.startswith(C2_FOLDER_NAME)
+    #         # Ensure the filter to the right satellite
+    #         and key.split("/")[-1].startswith(prefix)
+    #     )
+    # )
 
 
 def build_s3_url_from_api_metadata(display_ids):
