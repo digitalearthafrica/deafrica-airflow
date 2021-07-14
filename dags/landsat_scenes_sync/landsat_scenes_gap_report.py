@@ -93,7 +93,7 @@ def get_and_filter_keys_from_files(file_path: Path):
         )
 
     # Download updated Pathrows
-    logging.info("Retrieving allowed Africa Pathrows")
+    logging.info(f"Retrieving allowed Africa Pathrows from {AFRICA_GZ_PATHROWS_URL}")
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
