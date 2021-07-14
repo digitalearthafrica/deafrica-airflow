@@ -36,7 +36,6 @@ class InventoryUtils:
         :param suffix:
         :param sub_key: string to be present in the object name
         """
-        # TODO Talk to Alex to see if we can speed it up, this part is taking about 10 min.
         continuation_token = None
         while True:
             # The S3 API response is a large blob of metadata.
@@ -66,7 +65,9 @@ class InventoryUtils:
         """
         Return a dictionary of a manifest file"
         """
-        logging.info("Start Looking for latest manifest file")
+        logging.info(
+            f"Start Looking for latest manifest file on {self.bucket_name} - {self.region}"
+        )
 
         today = datetime.now()
         # get latest manifest file
@@ -140,11 +141,15 @@ class InventoryUtils:
         except Exception as error:
             logging.error(f"ERROR list_keys_in_file key: {key} error: {error}")
 
-    def retrieve_keys_from_inventory(self, manifest_sufix):
+    def retrieve_keys_from_inventory(self, manifest_sufix: str, prefix: str = '', suffix: str = '', contains: str = ''):
         """
-        Function to download 50 inventory GZIP files at the same time an retrieve the keys inside of them.
+        Function to download 50 inventory GZIP files at the same time and retrieve the keys inside of them.
 
-        :return:
+        :param manifest_sufix: (str) Manifest file
+        :param prefix: (str) Starts with filter
+        :param suffix: (str) Ends with filter
+        :param contains: (str) Contains in the key filter
+        :return: Generator
         """
         # Limit number of threads
         num_of_threads = 50
@@ -162,4 +167,9 @@ class InventoryUtils:
 
             for future in as_completed(tasks):
                 for key in future.result():
-                    yield key
+                    if (
+                            key.startswith(prefix) and
+                            key.endswith(suffix) and
+                            contains in key
+                    ):
+                        yield key

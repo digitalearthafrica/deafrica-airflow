@@ -20,6 +20,7 @@ from airflow import (
 )
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+
 from infra.connections import (
     CONN_LANDSAT_SYNC,
     CONN_LANDSAT_WRITE
@@ -56,7 +57,7 @@ REPORTING_PREFIX = "status-report/"
 SCHEDULE_INTERVAL = "@weekly"
 
 default_args = {
-    "owner": "rodrigo.carvalho",
+    "owner": "RODRIGO",
     "start_date": datetime(2021, 3, 29),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
@@ -91,7 +92,7 @@ def get_and_filter_keys_from_files(file_path: Path):
         )
 
     # Download updated Pathrows
-    logging.info("Retrieving allowed Africa Pathrows")
+    logging.info(f"Retrieving allowed Africa Pathrows from {AFRICA_GZ_PATHROWS_URL}")
     africa_pathrows = read_csv_from_gzip(file_path=AFRICA_GZ_PATHROWS_URL)
 
     logging.info("Reading and filtering Bulk file")
@@ -127,32 +128,29 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     :return:
     """
 
-    prefix = None
+    sat_prefix = None
     if landsat == "landsat_8":
-        prefix = "LC08"
+        sat_prefix = "LC08"
     elif landsat == "landsat_7":
-        prefix = "LE07"
+        sat_prefix = "LE07"
     elif landsat == "Landsat_5":
-        prefix = "LT05"
+        sat_prefix = "LT05"
 
-    if not prefix:
+    if not sat_prefix:
         raise Exception(f"prefix not defined")
 
-    list_keys = s3_bucket_client.retrieve_keys_from_inventory(
-        manifest_sufix=MANIFEST_SUFFIX
+    list_json_keys = s3_bucket_client.retrieve_keys_from_inventory(
+        manifest_sufix=MANIFEST_SUFFIX,
+        prefix=C2_FOLDER_NAME,
+        suffix='_stac.json',
+        contains=sat_prefix
     )
 
-    logging.info(f"Filterring by prefix {prefix}")
+    logging.info(f"Filtering by sat prefix {sat_prefix}")
 
     return set(
         f"{key.rsplit('/', 1)[0]}/"
-        for key in list_keys
-        if (
-            # Filter to remove any folder despite C2_FOLDER_NAME
-            key.startswith(C2_FOLDER_NAME)
-            # Ensure the filter to the right satellite
-            and key.split("/")[-1].startswith(prefix)
-        )
+        for key in list_json_keys
     )
 
 
