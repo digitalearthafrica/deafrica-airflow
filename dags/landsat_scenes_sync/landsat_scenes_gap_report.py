@@ -20,6 +20,7 @@ from airflow import (
 )
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
+
 from infra.connections import (
     CONN_LANDSAT_SYNC,
     CONN_LANDSAT_WRITE
@@ -139,7 +140,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     if not sat_prefix:
         raise Exception(f"prefix not defined")
 
-    list_json_keys = s3_bucket_client.retrieve_json_keys_from_inventory(
+    list_json_keys = s3_bucket_client.retrieve_keys_from_inventory(
         manifest_sufix=MANIFEST_SUFFIX,
         prefix=C2_FOLDER_NAME,
         suffix='_stac.json',
