@@ -154,18 +154,6 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
         for key in list_json_keys
     )
 
-    # TODO check for .json file
-    # return set(
-    #     f"{key.rsplit('/', 1)[0]}/"
-    #     for key in list_json_keys
-    #     if (
-    #         # Filter to remove any folder despite C2_FOLDER_NAME
-    #         key.startswith(C2_FOLDER_NAME)
-    #         # Ensure the filter to the right satellite
-    #         and key.split("/")[-1].startswith(prefix)
-    #     )
-    # )
-
 
 def build_s3_url_from_api_metadata(display_ids):
     """
