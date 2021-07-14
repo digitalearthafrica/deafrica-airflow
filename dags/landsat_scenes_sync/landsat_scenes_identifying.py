@@ -24,7 +24,7 @@ from utils.landsat_scenes_identifying_logic import identifying_data
 
 
 DEFAULT_ARGS = {
-    "owner": "rodrigo.carvalho",
+    "owner": "RODRIGO",
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": True,
     "email_on_retry": False,
