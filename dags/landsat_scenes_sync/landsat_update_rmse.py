@@ -6,6 +6,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
+from airflow.hooks.S3_hook import S3Hook
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
@@ -13,7 +14,11 @@ from odc import aws
 from odc.aws import inventory
 from toolz import get_in
 
-from infra.s3_buckets import LANDSAT_INVENTORY_BUCKET_NAME, LANDSAT_SYNC_BUCKET_NAME
+from infra.connections import CONN_LANDSAT_WRITE
+from infra.s3_buckets import (
+    LANDSAT_INVENTORY_BUCKET_NAME, 
+    LANDSAT_SYNC_BUCKET_NAME
+)
 
 REPORTING_PREFIX = "status-report/"
 # Dev does not need to be updated
@@ -117,10 +122,22 @@ def update(field_to_update, **kwargs):
     """
     Start function to update RMSE on already transferred stacs
     """
+    
+    logging.info('Starting Process')
+    logging.info(f'manifest folder {MANIFEST_FOLDER} - prefix {PREFIX}, suffix {SUFFIX}')
+
+    # Get credentials from Airflow, Remove if moving the code to another tool
+    cred = S3Hook(aws_conn_id=CONN_LANDSAT_WRITE).get_session().get_credentials()
+
+    s3 = aws.s3_client(
+        creds=cred,
+        region_name='af-south-1',
+    )
 
     # Retrieve paths for the files
     list_inventory = inventory.list_inventory(
         manifest=MANIFEST_FOLDER,
+        s3=s3,
         prefix=PREFIX,
         suffix=SUFFIX,
         n_threads=500,
