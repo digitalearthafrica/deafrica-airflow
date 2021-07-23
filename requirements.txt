@@ -7,3 +7,6 @@ stactools-core==0.1.6
 stactools-landsat==0.1.6
 pystac==0.5.6
 requests~=2.25.0
+toolz
+--extra-index-url="https://packages.dea.ga.gov.au"
+odc-aws

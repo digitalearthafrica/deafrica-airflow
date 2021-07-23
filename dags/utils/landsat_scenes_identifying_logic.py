@@ -28,7 +28,7 @@ from utils.sync_utils import (
 )
 
 
-def publish_messages(path_list):
+def publish_messages(path_list) -> int:
     """
     Publish messages
     param message: list of messages
@@ -138,10 +138,11 @@ def filter_africa_location_from_gzip_file(file_path: Path, production_date: str)
             yield row
 
 
-def retrieve_list_of_files(scene_list):
+def retrieve_list_of_files(scene_list, update_stac: bool = False):
     """
     Function to buils list of assets from USGS S3
     :param scene_list: Scene list from the bulk file
+    :param update_stac: (bool) Flag to force update
     :return: list of objects [{<display_id>: [<list_assets>]}]
     """
     # Eg. collection02/level-2/standard/etm/2021/196/046/LE07_L2SP_196046_20210101_20210127_02_T1/
@@ -219,6 +220,8 @@ def retrieve_list_of_files(scene_list):
 
             return
 
+        mtl_sr_st_files.update({'update_stac': update_stac})
+
         return {scene["Display ID"]: mtl_sr_st_files}
 
     # Limit number of threads
@@ -244,13 +247,14 @@ def retrieve_list_of_files(scene_list):
                 yield future.result()
 
 
-def identifying_data(file_name: str, date_to_process: str):
+def identifying_data(file_name: str, date_to_process: str, update_stac: bool):
     """
     Function to initiate the bulk CSV process
     Warning: Main URL hardcoded, please check for changes in case of the download fails
 
     :param file_name: (String) File name which will be downloaded
-    :param date_to_process: (pendulum.Pendulum) Only process datasets
+    :param date_to_process: (str) Only process datasets
+    :param update_stac: (bool) Bool to force updates
     :return: None. Process send information to the queue
     """
     try:
@@ -269,7 +273,7 @@ def identifying_data(file_name: str, date_to_process: str):
         if scene_list:
             # request USGS S3 bucket and retrieve list of assets' path
             # TODO remove limitation when in PROD
-            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:3])
+            path_list = retrieve_list_of_files(scene_list=[s for s in scene_list][0:3], update_stac=update_stac)
             # path_list = retrieve_list_of_files(scene_list=scene_list)
 
             # Publish stac to the queue
