@@ -63,7 +63,7 @@ with dag:
             PythonOperator(
                 task_id=sat,
                 python_callable=identifying_data,
-                op_kwargs=dict(file_name=file, date_to_process="{{ ds }}", update=True),
+                op_kwargs=dict(file_name=file, date_to_process="{{ ds }}", update_stac=True),
             )
         )
 
