@@ -3,10 +3,23 @@
 
 This DAG runs weekly and creates a gap report in the folowing location:
 s3://deafrica-landsat-dev/<date>/status-report
-"""
 
+#### Utility utilization
+The DAG can be parameterized with run time configurations `update_stac`.
+
+* The option update_stac will force the process to buil a list with all scenes ignoring any comparative,
+therefore forcing to rebuild all stacs
+
+#### example conf in json format
+    {
+        "update_stac":true
+    }
+
+"""
+import gzip
 import logging
 import time
+import traceback
 from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed
@@ -120,7 +133,7 @@ def get_and_filter_keys_from_files(file_path: Path):
     )
 
 
-def get_and_filter_keys(s3_bucket_client, landsat: str):
+def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
     """
     Retrieve key list from a inventory bucket and filter
     :param s3_bucket_client:
@@ -193,7 +206,7 @@ def build_s3_url_from_api_metadata(display_ids):
                 yield future.result()
 
 
-def generate_buckets_diff(landsat: str, file_name: str):
+def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = False):
     """
     Compare USGS bulk files and Africa inventory bucket detecting differences
     A report containing missing keys will be written to AFRICA_S3_BUCKET_PATH
@@ -202,18 +215,11 @@ def generate_buckets_diff(landsat: str, file_name: str):
         start_timer = time.time()
 
         logging.info("Comparing")
-
-        # Download bulk file
-        file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
-
-        # Retrieve keys from the bulk file
-        logging.info("Filtering keys from bulk file")
-        source_paths = get_and_filter_keys_from_files(file_path)
-
-        logging.info(f"BULK FILE number of objects {len(source_paths)}")
-        logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
+        if update_stac:
+            logging.info('FORCED UPDATE ACTIVE!')
 
         # Create connection to the inventory S3 bucket
+        logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
             bucket_name=LANDSAT_INVENTORY_BUCKET_NAME,
@@ -221,32 +227,52 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         # Retrieve keys from inventory bucket
-        logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
+        logging.info('Retrieving keys from inventory bucket')
         dest_paths = get_and_filter_keys(
-            s3_bucket_client=s3_inventory_dest, landsat=landsat
+            s3_bucket_client=s3_inventory_dest,
+            landsat=landsat
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
         logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
 
-        # Keys that are missing, they are in the source but not in the bucket
-        logging.info("Filtering missing scenes")
-        missing_scenes = [
-            f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths.difference(dest_paths)
-        ]
+        if not update_stac:
+            # Download bulk file
+            logging.info('Download Bulk file')
+            file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
-        # Keys that are orphan, they are in the bucket but not found in the files
-        logging.info("Filtering orphan scenes")
-        orphaned_scenes = [
-            f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths.difference(source_paths)
-        ]
+            # Retrieve keys from the bulk file
+            logging.info("Filtering keys from bulk file")
+            source_paths = get_and_filter_keys_from_files(file_path)
 
-        logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
-        logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+            logging.info(f"BULK FILE number of objects {len(source_paths)}")
+            logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
+            # Keys that are missing, they are in the source but not in the bucket
+            logging.info("Filtering missing scenes")
+            missing_scenes = [
+                f"{USGS_S3_BUCKET_PATH}{path}"
+                for path in source_paths.difference(dest_paths)
+            ]
+
+            # Keys that are orphan, they are in the bucket but not found in the files
+            logging.info("Filtering orphan scenes")
+            orphaned_scenes = [
+                f"{AFRICA_S3_BUCKET_PATH}{path}"
+                for path in dest_paths.difference(source_paths)
+            ]
+
+            logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
+            logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+
+            output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+
+        else:
+            logging.info('Forced update stac active!!')
+            missing_scenes = dest_paths
+            orphaned_scenes = []
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
+
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
@@ -256,20 +282,22 @@ def generate_buckets_diff(landsat: str, file_name: str):
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             key=key,
             region=REGION,
-            body="\n".join(missing_scenes),
+            body=gzip.compress(str.encode("\n".join(missing_scenes))),
+            content_type="application/gzip"
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt"
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
                 key=key,
                 region=REGION,
-                body="\n".join(orphaned_scenes),
+                body=gzip.compress(str.encode("\n".join(orphaned_scenes))),
+                content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
@@ -280,7 +308,7 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
-            raise AirflowException(message)
+            raise AirflowException(f'ALERT more than 200 missing scenes - {message}')
 
         logging.info(message)
 
@@ -289,6 +317,8 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
     except Exception as error:
         logging.error(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
         raise error
 
 
@@ -301,7 +331,7 @@ with DAG(
 ) as dag:
     START = DummyOperator(task_id="start-tasks")
 
-    processes = []
+    PROCESSES = []
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
         "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
@@ -309,14 +339,14 @@ with DAG(
     }
 
     for sat, file in files.items():
-        processes.append(
+        PROCESSES.append(
             PythonOperator(
                 task_id=f"{sat}_compare_s3_inventories",
                 python_callable=generate_buckets_diff,
-                op_kwargs=dict(landsat=sat, file_name=file),
+                op_kwargs=dict(landsat=sat, file_name=file, update_stac="{{ dag_run.conf.update_stac }}"),
             )
         )
 
     END = DummyOperator(task_id="end-tasks")
 
-    START >> processes >> END
+    START >> PROCESSES >> END
