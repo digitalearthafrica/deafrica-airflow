@@ -223,6 +223,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         start_timer = time.time()
 
         logging.info("Comparing")
+        if update_stac:
+            logging.info('FORCED UPDATE ACTIVE!')
 
         # Create connection to the inventory S3 bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
