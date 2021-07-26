@@ -14,6 +14,7 @@ therefore limit the number of messages to be sent
 
 """
 import gzip
+import traceback
 import json
 import logging
 from datetime import datetime
@@ -142,63 +143,69 @@ def find_latest_report(landsat: str) -> str:
 def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
+
     :param landsat:(str) satellite name
+    :param scenes_limit:(str) limit of how many scenes will be filled
     :return:(None)
     """
+    try:
+        logging.info("Looking for latest report")
+        latest_report = find_latest_report(landsat=landsat)
+        logging.info(f"Latest report found {latest_report}")
 
-    logging.info("Looking for latest report")
-    latest_report = find_latest_report(landsat=landsat)
-    logging.info(f"Latest report found {latest_report}")
-
-    if not latest_report:
-        logging.error("Report not found")
-    else:
-        logging.info("Reading missing scenes from the report")
-
-        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
-
-        missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
-            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=REGION,
-            key=latest_report,
-        )
-
-        if scenes_limit:
-            missing_scene_paths = [
-                scene_path
-                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-                if scene_path
-            ][0: int(scenes_limit)]
+        if not latest_report:
+            logging.error("Report not found")
         else:
-            missing_scene_paths = [
-                scene_path
-                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-                if scene_path
-            ]
+            logging.info("Reading missing scenes from the report")
 
-        logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+            s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
-        logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+            missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
+                bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+                region=REGION,
+                key=latest_report,
+            )
 
-        update_stac = False
-        if 'update_stac' in missing_scene_paths:
-            logging.info('Forced stac update flagged!')
-            update_stac = True
-            missing_scene_paths.remove('update_stac')
+            if scenes_limit:
+                missing_scene_paths = [
+                    scene_path
+                    for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+                    if scene_path
+                ][0: int(scenes_limit)]
+            else:
+                missing_scene_paths = [
+                    scene_path
+                    for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+                    if scene_path
+                ]
 
-        logging.info("Publishing messages")
-        publish_messages(
-            message_list=[
-                {
-                    "Message": {
-                        "landsat_product_id": str(path[0:-1].split("/")[-1]),
-                        "s3_location": str(path),
-                        "update_stac": update_stac
+            logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+
+            logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+
+            update_stac = False
+            if 'update_stac' in missing_scene_paths:
+                logging.info('Forced stac update flagged!')
+                update_stac = True
+                missing_scene_paths.remove('update_stac')
+
+            logging.info("Publishing messages")
+            publish_messages(
+                message_list=[
+                    {
+                        "Message": {
+                            "landsat_product_id": str(path[0:-1].split("/")[-1]),
+                            "s3_location": str(path),
+                            "update_stac": update_stac
+                        }
                     }
-                }
-                for path in missing_scene_paths
-            ]
-        )
+                    for path in missing_scene_paths
+                ]
+            )
+    except Exception as error:
+        logging.error(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
 
 
 with DAG(

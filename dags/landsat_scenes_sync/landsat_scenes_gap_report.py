@@ -17,6 +17,7 @@ therefore forcing to rebuild all stacs
 
 """
 import gzip
+import traceback
 import logging
 import time
 from concurrent.futures import (
@@ -310,7 +311,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
-            raise AirflowException(message)
+            raise AirflowException(f'ALERT more than 200 missing scenes - {message}')
 
         logging.info(message)
 
@@ -319,6 +320,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
     except Exception as error:
         logging.error(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
         raise error
 
 
