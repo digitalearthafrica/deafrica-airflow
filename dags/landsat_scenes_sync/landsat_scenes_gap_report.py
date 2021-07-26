@@ -134,12 +134,11 @@ def get_and_filter_keys_from_files(file_path: Path):
     )
 
 
-def get_and_filter_keys(s3_bucket_client, landsat: str, update_stac: bool = False) -> set:
+def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
     """
     Retrieve key list from a inventory bucket and filter
     :param s3_bucket_client:
     :param landsat:(str)
-    :param update_stac:(bool)
     :return:
     """
 
@@ -162,12 +161,6 @@ def get_and_filter_keys(s3_bucket_client, landsat: str, update_stac: bool = Fals
     )
 
     logging.info(f"Filtering by sat prefix {sat_prefix}")
-
-    # If update stac flag is True, add the word update at the first position to flag to the next process
-    if update_stac:
-        list_paths = [f"{key.rsplit('/', 1)[0]}/" for key in list_json_keys]
-        list_paths.insert(0, 'update_stac')
-        return set(list_paths)
 
     return set(
         f"{key.rsplit('/', 1)[0]}/"
@@ -237,7 +230,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         # Retrieve keys from inventory bucket
         logging.info('Retrieving keys from inventory bucket')
         dest_paths = get_and_filter_keys(
-            s3_bucket_client=s3_inventory_dest, landsat=landsat, update_stac=update_stac
+            s3_bucket_client=s3_inventory_dest, 
+            landsat=landsat
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
@@ -271,12 +265,16 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
             logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
             logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+
+            output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+
         else:
             logging.info('Forced update stac active!!')
             missing_scenes = dest_paths
             orphaned_scenes = []
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gzip"
+        
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
@@ -294,7 +292,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gzip"
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,

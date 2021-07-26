@@ -155,6 +155,7 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
 
         if not latest_report:
             logging.error("Report not found")
+            raise RuntimeError("Report not found!")
         else:
             logging.info("Reading missing scenes from the report")
 
@@ -166,28 +167,23 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 key=latest_report,
             )
 
-            if scenes_limit:
-                missing_scene_paths = [
-                    scene_path
-                    for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-                    if scene_path
-                ][0: int(scenes_limit)]
-            else:
-                missing_scene_paths = [
-                    scene_path
-                    for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-                    if scene_path
-                ]
+            missing_scene_paths = [
+                scene_path
+                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+                if scene_path
+            ]
 
+
+            limit = scenes_limit if scenes_limit else len(missing_scene_paths)
+            
             logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
-            logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+            logging.info(f"Number of scenes found {len(missing_scene_paths)} limited in - {limit}")
 
             update_stac = False
-            if 'update_stac' in missing_scene_paths:
-                logging.info('Forced stac update flagged!')
+            if 'update' in latest_report:
+                logging.info('FORCED UPDATE FLAGGED!')
                 update_stac = True
-                missing_scene_paths.remove('update_stac')
 
             logging.info("Publishing messages")
             publish_messages(
@@ -199,7 +195,7 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                             "update_stac": update_stac
                         }
                     }
-                    for path in missing_scene_paths
+                    for path in missing_scene_paths[0: int(limit)]
                 ]
             )
     except Exception as error:
