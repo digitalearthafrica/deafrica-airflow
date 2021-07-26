@@ -14,16 +14,16 @@ therefore limit the number of messages to be sent
 
 """
 import gzip
-import traceback
 import json
 import logging
+import traceback
 from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_LANDSAT_WRITE, CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (

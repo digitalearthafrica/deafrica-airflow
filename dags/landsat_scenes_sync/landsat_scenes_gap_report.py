@@ -17,15 +17,14 @@ therefore forcing to rebuild all stacs
 
 """
 import gzip
-import traceback
 import logging
 import time
+import traceback
 from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed
 )
 from datetime import datetime
-from io import StringIO
 from pathlib import Path
 
 from airflow import (
