@@ -13,15 +13,17 @@ therefore limit the number of messages to be sent
     }
 
 """
+import gzip
 import json
 import logging
+import traceback
 from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import CONN_LANDSAT_WRITE, CONN_LANDSAT_SYNC
+from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import (
@@ -141,63 +143,65 @@ def find_latest_report(landsat: str) -> str:
 def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
+
     :param landsat:(str) satellite name
+    :param scenes_limit:(str) limit of how many scenes will be filled
     :return:(None)
     """
+    try:
+        logging.info("Looking for latest report")
+        latest_report = find_latest_report(landsat=landsat)
+        logging.info(f"Latest report found {latest_report}")
 
-    logging.info("Looking for latest report")
-    latest_report = find_latest_report(landsat=landsat)
-    logging.info(f"Latest report found {latest_report}")
-
-    if not latest_report:
-        logging.error("Report not found")
-    else:
-        logging.info("Reading missing scenes from the report")
-
-        s3 = S3(conn_id=CONN_LANDSAT_SYNC)
-
-        missing_scene_file = s3.get_s3_contents_and_attributes(
-            bucket_name=LANDSAT_SYNC_BUCKET_NAME,
-            region=REGION,
-            key=latest_report,
-        )
-
-        if scenes_limit:
-            missing_scene_paths = [
-                scene_path
-                for scene_path in missing_scene_file.decode("utf-8").split("\n")
-                if scene_path
-            ][0: int(scenes_limit)]
+        if not latest_report:
+            logging.error("Report not found")
+            raise RuntimeError("Report not found!")
         else:
+            logging.info("Reading missing scenes from the report")
+
+            s3 = S3(conn_id=CONN_LANDSAT_SYNC)
+
+            missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
+                bucket_name=LANDSAT_SYNC_BUCKET_NAME,
+                region=REGION,
+                key=latest_report,
+            )
+
             missing_scene_paths = [
                 scene_path
-                for scene_path in missing_scene_file.decode("utf-8").split("\n")
+                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
                 if scene_path
             ]
 
-        update_stac = False
-        if 'update_stac' in missing_scene_paths:
-            logging.info('Forced stac update flagged!')
-            update_stac = True
-            missing_scene_paths.remove('update_stac')
 
-        logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+            limit = scenes_limit if scenes_limit else len(missing_scene_paths)
+            
+            logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
-        logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+            logging.info(f"Number of scenes found {len(missing_scene_paths)} limited in - {limit}")
 
-        logging.info("Publishing messages")
-        publish_messages(
-            message_list=[
-                {
-                    "Message": {
-                        "landsat_product_id": str(path[0:-1].split("/")[-1]),
-                        "s3_location": str(path),
-                        "update_stac": update_stac
+            update_stac = False
+            if 'update' in latest_report:
+                logging.info('FORCED UPDATE FLAGGED!')
+                update_stac = True
+
+            logging.info("Publishing messages")
+            publish_messages(
+                message_list=[
+                    {
+                        "Message": {
+                            "landsat_product_id": str(path[0:-1].split("/")[-1]),
+                            "s3_location": str(path),
+                            "update_stac": update_stac
+                        }
                     }
-                }
-                for path in missing_scene_paths
-            ]
-        )
+                    for path in missing_scene_paths[0: int(limit)]
+                ]
+            )
+    except Exception as error:
+        logging.error(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
 
 
 with DAG(
@@ -210,14 +214,18 @@ with DAG(
     START = DummyOperator(task_id="start-tasks")
 
     processes = []
-    satellites = ["landsat_8", "landsat_7", "Landsat_5"]
+    satellites = [
+        # "landsat_8", 
+        # "landsat_7", 
+        "Landsat_5"
+        ]
 
     for sat in satellites:
         processes.append(
             PythonOperator(
                 task_id=f"{sat}_fill_the_gap",
                 python_callable=fill_the_gap,
-                op_kwargs=dict(landsat=sat, update_stac="{{ dag_run.conf.scenes_limit }}"),
+                op_kwargs=dict(landsat=sat, scenes_limit="{{ dag_run.conf.scenes_limit }}"),
             )
         )
 

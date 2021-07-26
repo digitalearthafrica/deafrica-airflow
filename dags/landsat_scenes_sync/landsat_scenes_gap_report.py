@@ -16,9 +16,10 @@ therefore forcing to rebuild all stacs
     }
 
 """
-
+import gzip
 import logging
 import time
+import traceback
 from concurrent.futures import (
     ThreadPoolExecutor,
     as_completed
@@ -133,12 +134,11 @@ def get_and_filter_keys_from_files(file_path: Path):
     )
 
 
-def get_and_filter_keys(s3_bucket_client, landsat: str, update_stac: bool = False) -> set:
+def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
     """
     Retrieve key list from a inventory bucket and filter
     :param s3_bucket_client:
     :param landsat:(str)
-    :param update_stac:(bool)
     :return:
     """
 
@@ -161,12 +161,6 @@ def get_and_filter_keys(s3_bucket_client, landsat: str, update_stac: bool = Fals
     )
 
     logging.info(f"Filtering by sat prefix {sat_prefix}")
-
-    # If update stac flag is True, add the word update at the first position to flag to the next process
-    if update_stac:
-        list_paths = [f"{key.rsplit('/', 1)[0]}/" for key in list_json_keys]
-        list_paths.insert(0, 'update_stac')
-        return set(list_paths)
 
     return set(
         f"{key.rsplit('/', 1)[0]}/"
@@ -222,6 +216,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         start_timer = time.time()
 
         logging.info("Comparing")
+        if update_stac:
+            logging.info('FORCED UPDATE ACTIVE!')
 
         # Create connection to the inventory S3 bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
@@ -234,7 +230,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         # Retrieve keys from inventory bucket
         logging.info('Retrieving keys from inventory bucket')
         dest_paths = get_and_filter_keys(
-            s3_bucket_client=s3_inventory_dest, landsat=landsat, update_stac=update_stac
+            s3_bucket_client=s3_inventory_dest, 
+            landsat=landsat
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
@@ -268,12 +265,16 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
             logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
             logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+
+            output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+
         else:
             logging.info('Forced update stac active!!')
             missing_scenes = dest_paths
             orphaned_scenes = []
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
+        
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
@@ -283,20 +284,22 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             key=key,
             region=REGION,
-            body="\n".join(missing_scenes),
+            body=gzip.compress(str.encode("\n".join(missing_scenes))),
+            content_type="application/gzip"
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt"
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
                 key=key,
                 region=REGION,
-                body="\n".join(orphaned_scenes),
+                body=gzip.compress(str.encode("\n".join(orphaned_scenes))),
+                content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
@@ -307,7 +310,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
-            raise AirflowException(message)
+            raise AirflowException(f'ALERT more than 200 missing scenes - {message}')
 
         logging.info(message)
 
@@ -316,6 +319,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
     except Exception as error:
         logging.error(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
         raise error
 
 
@@ -330,8 +335,8 @@ with DAG(
 
     PROCESSES = []
     files = {
-        "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
-        "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
+        # "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
+        # "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
         "Landsat_5": "LANDSAT_TM_C2_L2.csv.gz",
     }
 
