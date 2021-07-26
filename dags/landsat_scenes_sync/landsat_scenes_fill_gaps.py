@@ -1,5 +1,17 @@
 """
 # Read report and generate messages to fill missing scenes
+
+#### Utility utilization
+The DAG can be parameterized with run time configurations `scenes_limit`, which receives a INT as value.
+
+* The option scenes_limit limit the number of scenes to be read from the report,
+therefore limit the number of messages to be sent
+
+#### example conf in json format
+    {
+        "scenes_limit":10
+    }
+
 """
 import json
 import logging
@@ -126,7 +138,7 @@ def find_latest_report(landsat: str) -> str:
     return list_reports[-1] if list_reports else ""
 
 
-def fill_the_gap(landsat: str) -> None:
+def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
     :param landsat:(str) satellite name
@@ -150,11 +162,18 @@ def fill_the_gap(landsat: str) -> None:
             key=latest_report,
         )
 
-        missing_scene_paths = [
-            scene_path
-            for scene_path in missing_scene_file.decode("utf-8").split("\n")
-            if scene_path
-        ]
+        if scenes_limit:
+            missing_scene_paths = [
+                scene_path
+                for scene_path in missing_scene_file.decode("utf-8").split("\n")
+                if scene_path
+            ][0: int(scenes_limit)]
+        else:
+            missing_scene_paths = [
+                scene_path
+                for scene_path in missing_scene_file.decode("utf-8").split("\n")
+                if scene_path
+            ]
 
         update_stac = False
         if 'update_stac' in missing_scene_paths:
@@ -198,7 +217,7 @@ with DAG(
             PythonOperator(
                 task_id=f"{sat}_fill_the_gap",
                 python_callable=fill_the_gap,
-                op_kwargs=dict(landsat=sat),
+                op_kwargs=dict(landsat=sat, update_stac="{{ dag_run.conf.scenes_limit }}"),
             )
         )
 

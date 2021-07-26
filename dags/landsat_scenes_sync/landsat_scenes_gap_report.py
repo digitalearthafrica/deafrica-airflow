@@ -3,6 +3,18 @@
 
 This DAG runs weekly and creates a gap report in the folowing location:
 s3://deafrica-landsat-dev/<date>/status-report
+
+#### Utility utilization
+The DAG can be parameterized with run time configurations `update_stac`.
+
+* The option update_stac will force the process to buil a list with all scenes ignoring any comparative,
+therefore forcing to rebuild all stacs
+
+#### example conf in json format
+    {
+        "update_stac":true
+    }
+
 """
 
 import logging
@@ -257,8 +269,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
             logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
         else:
+            logging.info('Forced update stac active!!')
             missing_scenes = dest_paths
-            missing_scenes
             orphaned_scenes = []
 
         output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
@@ -316,7 +328,7 @@ with DAG(
 ) as dag:
     START = DummyOperator(task_id="start-tasks")
 
-    processes = []
+    PROCESSES = []
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
         "landsat_7": "LANDSAT_ETM_C2_L2.csv.gz",
@@ -324,14 +336,14 @@ with DAG(
     }
 
     for sat, file in files.items():
-        processes.append(
+        PROCESSES.append(
             PythonOperator(
                 task_id=f"{sat}_compare_s3_inventories",
                 python_callable=generate_buckets_diff,
-                op_kwargs=dict(landsat=sat, file_name=file),
+                op_kwargs=dict(landsat=sat, file_name=file, update_stac="{{ dag_run.conf.update_stac }}"),
             )
         )
 
     END = DummyOperator(task_id="end-tasks")
 
-    START >> processes >> END
+    START >> PROCESSES >> END
