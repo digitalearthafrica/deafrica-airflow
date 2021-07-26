@@ -140,7 +140,7 @@ def find_latest_report(landsat: str) -> str:
     return list_reports[-1] if list_reports else ""
 
 
-def fill_the_gap(landsat: str, scenes_limit: int) -> None:
+def fill_the_gap(landsat: str, scenes_limit: int, update_stac: bool = False) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
@@ -183,7 +183,6 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
 
             logging.info(f"Number of scenes found {len(missing_scene_paths)}")
 
-            update_stac = False
             if 'update_stac' in missing_scene_paths:
                 logging.info('Forced stac update flagged!')
                 update_stac = True
@@ -218,7 +217,11 @@ with DAG(
     START = DummyOperator(task_id="start-tasks")
 
     processes = []
-    satellites = ["landsat_8", "landsat_7", "Landsat_5"]
+    satellites = [
+        # "landsat_8", 
+        # "landsat_7", 
+        "Landsat_5"
+        ]
 
     for sat in satellites:
         processes.append(
