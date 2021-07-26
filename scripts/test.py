@@ -172,8 +172,8 @@ class class_test(unittest.TestCase):
                 AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com',
                 CURL_CA_BUNDLE=os.path.join("../scripts/", "cacert.pem"),
                 GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
-                GDAL_HTTP_MAX_RETRY="10",
-                GDAL_HTTP_RETRY_DELAY="0.5",
+                GDAL_HTTP_MAX_RETRY="3",
+                GDAL_HTTP_RETRY_DELAY="2",
         ):
             item = transform_stac_to_stac(item)
             item.validate()
