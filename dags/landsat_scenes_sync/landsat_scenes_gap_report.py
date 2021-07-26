@@ -121,11 +121,12 @@ def get_and_filter_keys_from_files(file_path: Path):
     )
 
 
-def get_and_filter_keys(s3_bucket_client, landsat: str):
+def get_and_filter_keys(s3_bucket_client, landsat: str, update_stac: bool = False) -> set:
     """
     Retrieve key list from a inventory bucket and filter
     :param s3_bucket_client:
     :param landsat:(str)
+    :param update_stac:(bool)
     :return:
     """
 
@@ -148,6 +149,12 @@ def get_and_filter_keys(s3_bucket_client, landsat: str):
     )
 
     logging.info(f"Filtering by sat prefix {sat_prefix}")
+
+    # If update stac flag is True, add the word update at the first position to flag to the next process
+    if update_stac:
+        list_paths = [f"{key.rsplit('/', 1)[0]}/" for key in list_json_keys]
+        list_paths.insert(0, 'update_stac')
+        return set(list_paths)
 
     return set(
         f"{key.rsplit('/', 1)[0]}/"
@@ -194,7 +201,7 @@ def build_s3_url_from_api_metadata(display_ids):
                 yield future.result()
 
 
-def generate_buckets_diff(landsat: str, file_name: str):
+def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = False):
     """
     Compare USGS bulk files and Africa inventory bucket detecting differences
     A report containing missing keys will be written to AFRICA_S3_BUCKET_PATH
@@ -204,17 +211,8 @@ def generate_buckets_diff(landsat: str, file_name: str):
 
         logging.info("Comparing")
 
-        # Download bulk file
-        file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
-
-        # Retrieve keys from the bulk file
-        logging.info("Filtering keys from bulk file")
-        source_paths = get_and_filter_keys_from_files(file_path)
-
-        logging.info(f"BULK FILE number of objects {len(source_paths)}")
-        logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
-
         # Create connection to the inventory S3 bucket
+        logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
         s3_inventory_dest = InventoryUtils(
             conn=CONN_LANDSAT_SYNC,
             bucket_name=LANDSAT_INVENTORY_BUCKET_NAME,
@@ -222,30 +220,46 @@ def generate_buckets_diff(landsat: str, file_name: str):
         )
 
         # Retrieve keys from inventory bucket
-        logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
+        logging.info('Retrieving keys from inventory bucket')
         dest_paths = get_and_filter_keys(
-            s3_bucket_client=s3_inventory_dest, landsat=landsat
+            s3_bucket_client=s3_inventory_dest, landsat=landsat, update_stac=update_stac
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
         logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
 
-        # Keys that are missing, they are in the source but not in the bucket
-        logging.info("Filtering missing scenes")
-        missing_scenes = [
-            f"{USGS_S3_BUCKET_PATH}{path}"
-            for path in source_paths.difference(dest_paths)
-        ]
+        if not update_stac:
+            # Download bulk file
+            logging.info('Download Bulk file')
+            file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
-        # Keys that are orphan, they are in the bucket but not found in the files
-        logging.info("Filtering orphan scenes")
-        orphaned_scenes = [
-            f"{AFRICA_S3_BUCKET_PATH}{path}"
-            for path in dest_paths.difference(source_paths)
-        ]
+            # Retrieve keys from the bulk file
+            logging.info("Filtering keys from bulk file")
+            source_paths = get_and_filter_keys_from_files(file_path)
 
-        logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
-        logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+            logging.info(f"BULK FILE number of objects {len(source_paths)}")
+            logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
+
+            # Keys that are missing, they are in the source but not in the bucket
+            logging.info("Filtering missing scenes")
+            missing_scenes = [
+                f"{USGS_S3_BUCKET_PATH}{path}"
+                for path in source_paths.difference(dest_paths)
+            ]
+
+            # Keys that are orphan, they are in the bucket but not found in the files
+            logging.info("Filtering orphan scenes")
+            orphaned_scenes = [
+                f"{AFRICA_S3_BUCKET_PATH}{path}"
+                for path in dest_paths.difference(source_paths)
+            ]
+
+            logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
+            logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+        else:
+            missing_scenes = dest_paths
+            missing_scenes
+            orphaned_scenes = []
 
         output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
         key = REPORTING_PREFIX + output_filename

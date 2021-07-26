@@ -14,6 +14,9 @@ from rasterio import RasterioIOError
 from utils.stactools_mock import transform_stac_to_stac
 from utils.sync_utils import read_big_csv_files_from_gzip, read_csv_from_gzip
 
+os.environ["AWS_ACCESS_KEY_ID"] = "fake"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "fake"
+
 
 def count_scenes():
     files = {
@@ -149,23 +152,31 @@ class class_test(unittest.TestCase):
         """It has to be able to gather the right information from other geotiff files"""
 
         json_landsat8 = os.path.join(
-            "C:/Users/cario/work/deafrica-airflow/scripts/", "landsat8.json"
+            "../scripts/", "test.json"
         )
 
         item = convert(json_path=json_landsat8)
 
-        if item.assets.get("SR_B2.TIF"):
-            item.assets.pop("SR_B2.TIF")
+        # if item.assets.get("SR_B2.TIF"):
+        #     item.assets.pop("SR_B2.TIF")
+        #
+        # if item.assets.get("ST_B10.TIF"):
+        #     item.assets.pop("ST_B10.TIF")
 
-        if item.assets.get("ST_B10.TIF"):
-            item.assets.pop("ST_B10.TIF")
+        # for asset in item.assets.values():
+        #     if "geotiff" in asset.media_type:
+        #         asset.href = "C:/Users/cario/work/deafrica-airflow/scripts/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B2_small.TIF"
 
-        for asset in item.assets.values():
-            if "geotiff" in asset.media_type:
-                asset.href = "C:/Users/cario/work/deafrica-airflow/scripts/LC08_L2SR_081119_20200101_20200823_02_T2_SR_B2_small.TIF"
-
-        item = transform_stac_to_stac(item)
-        item.validate()
+        with rasterio.Env(
+                aws_unsigned=True,
+                AWS_S3_ENDPOINT='s3.af-south-1.amazonaws.com',
+                CURL_CA_BUNDLE=os.path.join("../scripts/", "cacert.pem"),
+                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+                GDAL_HTTP_MAX_RETRY="10",
+                GDAL_HTTP_RETRY_DELAY="0.5",
+        ):
+            item = transform_stac_to_stac(item)
+            item.validate()
 
 
 if __name__ == "__main__":

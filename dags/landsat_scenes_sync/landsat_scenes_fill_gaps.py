@@ -155,6 +155,13 @@ def fill_the_gap(landsat: str) -> None:
             for scene_path in missing_scene_file.decode("utf-8").split("\n")
             if scene_path
         ]
+
+        update_stac = False
+        if 'update_stac' in missing_scene_paths:
+            logging.info('Forced stac update flagged!')
+            update_stac = True
+            missing_scene_paths.remove('update_stac')
+
         logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
         logging.info(f"Number of scenes found {len(missing_scene_paths)}")
@@ -166,6 +173,7 @@ def fill_the_gap(landsat: str) -> None:
                     "Message": {
                         "landsat_product_id": str(path[0:-1].split("/")[-1]),
                         "s3_location": str(path),
+                        "update_stac": update_stac
                     }
                 }
                 for path in missing_scene_paths
