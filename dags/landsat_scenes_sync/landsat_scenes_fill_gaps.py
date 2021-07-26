@@ -13,6 +13,7 @@ therefore limit the number of messages to be sent
     }
 
 """
+import gzip
 import json
 import logging
 from datetime import datetime
@@ -156,7 +157,7 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
 
         s3 = S3(conn_id=CONN_LANDSAT_SYNC)
 
-        missing_scene_file = s3.get_s3_contents_and_attributes(
+        missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             region=REGION,
             key=latest_report,
@@ -165,25 +166,25 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
         if scenes_limit:
             missing_scene_paths = [
                 scene_path
-                for scene_path in missing_scene_file.decode("utf-8").split("\n")
+                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
                 if scene_path
             ][0: int(scenes_limit)]
         else:
             missing_scene_paths = [
                 scene_path
-                for scene_path in missing_scene_file.decode("utf-8").split("\n")
+                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
                 if scene_path
             ]
+
+        logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
+
+        logging.info(f"Number of scenes found {len(missing_scene_paths)}")
 
         update_stac = False
         if 'update_stac' in missing_scene_paths:
             logging.info('Forced stac update flagged!')
             update_stac = True
             missing_scene_paths.remove('update_stac')
-
-        logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
-
-        logging.info(f"Number of scenes found {len(missing_scene_paths)}")
 
         logging.info("Publishing messages")
         publish_messages(

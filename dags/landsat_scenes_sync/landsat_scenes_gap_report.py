@@ -16,7 +16,7 @@ therefore forcing to rebuild all stacs
     }
 
 """
-
+import gzip
 import logging
 import time
 from concurrent.futures import (
@@ -24,6 +24,7 @@ from concurrent.futures import (
     as_completed
 )
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 
 from airflow import (
@@ -273,7 +274,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             missing_scenes = dest_paths
             orphaned_scenes = []
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt"
+        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gzip"
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
@@ -283,20 +284,22 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             bucket_name=LANDSAT_SYNC_BUCKET_NAME,
             key=key,
             region=REGION,
-            body="\n".join(missing_scenes),
+            body=gzip.compress(str.encode("\n".join(missing_scenes))),
+            content_type="application/gzip"
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
         logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt"
+            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gzip"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
                 key=key,
                 region=REGION,
-                body="\n".join(orphaned_scenes),
+                body=gzip.compress(str.encode("\n".join(orphaned_scenes))),
+                content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
             logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
