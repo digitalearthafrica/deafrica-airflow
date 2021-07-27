@@ -12,8 +12,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from pystac import Item, Link
 
-# from stactools.landsat.utils import transform_stac_to_stac
-
 from infra.connections import CONN_LANDSAT_SYNC, CONN_LANDSAT_WRITE
 from infra.sns_topics import LANDSAT_SYNC_SNS_ARN
 from infra.sqs_queues import LANDSAT_SYNC_SQS_NAME
@@ -30,11 +28,9 @@ from landsat_scenes_sync.variables import (
 )
 from utils.aws_utils import S3, SQS, SNS
 
-# TODO remove that and uncomment stactools import once changes are done in the library
-from utils.stactools_mock import transform_stac_to_stac
 from utils.sync_utils import time_process, find_s3_path_and_file_name_from_item
 
-# from stactools.landsat.utils import transform_stac_to_stac
+from stactools.landsat.utils import transform_stac_to_stac
 
 os.environ["CURL_CA_BUNDLE"] = "/etc/ssl/certs/ca-certificates.crt"
 

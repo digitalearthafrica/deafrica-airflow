@@ -246,7 +246,9 @@ class S3:
         :param request_payer:(str)
         :return:
         """
-        # logging.info(f'get_object {bucket_name} {key} {region} {endpoint_url} {request_payer}')
+        # logging.info(
+        #     f"get_object {bucket_name} {key} {region} {endpoint_url} {request_payer}"
+        # )
 
         bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
         return bucket_client.get_object(
@@ -260,6 +262,7 @@ class S3:
         region: str,
         endpoint_url: str = None,
         body: str = "",
+        content_type: str = "binary/octet-stream",
         acl: str = "bucket-owner-full-control",
     ):
         """
@@ -269,12 +272,13 @@ class S3:
         :param region: (str) AWS region
         :param endpoint_url:(str)
         :param body: (str) body
+        :param content_type: (str) Set the content type of the file being uploaded
         :param acl: (str) permissions
         :return:
         """
         bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
 
-        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body, ACL=acl)
+        return bucket_client.put_object(Bucket=bucket_name, Key=key, Body=body, ACL=acl, ContentType=content_type)
 
     def list_objects(
         self,
