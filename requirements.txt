@@ -1,12 +1,16 @@
+pystac
+pandas
 SQLAlchemy==1.3.23
 
 # Used for Landsat data sync
 # On Windows install GDAL (GDAL‑3.1.4‑cp36‑cp36m‑win_amd64.whl) and Rasterio (rasterio‑1.1.8‑cp36‑cp36m‑win_amd64.whl) from https://www.lfd.uci.edu/~gohlke/pythonlibs/
-pystac
-pandas
+stactools-cli==0.1.6
+stactools-core==0.1.6
+stactools-landsat==0.1.6
 stactools-landsat==0.2.0
 pystac==0.5.6
 requests~=2.25.0
+
 toolz
 --extra-index-url="https://packages.dea.ga.gov.au"
 odc-aws
