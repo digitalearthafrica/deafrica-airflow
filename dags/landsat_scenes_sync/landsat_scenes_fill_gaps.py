@@ -215,8 +215,8 @@ with DAG(
 
     processes = []
     satellites = [
-        # "landsat_8", 
-        # "landsat_7", 
+        "landsat_8",
+        "landsat_7",
         "Landsat_5"
         ]
 
