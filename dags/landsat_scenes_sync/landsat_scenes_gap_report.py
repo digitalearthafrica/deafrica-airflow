@@ -307,7 +307,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
         )
 
-        if len(missing_scenes) > 200 or len(orphaned_scenes) > 200:
+        if (len(missing_scenes) > 200 or len(orphaned_scenes) > 200) and not update_stac:
             raise AirflowException(f'ALERT more than 200 missing scenes - {message}')
 
         logging.info(message)
