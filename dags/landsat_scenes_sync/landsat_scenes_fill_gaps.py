@@ -35,7 +35,7 @@ from landsat_scenes_sync.variables import (
 from utils.aws_utils import S3, SQS
 
 REPORTING_PREFIX = "status-report/"
-# Dev does not need to be updated
+# This process is manually run
 SCHEDULE_INTERVAL = None
 
 default_args = {
@@ -173,9 +173,8 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 if scene_path
             ]
 
-
             limit = scenes_limit if scenes_limit else len(missing_scene_paths)
-            
+
             logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
             logging.info(f"Number of scenes found {len(missing_scene_paths)} limited in - {limit}")
@@ -202,6 +201,7 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
         logging.error(error)
         # print traceback but does not stop execution
         traceback.print_exc()
+        raise error
 
 
 with DAG(

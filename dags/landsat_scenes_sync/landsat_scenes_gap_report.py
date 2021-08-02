@@ -230,7 +230,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         # Retrieve keys from inventory bucket
         logging.info('Retrieving keys from inventory bucket')
         dest_paths = get_and_filter_keys(
-            s3_bucket_client=s3_inventory_dest, 
+            s3_bucket_client=s3_inventory_dest,
             landsat=landsat
         )
 
@@ -269,12 +269,11 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
 
         else:
-            logging.info('Forced update stac active!!')
+            logging.info('FORCED UPDATE ACTIVE!')
             missing_scenes = dest_paths
             orphaned_scenes = []
             output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
 
-        
         key = REPORTING_PREFIX + output_filename
 
         # Store report in the S3 bucket
