@@ -7,7 +7,7 @@ the path to the gap report file.
 
 Eg:
 ```json
-{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt"}
+{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2-dev/status-report/2021-08-02T07:39:44.271197.txt.gz"}
 """
 import gzip
 import json
