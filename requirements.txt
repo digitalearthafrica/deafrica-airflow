@@ -1,4 +1,3 @@
-pystac
 pandas
 SQLAlchemy==1.3.23
 
