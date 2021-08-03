@@ -67,7 +67,8 @@ from utils.sync_utils import (
 )
 
 REPORTING_PREFIX = "status-report/"
-SCHEDULE_INTERVAL = "@weekly"
+# Dev does not need to be updated
+SCHEDULE_INTERVAL = None
 
 default_args = {
     "owner": "RODRIGO",
@@ -268,7 +269,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
 
         else:
-            logging.info('Forced update stac active!!')
+            logging.info('FORCED UPDATE ACTIVE!')
             missing_scenes = dest_paths
             orphaned_scenes = []
             output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
