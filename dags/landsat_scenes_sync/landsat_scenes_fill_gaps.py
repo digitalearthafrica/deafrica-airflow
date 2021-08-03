@@ -35,7 +35,7 @@ from landsat_scenes_sync.variables import (
 from utils.aws_utils import S3, SQS
 
 REPORTING_PREFIX = "status-report/"
-# Dev does not need to be updated
+# This process is manually run
 SCHEDULE_INTERVAL = None
 
 default_args = {
@@ -140,6 +140,27 @@ def find_latest_report(landsat: str) -> str:
     return list_reports[-1] if list_reports else ""
 
 
+def build_message(missing_scene_paths, update_stac):
+    """
+
+    """
+    message_list = []
+    for path in missing_scene_paths:
+        landsat_product_id = str(path[0:-1].split("/")[-1])
+        if not landsat_product_id:
+            raise Exception(f'It was not possible to build product ID from path {path}')
+        message_list.append(
+            {
+                "Message": {
+                    "landsat_product_id": str(path[0:-1].split("/")[-1]),
+                    "s3_location": str(path),
+                    "update_stac": update_stac
+                }
+            }
+        )
+    return message_list
+
+
 def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
@@ -173,9 +194,8 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 if scene_path
             ]
 
-
             limit = scenes_limit if scenes_limit else len(missing_scene_paths)
-            
+
             logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
 
             logging.info(f"Number of scenes found {len(missing_scene_paths)} limited in - {limit}")
@@ -185,31 +205,26 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 logging.info('FORCED UPDATE FLAGGED!')
                 update_stac = True
 
-            logging.info("Publishing messages")
-            publish_messages(
-                message_list=[
-                    {
-                        "Message": {
-                            "landsat_product_id": str(path[0:-1].split("/")[-1]),
-                            "s3_location": str(path),
-                            "update_stac": update_stac
-                        }
-                    }
-                    for path in missing_scene_paths[0: int(limit)]
-                ]
+            messages_to_send = build_message(
+                missing_scene_paths=missing_scene_paths[0: int(limit)],
+                update_stac=update_stac
             )
+
+            logging.info("Publishing messages")
+            publish_messages(message_list=messages_to_send)
     except Exception as error:
         logging.error(error)
         # print traceback but does not stop execution
         traceback.print_exc()
+        raise error
 
 
 with DAG(
-    "landsat_scenes_fill_the_gap",
-    default_args=default_args,
-    schedule_interval=SCHEDULE_INTERVAL,
-    tags=["Landsat_scenes", "fill the gap"],
-    catchup=False,
+        "landsat_scenes_fill_the_gap",
+        default_args=default_args,
+        schedule_interval=SCHEDULE_INTERVAL,
+        tags=["Landsat_scenes", "fill the gap"],
+        catchup=False,
 ) as dag:
     START = DummyOperator(task_id="start-tasks")
 
@@ -218,7 +233,7 @@ with DAG(
         "landsat_8",
         "landsat_7",
         "Landsat_5"
-        ]
+    ]
 
     for sat in satellites:
         processes.append(

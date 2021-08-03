@@ -4,20 +4,15 @@
 This DAG runs once a month and creates a gap report in the folowing location:
 s3://deafrica-sentinel-2/status-report
 """
+import gzip
 import logging
 import re
 from datetime import datetime
 
-from airflow import (
-    DAG,
-    AirflowException
-)
+from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
 
-from infra.connections import (
-    CONN_SENTINEL_2_SYNC,
-    CONN_SENTINEL_2_WRITE
-)
+from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
     SENTINEL_2_SYNC_BUCKET_NAME,
@@ -91,24 +86,14 @@ def get_and_filter_destination_keys(s3_bucket_client):
     )
 
 
-def generate_buckets_diff():
+def generate_buckets_diff(update_stac: bool = False) -> None:
     """
     Compare Sentinel-2 buckets in US and Africa and detect differences
     A report containing missing keys will be written to s3://deafrica-sentinel-2/status-report
     """
     logging.info("Process started")
-    # Create connection to the inventory S3 bucket
-    s3_inventory_source = InventoryUtils(
-        conn=CONN_SENTINEL_2_SYNC,
-        bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-        region=SENTINEL_COGS_AWS_REGION,
-    )
-    logging.info(
-        f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {REGION}"
-    )
 
-    # Retrieve keys from inventory bucket
-    source_keys = get_and_filter_source_keys(s3_bucket_client=s3_inventory_source)
+    orphaned_keys = []
 
     # Create connection to the inventory S3 bucket
     s3_inventory_destination = InventoryUtils(
@@ -123,17 +108,40 @@ def generate_buckets_diff():
         s3_bucket_client=s3_inventory_destination
     )
 
-    # Keys that are missing, they are in the source but not in the bucket
-    missing_scenes = set(
-        f"s3://sentinel-cogs/{key}"
-        for key in source_keys
-        if key not in destination_keys
-    )
+    if not update_stac:
+        # Create connection to the inventory S3 bucket
+        s3_inventory_source = InventoryUtils(
+            conn=CONN_SENTINEL_2_SYNC,
+            bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
+            region=SENTINEL_COGS_AWS_REGION,
+        )
+        logging.info(
+            f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {SENTINEL_COGS_AWS_REGION}"
+        )
 
-    # Keys that are lost, they are in the bucket but not found in the files
-    orphaned_keys = destination_keys.difference(source_keys)
+        # Retrieve keys from inventory bucket
+        source_keys = get_and_filter_source_keys(s3_bucket_client=s3_inventory_source)
 
-    output_filename = datetime.today().isoformat() + ".txt"
+        # Keys that are missing, they are in the source but not in the bucket
+        missing_scenes = set(
+            f"s3://sentinel-cogs/{key}"
+            for key in source_keys
+            if key not in destination_keys
+        )
+
+        # Keys that are lost, they are in the bucket but not found in the files
+        orphaned_keys = destination_keys.difference(source_keys)
+
+        output_filename = f"{datetime.today().isoformat()}.txt.gz"
+
+    else:
+        logging.info('FORCED UPDATE ACTIVE!')
+        missing_scenes = set(
+            f"s3://sentinel-cogs/{key}"
+            for key in destination_keys
+        )
+        output_filename = f"{datetime.today().isoformat()}_update.txt.gz"
+
     key = REPORTING_PREFIX + output_filename
 
     # Store report in the S3 bucket
@@ -143,7 +151,7 @@ def generate_buckets_diff():
         bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
         key=key,
         region=REGION,
-        body="\n".join(missing_scenes),
+        body=gzip.compress(str.encode("\n".join(missing_scenes))),
     )
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
@@ -158,7 +166,7 @@ def generate_buckets_diff():
             bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
             key=key,
             region=REGION,
-            body="\n".join(orphaned_keys),
+            body=gzip.compress(str.encode("\n".join(orphaned_keys))),
         )
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
@@ -177,14 +185,15 @@ def generate_buckets_diff():
 
 
 with DAG(
-    "sentinel-2_gap_detection",
+    "sentinel_2_gap_report",
     default_args=default_args,
-    # DEV does not need to be updated
-    schedule_interval=None,
+    schedule_interval="@weekly",
     tags=["Sentinel-2", "status"],
     catchup=False,
 ) as dag:
 
     READ_INVENTORIES = PythonOperator(
-        task_id="compare_s2_inventories", python_callable=generate_buckets_diff
+        task_id="compare_s2_inventories",
+        python_callable=generate_buckets_diff,
+        op_kwargs=dict(update_stac="{{ dag_run.conf.update_stac }}")
     )

@@ -7,9 +7,11 @@ the path to the gap report file.
 
 Eg:
 ```json
-{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2/monthly-status-report/2020-11-11T01:38:02.023140.txt"}
+{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2-dev/status-report/2021-08-02T07:39:44.271197.txt.gz"}
 """
+import gzip
 import json
+import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict
@@ -21,7 +23,9 @@ from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
+from infra.variables import REGION
 from sentinel_2.variables import SENTINEL_COGS_BUCKET
+from utils.aws_utils import S3
 
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
@@ -97,13 +101,19 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     read the gap report
     """
 
-    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    bucket_name, key = hook.parse_s3_url(s3_report_path)
     print(f"Reading the gap report {s3_report_path}")
 
-    files = hook.read_key(key=key, bucket_name=bucket_name).splitlines()
+    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+    s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
+    bucket_name, key = hook.parse_s3_url(s3_report_path)
 
-    for f in files[offset:limit]:
+    missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
+        bucket_name=bucket_name,
+        region=REGION,
+        key=key,
+    )
+
+    for f in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")[offset:limit]:
         yield f.strip()
 
 
@@ -121,15 +131,20 @@ def publish_messages(messages):
     queue.send_messages(Entries=messages)
 
 
-def get_contents_and_attributes(hook, s3_filepath):
+def get_contents_and_attributes(hook, s3_filepath, update_stac: bool = False):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
     contents = hook.read_key(key=key, bucket_name=SENTINEL_COGS_BUCKET)
     contents_dict = json.loads(contents)
+    contents_dict.update(
+        {
+            "update_stac": update_stac
+        }
+    )
     attributes = get_common_message_attributes(contents_dict)
-    return contents, attributes
+    return json.dumps(contents_dict), attributes
 
 
-def prepare_message(hook, s3_path):
+def prepare_message(hook, s3_path, update_stac: bool = False):
     """
     Prepare a single message for each stac file
     """
@@ -138,53 +153,76 @@ def prepare_message(hook, s3_path):
     if not key_exists:
         raise ValueError(f"{s3_path} does not exist")
 
-    contents, attributes = get_contents_and_attributes(hook, s3_path)
+    contents, attributes = get_contents_and_attributes(hook, s3_path, update_stac)
     message = {
         "MessageBody": json.dumps(
-            {"Message": contents, "MessageAttributes": attributes}
+            {
+                "Message": contents,
+                "MessageAttributes": attributes
+            }
         ),
     }
     return message
 
 
-def prepare_and_send_messages(dag_run, **kwargs):
-    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    # Read the missing stac files from the gap report file
-    print(
-        f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
-    )
-    files = get_missing_stac_files(
-        dag_run.conf["s3_report_path"],
-        dag_run.conf["offset"],
-        dag_run.conf["limit"],
-    )
+def prepare_and_send_messages(dag_run, **kwargs) -> None:
+    """
+    Function to retrieve the latest gap report and create messages to the filter queue process.
 
-    max_workers = 10
-    # counter for files that no longer exist
-    failed = 0
+    """
 
-    batch = []
+    try:
+        hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+        # Read the missing stac files from the gap report file
+        print(
+            f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
+        )
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(prepare_message, hook, s3_path)
-            for s3_path in files
-        ]
+        update_stac = False
+        if 'update' in dag_run.conf["s3_report_path"]:
+            print('FORCED UPDATE FLAGGED!')
+            update_stac = True
 
-        for future in as_completed(futures):
-            try:
-                batch.append(future.result())
-                if len(batch) == 10:
-                    publish_messages(batch)
-                    batch = []
-            except Exception as exc:
-                failed += 1
-                print(f"File no longer exists: {exc}")
+        files = get_missing_stac_files(
+            dag_run.conf["s3_report_path"],
+            dag_run.conf["offset"],
+            dag_run.conf["limit"],
+        )
 
-    if len(batch) > 0:
-        publish_messages(batch)
+        max_workers = 10
+        # counter for files that no longer exist
+        failed = 0
 
-    print(f"Total of {failed} files failed")
+        batch = []
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [
+                executor.submit(prepare_message, hook, s3_path, update_stac)
+                for s3_path in files
+            ]
+
+            for future in as_completed(futures):
+                try:
+                    batch.append(future.result())
+                    if len(batch) == 10:
+                        print(f'sending 10 messages {batch}')
+                        publish_messages(batch)
+                        batch = []
+                except Exception as exc:
+                    failed += 1
+                    print(f"File no longer exists: {exc}")
+
+        if len(batch) > 0:
+            print(f'sending last messages {batch}')
+            publish_messages(batch)
+
+        print('Messages sent')
+        print(f"Total of {failed} files failed")
+    except Exception as error:
+        print(error)
+        # print traceback but does not stop execution
+        traceback.print_exc()
+        raise error
 
 
 with DAG(
