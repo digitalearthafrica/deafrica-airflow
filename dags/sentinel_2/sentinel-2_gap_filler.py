@@ -104,8 +104,6 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
     print(f"Reading the gap report {s3_report_path}")
 
     hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    bucket_name, key = hook.parse_s3_url(s3_report_path)
-
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
     bucket_name, key = hook.parse_s3_url(s3_report_path)
 
@@ -207,6 +205,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
                 try:
                     batch.append(future.result())
                     if len(batch) == 10:
+                        print(f'sending 10 messages {batch}')
                         publish_messages(batch)
                         batch = []
                 except Exception as exc:
@@ -214,8 +213,10 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
                     print(f"File no longer exists: {exc}")
 
         if len(batch) > 0:
+            print(f'sending last messages {batch}')
             publish_messages(batch)
 
+        print('Messages sent')
         print(f"Total of {failed} files failed")
     except Exception as error:
         print(error)
