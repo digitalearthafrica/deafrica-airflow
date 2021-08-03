@@ -146,13 +146,13 @@ def build_message(missing_scene_paths, update_stac):
     """
     message_list = []
     for path in missing_scene_paths:
-        landsat_product_id = str(path[0:-1].split("/")[-1])
+        landsat_product_id = str(path.strip("/").split("/")[-1])
         if not landsat_product_id:
             raise Exception(f'It was not possible to build product ID from path {path}')
         message_list.append(
             {
                 "Message": {
-                    "landsat_product_id": str(path[0:-1].split("/")[-1]),
+                    "landsat_product_id": str(path.strip("/").split("/")[-1]),
                     "s3_location": str(path),
                     "update_stac": update_stac
                 }
