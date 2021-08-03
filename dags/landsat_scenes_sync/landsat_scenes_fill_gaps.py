@@ -152,7 +152,7 @@ def build_message(missing_scene_paths, update_stac):
         message_list.append(
             {
                 "Message": {
-                    "landsat_product_id": str(path.strip("/").split("/")[-1]),
+                    "landsat_product_id": landsat_product_id,
                     "s3_location": str(path),
                     "update_stac": update_stac
                 }
