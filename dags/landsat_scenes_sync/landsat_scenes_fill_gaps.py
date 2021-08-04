@@ -57,7 +57,7 @@ def post_messages(message_list) -> None:
 
     count = 0
     messages = []
-    sqs_conn = SQSHook(aws_conn_id=CONN_LANDSAT_SYNC, region=REGION)
+    sqs_conn = SQSHook(aws_conn_id=CONN_LANDSAT_SYNC)
     sqs_hook = sqs_conn.get_resource_type(
         resource_type="sqs", region_name=REGION
     )
