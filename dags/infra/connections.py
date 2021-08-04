@@ -22,3 +22,5 @@ CONN_SENTINEL_2_SYNC = "conn_sentinel_2_sync"  # qa
 CONN_SENTINEL_2_INDEX = "conn_sentinel_2_index"  # qa
 
 CONN_SENTINEL_2_WRITE = "conn_sentinel_2_write"  # qa
+
+CONN_SLACK = "conn_slack"
