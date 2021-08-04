@@ -101,7 +101,7 @@ class InventoryUtils:
         :param suffix:
         :return:
         """
-        logging.info(f"Retrieve Manifest Files starting")
+        logging.info("Retrieve Manifest Files starting")
         manifest = self.latest_manifest(key=key, suffix=suffix)
 
         logging.info(

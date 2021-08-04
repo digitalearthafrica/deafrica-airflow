@@ -67,7 +67,6 @@ from utils.sync_utils import (
 )
 
 REPORTING_PREFIX = "status-report/"
-# Dev does not need to be updated
 SCHEDULE_INTERVAL = None
 
 default_args = {
@@ -116,17 +115,15 @@ def get_and_filter_keys_from_files(file_path: Path):
         for row in read_big_csv_files_from_gzip(file_path)
         if (
             # Filter to skip all LANDSAT_4
-            row.get("Satellite")
-            and row["Satellite"] != "LANDSAT_4"
+            row.get("Satellite") is not None and row["Satellite"] != "LANDSAT_4"
             # Filter to get just day
             and (
-                row.get("Day/Night Indicator")
+                row.get("Day/Night Indicator") is not None
                 and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Filter to get just from Africa
             and (
-                row.get("WRS Path")
-                and row.get("WRS Row")
+                row.get("WRS Path") is not None and row.get("WRS Row") is not None
                 and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
                 in africa_pathrows
             )
@@ -151,7 +148,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
         sat_prefix = "LT05"
 
     if not sat_prefix:
-        raise Exception(f"prefix not defined")
+        raise Exception("Prefix not defined")
 
     list_json_keys = s3_bucket_client.retrieve_keys_from_inventory(
         manifest_sufix=MANIFEST_SUFFIX,
@@ -162,6 +159,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
 
     logging.info(f"Filtering by sat prefix {sat_prefix}")
 
+    # This is pretty unclear... what is happening here.
     return set(
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_json_keys
@@ -177,7 +175,6 @@ def build_s3_url_from_api_metadata(display_ids):
     """
 
     def request_usgs_api(url: str):
-
         try:
             response = request_url(url=url)
             if response.get("assets"):
@@ -215,7 +212,9 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
     try:
         start_timer = time.time()
 
-        logging.info("Comparing")
+        logging.info(f"Comparing {LANDSAT_INVENTORY_BUCKET_NAME} to {BASE_BULK_CSV_URL}")
+
+        # Flag to handle updating all STAC documents
         if update_stac:
             logging.info('FORCED UPDATE ACTIVE!')
 
@@ -235,14 +234,12 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
-        logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
+        logging.info(f"INVENTORY 10 first: {list(dest_paths)[0:10]}")
 
         if not update_stac:
-            # Download bulk file
             logging.info('Download Bulk file')
             file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
-            # Retrieve keys from the bulk file
             logging.info("Filtering keys from bulk file")
             source_paths = get_and_filter_keys_from_files(file_path)
 
