@@ -5,8 +5,9 @@ These are alert functions that utilize the Slack operators. Trying from here - h
 """
 from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
+from infra.connections import CONN_SLACK
 
-SLACK_CONN_ID = "conn_slack"
+SLACK_CONN_ID = CONN_SLACK
 
 
 def task_success_slack_alert(context):
