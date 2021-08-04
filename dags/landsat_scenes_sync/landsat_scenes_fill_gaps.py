@@ -220,7 +220,7 @@ with DAG(
     satellites = [
         "landsat_8",
         "landsat_7",
-        "Landsat_5"
+        "landsat_5"
     ]
 
     for sat in satellites:
