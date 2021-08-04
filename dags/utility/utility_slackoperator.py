@@ -22,7 +22,7 @@ def task_success_slack_alert(context):
     """
     slack_webhook_token = BaseHook.get_connection(SLACK_CONN_ID).password
     slack_msg = """
-            :large_green_circle: Task Succeeded! 
+            :large_green_circle: [prod airflow] Task Succeeded!
             *Task*: {task}  
             *Dag*: {dag} 
             *Execution Time*: {exec_date}  
