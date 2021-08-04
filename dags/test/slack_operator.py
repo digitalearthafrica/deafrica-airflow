@@ -6,7 +6,7 @@ These are alert functions that utilize the Slack operators. Trying from here - h
 from airflow.hooks.base_hook import BaseHook
 from airflow.contrib.operators.slack_webhook_operator import SlackWebhookOperator
 
-# This should match the connection ID created in the Medium article
+
 SLACK_CONN_ID = "slack"
 
 

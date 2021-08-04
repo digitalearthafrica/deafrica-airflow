@@ -9,7 +9,7 @@ it passes and calls the succeess task Slack alert.
 from airflow import DAG
 from airflow.operators.python_operator import PythonOperator
 from datetime import datetime, timedelta
-from slack_operator import task_fail_slack_alert, task_success_slack_alert
+from test.slack_operator import task_fail_slack_alert, task_success_slack_alert
 import random
 
 def coin_flip():
