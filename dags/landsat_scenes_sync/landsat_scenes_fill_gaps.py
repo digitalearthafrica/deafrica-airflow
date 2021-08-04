@@ -216,7 +216,6 @@ with DAG(
         catchup=False,
 ) as dag:
     processes = []
-    # Does Landsat 5 needs to have a capital L?
     satellites = [
         "landsat_8",
         "landsat_7",
