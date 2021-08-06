@@ -31,7 +31,6 @@ from airflow import (
     DAG,
     AirflowException
 )
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import (
@@ -147,7 +146,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
         sat_prefix = "LC08"
     elif landsat == "landsat_7":
         sat_prefix = "LE07"
-    elif landsat == "Landsat_5":
+    elif landsat == "landsat_5":
         sat_prefix = "LT05"
 
     if not sat_prefix:
@@ -331,7 +330,6 @@ with DAG(
     tags=["Landsat_scenes", "status", "gap_report"],
     catchup=False,
 ) as dag:
-    START = DummyOperator(task_id="start-tasks")
 
     PROCESSES = []
     files = {
@@ -349,6 +347,4 @@ with DAG(
             )
         )
 
-    END = DummyOperator(task_id="end-tasks")
-
-    START >> PROCESSES >> END
+    PROCESSES
