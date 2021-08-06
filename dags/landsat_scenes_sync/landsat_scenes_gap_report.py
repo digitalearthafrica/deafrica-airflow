@@ -147,7 +147,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
         sat_prefix = "LC08"
     elif landsat == "landsat_7":
         sat_prefix = "LE07"
-    elif landsat == "Landsat_5":
+    elif landsat == "landsat_5":
         sat_prefix = "LT05"
 
     if not sat_prefix:
