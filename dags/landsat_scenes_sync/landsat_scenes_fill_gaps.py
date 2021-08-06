@@ -20,7 +20,6 @@ import traceback
 from datetime import datetime
 
 from airflow import DAG
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import CONN_LANDSAT_SYNC
@@ -226,9 +225,8 @@ with DAG(
         tags=["Landsat_scenes", "fill the gap"],
         catchup=False,
 ) as dag:
-    START = DummyOperator(task_id="start-tasks")
 
-    processes = []
+    PROCESSES = []
     satellites = [
         "landsat_8",
         "landsat_7",
@@ -236,7 +234,7 @@ with DAG(
     ]
 
     for sat in satellites:
-        processes.append(
+        PROCESSES.append(
             PythonOperator(
                 task_id=f"{sat}_fill_the_gap",
                 python_callable=fill_the_gap,
@@ -244,6 +242,5 @@ with DAG(
             )
         )
 
-    END = DummyOperator(task_id="end-tasks")
 
-    START >> processes >> END
+    PROCESSES
