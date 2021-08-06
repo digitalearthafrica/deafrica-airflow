@@ -214,10 +214,6 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
         logging.info(f"Comparing {LANDSAT_INVENTORY_BUCKET_NAME} to {BASE_BULK_CSV_URL}")
 
-        # Flag to handle updating all STAC documents
-        if update_stac:
-            logging.info('FORCED UPDATE ACTIVE!')
-
         # Create connection to the inventory S3 bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
         s3_inventory_dest = InventoryUtils(
@@ -236,38 +232,39 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
         logging.info(f"INVENTORY 10 first: {list(dest_paths)[0:10]}")
 
-        if not update_stac:
-            logging.info('Download Bulk file')
-            file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
+        logging.info('Download Bulk file')
+        file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
-            logging.info("Filtering keys from bulk file")
-            source_paths = get_and_filter_keys_from_files(file_path)
+        logging.info("Filtering keys from bulk file")
+        source_paths = get_and_filter_keys_from_files(file_path)
 
-            logging.info(f"BULK FILE number of objects {len(source_paths)}")
-            logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
+        logging.info(f"BULK FILE number of objects {len(source_paths)}")
+        logging.info(f"BULK 10 First {list(source_paths)[0:10]}")
 
-            # Keys that are missing, they are in the source but not in the bucket
-            logging.info("Filtering missing scenes")
-            missing_scenes = [
-                f"{USGS_S3_BUCKET_PATH}{path}"
-                for path in source_paths.difference(dest_paths)
-            ]
+        # Keys that are missing, they are in the source but not in the bucket
+        logging.info("Filtering missing scenes")
+        missing_scenes = [
+            f"{USGS_S3_BUCKET_PATH}{path}"
+            for path in source_paths.difference(dest_paths)
+        ]
 
-            # Keys that are orphan, they are in the bucket but not found in the files
-            logging.info("Filtering orphan scenes")
-            orphaned_scenes = [
-                f"{AFRICA_S3_BUCKET_PATH}{path}"
-                for path in dest_paths.difference(source_paths)
-            ]
+        # Keys that are orphan, they are in the bucket but not found in the files
+        logging.info("Filtering orphan scenes")
+        orphaned_scenes = [
+            f"{AFRICA_S3_BUCKET_PATH}{path}"
+            for path in dest_paths.difference(source_paths)
+        ]
 
-            logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
-            logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
+        logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
+        logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-            output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
 
-        else:
+        if update_stac:
+            # If update_stac, use the bulk file paths to update our DB
             logging.info('FORCED UPDATE ACTIVE!')
-            missing_scenes = dest_paths
+            missing_scenes = source_paths
+            # For this process there is no need to create Orphans
             orphaned_scenes = []
             output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
 
