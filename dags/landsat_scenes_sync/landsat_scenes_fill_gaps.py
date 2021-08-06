@@ -171,11 +171,9 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     try:
         logging.info("Looking for latest report")
         latest_report = find_latest_report(landsat=landsat)
-        logging.info(f"Latest report found {latest_report}")
 
         if not latest_report:
-            logging.error("Report not found")
-            raise RuntimeError("Report not found!")
+            raise RuntimeError("last report not found!")
         else:
             logging.info("Reading missing scenes from the report")
 
@@ -230,7 +228,7 @@ with DAG(
     satellites = [
         "landsat_8",
         "landsat_7",
-        "Landsat_5"
+        "landsat_5"
     ]
 
     for sat in satellites:
