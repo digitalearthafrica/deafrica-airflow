@@ -31,7 +31,6 @@ from airflow import (
     DAG,
     AirflowException
 )
-from airflow.operators.dummy_operator import DummyOperator
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import (
@@ -324,7 +323,6 @@ with DAG(
     tags=["Landsat_scenes", "status", "gap_report"],
     catchup=False,
 ) as dag:
-    START = DummyOperator(task_id="start-tasks")
 
     PROCESSES = []
     files = {
@@ -341,7 +339,5 @@ with DAG(
                 op_kwargs=dict(landsat=sat, file_name=file, update_stac="{{ dag_run.conf.update_stac }}"),
             )
         )
-
-    END = DummyOperator(task_id="end-tasks")
 
     PROCESSES
