@@ -246,9 +246,6 @@ class S3:
         :param request_payer:(str)
         :return:
         """
-        logging.info(
-            f"get_object {bucket_name} {key} {region} {endpoint_url} {request_payer}"
-        )
 
         bucket_client = self.get_bucket_client(region=region, endpoint_url=endpoint_url)
         return bucket_client.get_object(

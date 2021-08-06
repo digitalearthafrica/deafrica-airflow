@@ -288,7 +288,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
-        logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+        logging.info(f"Wrote missing scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
             output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
@@ -301,11 +301,11 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
                 content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
-            logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+            logging.info(f"Wrote orphaned scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         message = (
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
-            f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
+            f"and {len(orphaned_scenes)} scenes no longer exist in the USGS bucket"
         )
 
         if (len(missing_scenes) > 200 or len(orphaned_scenes) > 200) and not update_stac:
