@@ -230,7 +230,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
-        logging.info(f"INVENTORY 10 first: {list(dest_paths)[0:10]}")
+        logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
+        date_string = datetime.now().strftime("%Y-%m-%d")
 
         logging.info('Download Bulk file')
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
@@ -258,7 +259,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+        output_filename = f"{landsat}_{date_string}.txt.gz"
 
         if update_stac:
             # If update_stac, use the bulk file paths to update our DB
@@ -266,7 +267,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
             missing_scenes = source_paths
             # For this process there is no need to create Orphans
             orphaned_scenes = []
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
+            output_filename = f"{landsat}_{date_string}_update.txt.gz"
 
         key = REPORTING_PREFIX + output_filename
 
@@ -282,10 +283,10 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
-        logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+        logging.info(f"Wrote missing scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
+            output_filename = f"{landsat}_{date_string}_orphaned.txt.gz"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -295,7 +296,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
                 content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
-            logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+            logging.info(f"Wrote orphaned scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         message = (
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
