@@ -18,20 +18,19 @@ import json
 import logging
 import traceback
 from datetime import datetime
+from typing import Optional
 
 from airflow import DAG
+from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.operators.python_operator import PythonOperator
+from odc.aws.queue import publish_messages
 
 from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
-from infra.variables import (
-    REGION,
-)
-from landsat_scenes_sync.variables import (
-    STATUS_REPORT_FOLDER_NAME,
-)
-from utils.aws_utils import S3, SQS
+from infra.variables import REGION
+from landsat_scenes_sync.variables import STATUS_REPORT_FOLDER_NAME
+from utils.aws_utils import S3
 
 REPORTING_PREFIX = "status-report/"
 # This process is manually run
@@ -49,51 +48,41 @@ default_args = {
 }
 
 
-def publish_messages(message_list) -> None:
+def post_messages(message_list) -> None:
     """
     Publish messages
     :param message_list:(list) list of messages
     :return:(None)
     """
 
-    def post_messages(messages_to_send):
-        try:
-            sqs_queue = SQS(conn_id=CONN_LANDSAT_SYNC, region=REGION)
-
-            sqs_queue.publish_to_sqs_queue(
-                queue_name=LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME,
-                messages=messages_to_send,
-            )
-        except Exception as error:
-            logging.error(f"Error sending message to the queue {error}")
-            return True
-
     count = 0
     messages = []
-    error_flag = False
-    logging.info("sending messages")
-    for obj in message_list:
+    sqs_conn = SQSHook(aws_conn_id=CONN_LANDSAT_SYNC)
+    sqs_hook = sqs_conn.get_resource_type(
+        resource_type="sqs", region_name=REGION
+    )
+    queue = sqs_hook.get_queue_by_name(QueueName=LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME)
+
+    logging.info("Sending messages")
+    for message_dict in message_list:
         message = {
             "Id": str(count),
-            "MessageBody": str(json.dumps(obj)),
+            "MessageBody": str(json.dumps(message_dict)),
         }
 
         messages.append(message)
-
         count += 1
+
         # Send 10 messages per time
         if count % 10 == 0:
-            error_flag = post_messages(messages)
+            publish_messages(queue, messages)
             messages = []
 
     # Post the last messages if there are any
     if len(messages) > 0:
-        error_flag = post_messages(messages)
+        publish_messages(queue, messages)
 
-    if error_flag:
-        raise Exception("There was an error sending messages")
-
-    logging.info(f"{count} messages sent successfully :)")
+    logging.info(f"{count} messages sent successfully")
 
 
 def find_latest_report(landsat: str) -> str:
@@ -151,7 +140,7 @@ def build_message(missing_scene_paths, update_stac):
         message_list.append(
             {
                 "Message": {
-                    "landsat_product_id": str(path.strip("/").split("/")[-1]),
+                    "landsat_product_id": landsat_product_id,
                     "s3_location": str(path),
                     "update_stac": update_stac
                 }
@@ -160,7 +149,7 @@ def build_message(missing_scene_paths, update_stac):
     return message_list
 
 
-def fill_the_gap(landsat: str, scenes_limit: int) -> None:
+def fill_the_gap(landsat: str, scenes_limit: Optional[int] = None) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
@@ -171,9 +160,11 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
     try:
         logging.info("Looking for latest report")
         latest_report = find_latest_report(landsat=landsat)
+        logging.info(f"Latest report found {latest_report}")
 
         if not latest_report:
-            raise RuntimeError("last report not found!")
+            logging.error("Report not found")
+            raise RuntimeError("Report not found!")
         else:
             logging.info("Reading missing scenes from the report")
 
@@ -185,17 +176,18 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 key=latest_report,
             )
 
+            # This should just use Pandas. It's already a dependency.
             missing_scene_paths = [
                 scene_path
                 for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
                 if scene_path
             ]
 
-            limit = scenes_limit if scenes_limit else len(missing_scene_paths)
+            logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+            logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
-            logging.info(f"missing_scene_paths {missing_scene_paths[0:10]}")
-
-            logging.info(f"Number of scenes found {len(missing_scene_paths)} limited in - {limit}")
+            if scenes_limit is not None:
+                missing_scene_paths = missing_scene_paths[:scenes_limit]
 
             update_stac = False
             if 'update' in latest_report:
@@ -203,12 +195,12 @@ def fill_the_gap(landsat: str, scenes_limit: int) -> None:
                 update_stac = True
 
             messages_to_send = build_message(
-                missing_scene_paths=missing_scene_paths[0: int(limit)],
+                missing_scene_paths=missing_scene_paths,
                 update_stac=update_stac
             )
 
             logging.info("Publishing messages")
-            publish_messages(message_list=messages_to_send)
+            post_messages(message_list=messages_to_send)
     except Exception as error:
         logging.error(error)
         # print traceback but does not stop execution
