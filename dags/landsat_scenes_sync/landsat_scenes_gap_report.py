@@ -299,7 +299,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
         message = (
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
-            f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
+            f"and {len(orphaned_scenes)} scenes no longer exist in the USGS bucket"
         )
 
         if (len(missing_scenes) > 200 or len(orphaned_scenes) > 200) and not update_stac:

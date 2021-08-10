@@ -66,7 +66,7 @@ class InventoryUtils:
         Return a dictionary of a manifest file"
         """
         logging.info(
-            f"Start Looking for latest manifest file in the bucket: {self.bucket_name}"
+            f"Start Looking for latest manifest file on {self.bucket_name} - {self.region}"
         )
 
         today = datetime.now()
@@ -78,7 +78,9 @@ class InventoryUtils:
             manifest_paths = [k for k in self.find(suffix=suffix, sub_key=_key)]
 
             if len(manifest_paths) == 1:
-                logging.info(f"Latest Manifest {manifest_paths[0]}")
+
+                logging.info(f"Latest Manifest {manifest_paths}")
+
                 manifest_key = manifest_paths[0]
 
                 s3_clientobj = self.s3_utils.get_object(
@@ -102,7 +104,7 @@ class InventoryUtils:
         manifest = self.latest_manifest(key=key, suffix=suffix)
 
         logging.info(
-            f"Retrieved Manifest with {len(manifest['files'])} Files"
+            f"Retrieved Manifest {manifest} with {len(manifest['files'])} Files"
         )
 
         if not manifest.get("files"):
@@ -161,8 +163,8 @@ class InventoryUtils:
             for future in as_completed(tasks):
                 for key in future.result():
                     if (
-                        key.startswith(prefix) and
-                        key.endswith(suffix) and
-                        contains in key
+                            key.startswith(prefix) and
+                            key.endswith(suffix) and
+                            contains in key
                     ):
                         yield key
