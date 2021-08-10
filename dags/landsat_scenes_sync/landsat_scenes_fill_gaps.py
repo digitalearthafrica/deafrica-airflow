@@ -23,14 +23,14 @@ from typing import Optional
 from airflow import DAG
 from airflow.contrib.hooks.aws_sqs_hook import SQSHook
 from airflow.operators.python_operator import PythonOperator
+from odc.aws.queue import publish_messages
+
 from infra.connections import CONN_LANDSAT_SYNC
 from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import REGION
-from odc.aws.queue import publish_messages
-from utils.aws_utils import S3
-
 from landsat_scenes_sync.variables import STATUS_REPORT_FOLDER_NAME
+from utils.aws_utils import S3
 
 REPORTING_PREFIX = "status-report/"
 # This process is manually run
@@ -187,7 +187,7 @@ def fill_the_gap(landsat: str, scenes_limit: Optional[int] = None) -> None:
             logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
             if scenes_limit is not None:
-                missing_scene_paths = missing_scene_paths[:scenes_limit]
+                missing_scene_paths = missing_scene_paths[:int(scenes_limit)]
 
             update_stac = False
             if 'update' in latest_report:
@@ -215,7 +215,8 @@ with DAG(
         tags=["Landsat_scenes", "fill the gap"],
         catchup=False,
 ) as dag:
-    processes = []
+
+    PROCESSES = []
     satellites = [
         "landsat_8",
         "landsat_7",
@@ -223,7 +224,7 @@ with DAG(
     ]
 
     for sat in satellites:
-        processes.append(
+        PROCESSES.append(
             PythonOperator(
                 task_id=f"{sat}_fill_the_gap",
                 python_callable=fill_the_gap,
@@ -231,4 +232,5 @@ with DAG(
             )
         )
 
-    processes
+
+    PROCESSES

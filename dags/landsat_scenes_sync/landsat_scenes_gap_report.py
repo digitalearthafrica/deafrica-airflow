@@ -16,6 +16,7 @@ therefore forcing to rebuild all stacs
     }
 
 """
+
 import gzip
 import logging
 import time
@@ -41,9 +42,7 @@ from infra.s3_buckets import (
     LANDSAT_INVENTORY_BUCKET_NAME,
     LANDSAT_SYNC_BUCKET_NAME
 )
-from infra.variables import (
-    REGION,
-)
+from infra.variables import REGION
 from landsat_scenes_sync.variables import (
     MANIFEST_SUFFIX,
     BASE_BULK_CSV_URL,
@@ -158,7 +157,6 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
 
     logging.info(f"Filtering by sat prefix {sat_prefix}")
 
-    # This is pretty unclear... what is happening here.
     return set(
         f"{key.rsplit('/', 1)[0]}/"
         for key in list_json_keys
@@ -174,6 +172,7 @@ def build_s3_url_from_api_metadata(display_ids):
     """
 
     def request_usgs_api(url: str):
+
         try:
             response = request_url(url=url)
             if response.get("assets"):
@@ -229,7 +228,8 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"INVENTORY bucket number of objects {len(dest_paths)}")
-        logging.info(f"INVENTORY 10 first: {list(dest_paths)[0:10]}")
+        logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
+        date_string = datetime.now().strftime("%Y-%m-%d")
 
         logging.info('Download Bulk file')
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
@@ -257,15 +257,13 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         logging.info(f"missing_scenes 10 first keys {list(missing_scenes)[0:10]}")
         logging.info(f"orphaned_scenes 10 first keys {list(orphaned_scenes)[0:10]}")
 
-        output_filename = f"{landsat}_{datetime.today().isoformat()}.txt.gz"
+        output_filename = f"{landsat}_{date_string}.txt.gz"
 
         if update_stac:
-            # If update_stac, use the bulk file paths to update our DB
             logging.info('FORCED UPDATE ACTIVE!')
             missing_scenes = source_paths
-            # For this process there is no need to create Orphans
             orphaned_scenes = []
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_update.txt.gz"
+            output_filename = f"{landsat}_{date_string}_update.txt.gz"
 
         key = REPORTING_PREFIX + output_filename
 
@@ -281,10 +279,10 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         )
 
         logging.info(f"Number of missing scenes: {len(missing_scenes)}")
-        logging.info(f"Wrote missing scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+        logging.info(f"Wrote missing scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         if len(orphaned_scenes) > 0:
-            output_filename = f"{landsat}_{datetime.today().isoformat()}_orphaned.txt.gz"
+            output_filename = f"{landsat}_{date_string}_orphaned.txt.gz"
             key = REPORTING_PREFIX + output_filename
             s3_report.put_object(
                 bucket_name=LANDSAT_SYNC_BUCKET_NAME,
@@ -294,11 +292,11 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
                 content_type="application/gzip"
             )
             logging.info(f"Number of orphaned scenes: {len(orphaned_scenes)}")
-            logging.info(f"Wrote orphaned scenes to: {LANDSAT_SYNC_BUCKET_NAME}/{key}")
+            logging.info(f"Wrote orphaned scenes to: s3://{LANDSAT_SYNC_BUCKET_NAME}/{key}")
 
         message = (
             f"{len(missing_scenes)} scenes are missing from {LANDSAT_SYNC_BUCKET_NAME} "
-            f"and {len(orphaned_scenes)} scenes no longer exist in USGS"
+            f"and {len(orphaned_scenes)} scenes no longer exist in the USGS bucket"
         )
 
         if (len(missing_scenes) > 200 or len(orphaned_scenes) > 200) and not update_stac:
