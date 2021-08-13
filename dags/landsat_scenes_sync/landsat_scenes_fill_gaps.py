@@ -186,7 +186,8 @@ def fill_the_gap(landsat: str, scenes_limit: Optional[int] = None) -> None:
             logging.info(f"Number of scenes found {len(missing_scene_paths)}")
             logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
-            if scenes_limit is not None:
+            logging.info(f"Limited: {'No limit!' if scenes_limit else scenes_limit}")
+            if scenes_limit:
                 missing_scene_paths = missing_scene_paths[:int(scenes_limit)]
 
             update_stac = False
