@@ -66,7 +66,6 @@ from utils.sync_utils import (
 )
 
 REPORTING_PREFIX = "status-report/"
-# Dev does not need to be updated
 SCHEDULE_INTERVAL = None
 
 default_args = {
@@ -116,19 +115,17 @@ def get_and_filter_keys_from_files(file_path: Path):
         for row in read_big_csv_files_from_gzip(file_path)
         if (
             # Filter to skip all LANDSAT_4
-            row.get("Satellite")
-            and row["Satellite"] != "LANDSAT_4"
+            row.get("Satellite") is not None and row["Satellite"] != "LANDSAT_4"
             # Filter to get just day
             and (
-                    row.get("Day/Night Indicator")
-                    and row["Day/Night Indicator"].upper() == "DAY"
+                row.get("Day/Night Indicator") is not None
+                and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Filter to get just from Africa
             and (
-                    row.get("WRS Path")
-                    and row.get("WRS Row")
-                    and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
-                    in africa_pathrows
+                row.get("WRS Path") is not None and row.get("WRS Row") is not None
+                and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                in africa_pathrows
             )
         )
     )
@@ -151,7 +148,7 @@ def get_and_filter_keys(s3_bucket_client, landsat: str) -> set:
         sat_prefix = "LT05"
 
     if not sat_prefix:
-        raise Exception(f"prefix not defined")
+        raise Exception("Prefix not defined")
 
     list_json_keys = s3_bucket_client.retrieve_keys_from_inventory(
         manifest_sufix=MANIFEST_SUFFIX,
@@ -215,7 +212,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
     try:
         start_timer = time.time()
 
-        logging.info("Comparing")
+        logging.info(f"Comparing {LANDSAT_INVENTORY_BUCKET_NAME} to {BASE_BULK_CSV_URL}")
 
         # Create connection to the inventory S3 bucket
         logging.info(f"Connecting to inventory bucket {LANDSAT_INVENTORY_BUCKET_NAME}")
@@ -268,7 +265,7 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
         if update_stac:
             logging.info('FORCED UPDATE ACTIVE!')
-            missing_scenes = dest_paths
+            missing_scenes = source_paths
             orphaned_scenes = []
             output_filename = f"{landsat}_{date_string}_update.txt.gz"
 
