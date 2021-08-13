@@ -53,6 +53,7 @@ from landsat_scenes_sync.variables import (
     AFRICA_S3_BUCKET_PATH,
     C2_FOLDER_NAME,
 )
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
@@ -76,6 +77,7 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "version": "0.0.3",
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -231,9 +233,11 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
         logging.info(f"INVENTORY 10 first {list(dest_paths)[0:10]}")
         date_string = datetime.now().strftime("%Y-%m-%d")
 
+        # Download bulk file
         logging.info('Download Bulk file')
         file_path = download_file_to_tmp(url=BASE_BULK_CSV_URL, file_name=file_name)
 
+        # Retrieve keys from the bulk file
         logging.info("Filtering keys from bulk file")
         source_paths = get_and_filter_keys_from_files(file_path)
 
@@ -315,13 +319,12 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
 
 with DAG(
-    "landsat_scenes_gap_report",
-    default_args=default_args,
-    schedule_interval=SCHEDULE_INTERVAL,
-    tags=["Landsat_scenes", "status", "gap_report"],
-    catchup=False,
+        "landsat_scenes_gap_report",
+        default_args=default_args,
+        schedule_interval=SCHEDULE_INTERVAL,
+        tags=["Landsat_scenes", "status", "gap_report"],
+        catchup=False,
 ) as dag:
-
     PROCESSES = []
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
@@ -335,6 +338,7 @@ with DAG(
                 task_id=f"{sat}_compare_s3_inventories",
                 python_callable=generate_buckets_diff,
                 op_kwargs=dict(landsat=sat, file_name=file, update_stac="{{ dag_run.conf.update_stac }}"),
+                on_success_callback=task_success_slack_alert,
             )
         )
 

@@ -30,6 +30,7 @@ from infra.s3_buckets import LANDSAT_SYNC_BUCKET_NAME
 from infra.sqs_queues import LANDSAT_SYNC_USGS_SNS_FILTER_SQS_NAME
 from infra.variables import REGION
 from landsat_scenes_sync.variables import STATUS_REPORT_FOLDER_NAME
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 
 REPORTING_PREFIX = "status-report/"
@@ -45,6 +46,7 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "version": "0.0.1",
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -186,7 +188,7 @@ def fill_the_gap(landsat: str, scenes_limit: Optional[int] = None) -> None:
             logging.info(f"Number of scenes found {len(missing_scene_paths)}")
             logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
-            logging.info(f"Limited: {'No limit!' if scenes_limit else scenes_limit}")
+            logging.info(f"Limited: {'No limit' if scenes_limit else scenes_limit}")
             if scenes_limit:
                 missing_scene_paths = missing_scene_paths[:int(scenes_limit)]
 
@@ -230,8 +232,8 @@ with DAG(
                 task_id=f"{sat}_fill_the_gap",
                 python_callable=fill_the_gap,
                 op_kwargs=dict(landsat=sat, scenes_limit="{{ dag_run.conf.scenes_limit }}"),
+                on_success_callback=task_success_slack_alert,
             )
         )
-
 
     PROCESSES
