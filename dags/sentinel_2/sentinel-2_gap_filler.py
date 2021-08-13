@@ -7,8 +7,13 @@ the path to the gap report file.
 
 Eg:
 ```json
-{"offset": 824, "limit": 1224, "s3_report_path": "s3://deafrica-sentinel-2-dev/status-report/2021-08-02T07:39:44.271197.txt.gz"}
+{
+"offset": 824,
+"limit": 1224,
+"s3_report_path": "s3://deafrica-sentinel-2-dev/status-report/2021-08-02T07:39:44.271197.txt.gz"
+}
 """
+
 import gzip
 import json
 import traceback
@@ -16,16 +21,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict
 
+import pandas as pd
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import CONN_SENTINEL_2_SYNC
+from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from sentinel_2.variables import SENTINEL_COGS_BUCKET
+from sentinel_2.variables import SENTINEL_COGS_BUCKET, REPORTING_PREFIX
 from utils.aws_utils import S3
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
+from odc.aws.inventory import find_latest_manifest
+from urlpath import URL
 
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
@@ -37,6 +47,7 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -103,18 +114,31 @@ def get_missing_stac_files(s3_report_path, offset=0, limit=None):
 
     print(f"Reading the gap report {s3_report_path}")
 
-    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
-    bucket_name, key = hook.parse_s3_url(s3_report_path)
+    url_path = URL(f"s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{REPORTING_PREFIX}")
 
-    missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
-        bucket_name=bucket_name,
-        region=REGION,
-        key=key,
+    last_manifest = find_latest_manifest(
+        str(url_path)
     )
 
-    for f in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")[offset:limit]:
+    # hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+    # s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
+    # bucket_name, key = hook.parse_s3_url(s3_report_path)
+    #
+    # missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
+    #     bucket_name=bucket_name,
+    #     region=REGION,
+    #     key=key,
+    # )
+    for f in set(
+        pd.read_csv(
+            last_manifest,
+            header=None,
+        ).values.ravel()
+    ):
+        print(f)
         yield f.strip()
+    # for f in gzip.decompress(last_manifest).decode("utf-8").split("\n")[offset:limit]:
+    #     yield f.strip()
 
 
 def publish_messages(messages):
@@ -205,7 +229,6 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
                 try:
                     batch.append(future.result())
                     if len(batch) == 10:
-                        print(f'sending 10 messages {batch}')
                         publish_messages(batch)
                         batch = []
                 except Exception as exc:
@@ -213,10 +236,8 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
                     print(f"File no longer exists: {exc}")
 
         if len(batch) > 0:
-            print(f'sending last messages {batch}')
             publish_messages(batch)
 
-        print('Messages sent')
         print(f"Total of {failed} files failed")
     except Exception as error:
         print(error)
@@ -237,4 +258,5 @@ with DAG(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         provide_context=True,
+        on_success_callback=task_success_slack_alert,
     )
