@@ -53,6 +53,7 @@ from landsat_scenes_sync.variables import (
     AFRICA_S3_BUCKET_PATH,
     C2_FOLDER_NAME,
 )
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import (
@@ -77,6 +78,7 @@ default_args = {
     "email_on_retry": False,
     "retries": 0,
     "version": "0.0.3",
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -118,15 +120,15 @@ def get_and_filter_keys_from_files(file_path: Path):
             and row["Satellite"] != "LANDSAT_4"
             # Filter to get just day
             and (
-                row.get("Day/Night Indicator")
-                and row["Day/Night Indicator"].upper() == "DAY"
+                    row.get("Day/Night Indicator")
+                    and row["Day/Night Indicator"].upper() == "DAY"
             )
             # Filter to get just from Africa
             and (
-                row.get("WRS Path")
-                and row.get("WRS Row")
-                and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
-                in africa_pathrows
+                    row.get("WRS Path")
+                    and row.get("WRS Row")
+                    and int(f"{row['WRS Path'].zfill(3)}{row['WRS Row'].zfill(3)}")
+                    in africa_pathrows
             )
         )
     )
@@ -320,13 +322,12 @@ def generate_buckets_diff(landsat: str, file_name: str, update_stac: bool = Fals
 
 
 with DAG(
-    "landsat_scenes_gap_report",
-    default_args=default_args,
-    schedule_interval=SCHEDULE_INTERVAL,
-    tags=["Landsat_scenes", "status", "gap_report"],
-    catchup=False,
+        "landsat_scenes_gap_report",
+        default_args=default_args,
+        schedule_interval=SCHEDULE_INTERVAL,
+        tags=["Landsat_scenes", "status", "gap_report"],
+        catchup=False,
 ) as dag:
-
     PROCESSES = []
     files = {
         "landsat_8": "LANDSAT_OT_C2_L2.csv.gz",
@@ -340,6 +341,7 @@ with DAG(
                 task_id=f"{sat}_compare_s3_inventories",
                 python_callable=generate_buckets_diff,
                 op_kwargs=dict(landsat=sat, file_name=file, update_stac="{{ dag_run.conf.update_stac }}"),
+                on_success_callback=task_success_slack_alert,
             )
         )
 
