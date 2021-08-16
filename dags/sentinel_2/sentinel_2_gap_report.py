@@ -3,6 +3,15 @@
 
 This DAG runs once a month and creates a gap report in the folowing location:
 s3://deafrica-sentinel-2/status-report
+
+* The option update_stac will force the process to buil a list with all scenes ignoring any comparative,
+therefore forcing to rebuild all stacs
+
+#### example conf in json format
+    {
+        "update_stac":true
+    }
+
 """
 import gzip
 import logging
@@ -11,7 +20,7 @@ from datetime import datetime
 
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
-
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
@@ -38,6 +47,7 @@ default_args = {
     "email_on_success": False,
     "email_on_retry": False,
     "retries": 0,
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -108,6 +118,8 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
         s3_bucket_client=s3_inventory_destination
     )
 
+    date_string = datetime.now().strftime("%Y-%m-%d")
+
     if not update_stac:
         # Create connection to the inventory S3 bucket
         s3_inventory_source = InventoryUtils(
@@ -132,7 +144,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
         # Keys that are lost, they are in the bucket but not found in the files
         orphaned_keys = destination_keys.difference(source_keys)
 
-        output_filename = f"{datetime.today().isoformat()}.txt.gz"
+        output_filename = f"{date_string}.txt.gz"
 
     else:
         logging.info('FORCED UPDATE ACTIVE!')
@@ -140,7 +152,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
             f"s3://sentinel-cogs/{key}"
             for key in destination_keys
         )
-        output_filename = f"{datetime.today().isoformat()}_update.txt.gz"
+        output_filename = f"{date_string}_update.txt.gz"
 
     key = REPORTING_PREFIX + output_filename
 
@@ -160,7 +172,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
     print(f"Wrote inventory to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     if len(orphaned_keys) > 0:
-        output_filename = datetime.today().isoformat() + "_orphaned.txt"
+        output_filename = f"{date_string}_orphaned.txt"
         key = REPORTING_PREFIX + output_filename
         s3_report.put_object(
             bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
@@ -195,5 +207,6 @@ with DAG(
     READ_INVENTORIES = PythonOperator(
         task_id="compare_s2_inventories",
         python_callable=generate_buckets_diff,
-        op_kwargs=dict(update_stac="{{ dag_run.conf.update_stac }}")
+        op_kwargs=dict(update_stac="{{ dag_run.conf.update_stac }}"),
+        on_success_callback=task_success_slack_alert,
     )

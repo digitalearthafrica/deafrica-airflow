@@ -2,6 +2,10 @@
     Variables to support on the Landsat process
 """
 
+# ######## Sentinel 2 ##########
+
+REPORTING_PREFIX = "status-report/"
+
 # ######### Element-84 ############
 
 # #################### COGS ####################
