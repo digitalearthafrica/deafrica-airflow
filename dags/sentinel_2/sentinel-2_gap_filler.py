@@ -242,6 +242,7 @@ def publish_message(files):
 
     # counter for files that no longer exist
     failed = 0
+    sent = 0
 
     batch = []
 
@@ -257,14 +258,16 @@ def publish_message(files):
                 if len(batch) == 10:
                     post_messages(batch)
                     batch = []
+                    sent += 10
             except Exception as exc:
                 failed += 1
                 logging.info(f"File no longer exists: {exc}")
 
     if len(batch) > 0:
         post_messages(batch)
+        sent += len(batch)
 
-    logging.info(f"Total of {failed} files failed")
+    logging.info(f"Total of {failed} files failed, Total of sent messages {sent}")
 
 
 def prepare_and_send_messages(dag_run, **kwargs) -> None:
