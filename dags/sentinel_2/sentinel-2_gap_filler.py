@@ -8,14 +8,14 @@ the path to the gap report file.
 Eg:
 ```json
 {
-"offset": 824,
 "limit": 1224,
-"s3_report_path": "s3://deafrica-sentinel-2-dev/status-report/2021-08-02T07:39:44.271197.txt.gz"
+"update_stac": true
 }
 """
 
 import gzip
 import json
+import logging
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -26,16 +26,17 @@ from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
-
 from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from sentinel_2.variables import SENTINEL_COGS_BUCKET, REPORTING_PREFIX
-from utils.aws_utils import S3
-from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
+from odc.aws import s3_client
+#from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from odc.aws.inventory import find_latest_manifest
 from urlpath import URL
+from utils.aws_utils import S3
+
+from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET
 
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = "@once"
@@ -47,7 +48,7 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
-    "on_failure_callback": task_fail_slack_alert,
+ #   "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -106,42 +107,91 @@ def get_common_message_attributes(stac_doc: Dict) -> Dict:
 
     return msg_attributes
 
+def find_latest_report(update_stac: bool = False) -> str:
+    """
+    Function to find the latest gap report
+    :param update_stac:(bool)
+    :return:(str) return the latest report file name
+    """
+    continuation_token = None
+    list_reports = []
+    while True:
+        s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
-def get_missing_stac_files(s3_report_path, offset=0, limit=None):
+        resp = s3.list_objects(
+            bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+            region=REGION,
+            prefix=REPORTING_PREFIX,
+            continuation_token=continuation_token,
+        )
+
+        if not resp.get("Contents"):
+            raise Exception(
+                f"Report not found at "
+                f"{SENTINEL_2_SYNC_BUCKET_NAME}/{REPORTING_PREFIX}"
+                f"  - returned {resp}"
+            )
+
+        list_reports.extend(
+            [
+                obj["Key"]
+                for obj in resp["Contents"]
+                if "orphaned" not in obj["Key"] 
+                and (not update_stac or (update_stac and "update" in obj["key"]))
+            ]
+        )
+
+        # The S3 API is paginated, returning up to 1000 keys at a time.
+        if resp.get("NextContinuationToken"):
+            continuation_token = resp["NextContinuationToken"]
+        else:
+            break
+
+    list_reports.sort()
+
+    if not list_reports:
+        raise RuntimeError("Report not found!")
+
+    return list_reports[-1]
+
+def get_missing_stac_files(limit=None):
     """
     read the gap report
     """
 
-    print(f"Reading the gap report {s3_report_path}")
+    last_report = find_latest_report()
 
-    url_path = URL(f"s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{REPORTING_PREFIX}")
+    logging.info(f'This is the last report {last_report}')
 
-    last_manifest = find_latest_manifest(
-        str(url_path)
+    s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
+
+    missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
+        bucket_name=SENTINEL_2_SYNC_BUCKET_NAME,
+        region=REGION,
+        key=last_report,
     )
 
-    # hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    # s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
-    # bucket_name, key = hook.parse_s3_url(s3_report_path)
-    #
-    # missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
-    #     bucket_name=bucket_name,
-    #     region=REGION,
-    #     key=key,
-    # )
-    for f in set(
-        pd.read_csv(
-            last_manifest,
-            header=None,
-        ).values.ravel()
-    ):
-        print(f)
+    missing_scene_paths = [
+                scene_path
+                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+                if scene_path
+            ]
+   
+
+    logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+    logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
+
+    logging.info(f"Limited: {'No limit' if limit else limit}")
+    
+    if limit:
+        missing_scene_paths = missing_scene_paths[:int(limit)]
+    
+  
+    for f in missing_scene_paths:
         yield f.strip()
-    # for f in gzip.decompress(last_manifest).decode("utf-8").split("\n")[offset:limit]:
-    #     yield f.strip()
+    
 
-
-def publish_messages(messages):
+def post_messages(messages):
     """
     Publish messages to the data transfer queue
     param message: list of messages
@@ -189,56 +239,63 @@ def prepare_message(hook, s3_path, update_stac: bool = False):
     return message
 
 
+def publish_message(files, update_stac):
+    """
+    """
+    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+    max_workers = 10
+   
+    # counter for files that no longer exist
+    failed = 0
+
+    batch = []
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(prepare_message, hook, s3_path, update_stac)
+            for s3_path in files
+        ]
+
+        for future in as_completed(futures):
+            try:
+                batch.append(future.result())
+                if len(batch) == 10:
+                    post_messages(batch)
+                    batch = []
+            except Exception as exc:
+                failed += 1
+                print(f"File no longer exists: {exc}")
+
+    if len(batch) > 0:
+        post_messages(batch)
+
+    print(f"Total of {failed} files failed")
+
+
 def prepare_and_send_messages(dag_run, **kwargs) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
     """
-
     try:
-        hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
+        
         # Read the missing stac files from the gap report file
-        print(
-            f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
-        )
+        # print(
+        #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
+        # )
 
         update_stac = False
         if 'update' in dag_run.conf["s3_report_path"]:
             print('FORCED UPDATE FLAGGED!')
             update_stac = True
+            
+        logging.info('HERE')
+        logging.info(f's3_report_path {dag_run.conf.get("s3_report_path", "")} - offset - {dag_run.conf.get("offset", 0)} - limit - {dag_run.conf.get("limit", None)}')
+        
+        files = get_missing_stac_files(dag_run.conf.get("limit", None))
 
-        files = get_missing_stac_files(
-            dag_run.conf["s3_report_path"],
-            dag_run.conf["offset"],
-            dag_run.conf["limit"],
-        )
+        # publish_message(files, update_stac)
 
-        max_workers = 10
-        # counter for files that no longer exist
-        failed = 0
-
-        batch = []
-
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            futures = [
-                executor.submit(prepare_message, hook, s3_path, update_stac)
-                for s3_path in files
-            ]
-
-            for future in as_completed(futures):
-                try:
-                    batch.append(future.result())
-                    if len(batch) == 10:
-                        publish_messages(batch)
-                        batch = []
-                except Exception as exc:
-                    failed += 1
-                    print(f"File no longer exists: {exc}")
-
-        if len(batch) > 0:
-            publish_messages(batch)
-
-        print(f"Total of {failed} files failed")
     except Exception as error:
         print(error)
         # print traceback but does not stop execution
@@ -258,5 +315,5 @@ with DAG(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         provide_context=True,
-        on_success_callback=task_success_slack_alert,
+#        on_success_callback=task_success_slack_alert,
     )
