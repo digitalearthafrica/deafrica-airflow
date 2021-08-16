@@ -31,7 +31,7 @@ from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
 from odc.aws import s3_client
-#from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from odc.aws.inventory import find_latest_manifest
 from urlpath import URL
 from utils.aws_utils import S3
@@ -313,5 +313,5 @@ with DAG(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         provide_context=True,
-#        on_success_callback=task_success_slack_alert,
+        on_success_callback=task_success_slack_alert,
     )
