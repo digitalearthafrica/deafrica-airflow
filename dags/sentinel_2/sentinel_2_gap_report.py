@@ -20,7 +20,7 @@ from datetime import datetime
 
 from airflow import DAG, AirflowException
 from airflow.operators.python_operator import PythonOperator
-from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
+
 from infra.connections import CONN_SENTINEL_2_SYNC, CONN_SENTINEL_2_WRITE
 from infra.s3_buckets import (
     SENTINEL_2_INVENTORY_BUCKET_NAME,
@@ -35,6 +35,7 @@ from sentinel_2.variables import (
     SENTINEL_COGS_INVENTORY_BUCKET,
     COGS_FOLDER_NAME,
 )
+from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
@@ -69,11 +70,11 @@ def get_and_filter_source_keys(s3_bucket_client):
         key
         for key in list_keys
         if (
-            ".json" in key
-            and key.startswith(COGS_FOLDER_NAME)
-            and key.split("/")[-2].split("_")[1] in africa_tile_ids
-            # We need to ensure we're ignoring the old format data
-            and re.match(r"sentinel-s2-l2a-cogs/\d{4}/", key) is None
+                ".json" in key
+                and key.startswith(COGS_FOLDER_NAME)
+                and key.split("/")[-2].split("_")[1] in africa_tile_ids
+                # We need to ensure we're ignoring the old format data
+                and re.match(r"sentinel-s2-l2a-cogs/\d{4}/", key) is None
         )
     )
 
@@ -197,13 +198,12 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
 
 
 with DAG(
-    "sentinel_2_gap_report",
-    default_args=default_args,
-    schedule_interval="@weekly",
-    tags=["Sentinel-2", "status"],
-    catchup=False,
+        "sentinel_2_gap_report",
+        default_args=default_args,
+        schedule_interval=None,
+        tags=["Sentinel-2", "status"],
+        catchup=False,
 ) as dag:
-
     READ_INVENTORIES = PythonOperator(
         task_id="compare_s2_inventories",
         python_callable=generate_buckets_diff,

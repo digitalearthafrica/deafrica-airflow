@@ -20,25 +20,21 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict
 
-import pandas as pd
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
+
 from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from odc.aws import s3_client
+from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET
 from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
-from odc.aws.inventory import find_latest_manifest
-from urlpath import URL
 from utils.aws_utils import S3
 
-from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET
-
 PRODUCT_NAME = "s2_l2a"
-SCHEDULE_INTERVAL = "@once"
+SCHEDULE_INTERVAL = None
 
 default_args = {
     "owner": "RODRIGO",
@@ -106,6 +102,7 @@ def get_common_message_attributes(stac_doc: Dict) -> Dict:
 
     return msg_attributes
 
+
 def find_latest_report(update_stac: bool = False) -> str:
     """
     Function to find the latest gap report
@@ -135,8 +132,8 @@ def find_latest_report(update_stac: bool = False) -> str:
             [
                 obj["Key"]
                 for obj in resp["Contents"]
-                if "orphaned" not in obj["Key"] 
-                and (not update_stac or (update_stac and "update" in obj["key"]))
+                if "orphaned" not in obj["Key"]
+                   and (not update_stac or (update_stac and "update" in obj["key"]))
             ]
         )
 
@@ -153,6 +150,7 @@ def find_latest_report(update_stac: bool = False) -> str:
 
     return list_reports[-1]
 
+
 def get_missing_stac_files(limit=None):
     """
     read the gap report
@@ -165,7 +163,7 @@ def get_missing_stac_files(limit=None):
     update_stac = False
     if 'update' in last_report:
         print('FORCED UPDATE FLAGGED!')
-        
+
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
     missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
@@ -175,24 +173,22 @@ def get_missing_stac_files(limit=None):
     )
 
     missing_scene_paths = [
-                scene_path
-                for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-                if scene_path
-            ]
-   
+        scene_path
+        for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+        if scene_path
+    ]
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
     logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
     logging.info(f"Limited: {'No limit' if limit else limit}")
-    
+
     if limit is not None:
         missing_scene_paths = missing_scene_paths[:int(limit)]
-    
-  
+
     for f in missing_scene_paths:
         yield f.strip()
-    
+
 
 def post_messages(messages):
     """
@@ -212,9 +208,9 @@ def get_contents_and_attributes(hook, s3_filepath):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
     contents = hook.read_key(key=key, bucket_name=SENTINEL_COGS_BUCKET)
     contents_dict = json.loads(contents)
-    
+
     attributes = get_common_message_attributes(contents_dict)
-    
+
     return json.dumps(contents_dict), attributes
 
 
@@ -244,7 +240,7 @@ def publish_message(files):
     """
     hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     max_workers = 10
-   
+
     # counter for files that no longer exist
     failed = 0
 
@@ -278,7 +274,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
 
     """
     try:
-        
+
         # Read the missing stac files from the gap report file
         # print(
         #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
@@ -286,7 +282,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
 
         limit = dag_run.conf.get("limit", None)
         logging.info(f'limit - {limit}')
-        
+
         files = get_missing_stac_files(limit)
 
         publish_message(files)
@@ -299,12 +295,12 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
 
 
 with DAG(
-    "sentinel-2-gap-filler",
-    default_args=default_args,
-    schedule_interval=SCHEDULE_INTERVAL,
-    tags=["Sentinel-2", "gap-fill"],
-    catchup=False,
-    doc_md=__doc__,
+        "sentinel-2-gap-filler",
+        default_args=default_args,
+        schedule_interval=SCHEDULE_INTERVAL,
+        tags=["Sentinel-2", "gap-fill"],
+        catchup=False,
+        doc_md=__doc__,
 ) as dag:
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
