@@ -170,7 +170,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
     )
     logging.info(f"10 first missing_scenes {list(missing_scenes)[0:10]}")
-    print(f"Wrote inventory to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
+    logging.info(f"Wrote inventory to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     if len(orphaned_keys) > 0:
         output_filename = f"{date_string}_orphaned.txt"
@@ -184,16 +184,16 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
 
-        print(f"Wrote orphaned scenes to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
+        logging.info(f"Wrote orphaned scenes to: s3://{SENTINEL_2_SYNC_BUCKET_NAME}/{key}")
 
     message = (
         f"{len(missing_scenes)} scenes are missing from "
         f"s3://{SENTINEL_2_SYNC_BUCKET_NAME} and {len(orphaned_keys)} "
         f"scenes no longer exist in s3://sentinel-cogs"
     )
-    print(message)
+    logging.info(message)
 
-    if len(missing_scenes) > 200 or len(orphaned_keys) > 200:
+    if not update_stac and (len(missing_scenes) > 200 or len(orphaned_keys) > 200):
         raise AirflowException(message)
 
 
