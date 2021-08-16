@@ -8,8 +8,7 @@ the path to the gap report file.
 Eg:
 ```json
 {
-"limit": 1224,
-"update_stac": true
+"limit": 1224
 }
 """
 
@@ -48,7 +47,7 @@ default_args = {
     "email_on_failure": True,
     "email_on_retry": False,
     "retries": 0,
- #   "on_failure_callback": task_fail_slack_alert,
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -166,8 +165,7 @@ def get_missing_stac_files(limit=None):
     update_stac = False
     if 'update' in last_report:
         print('FORCED UPDATE FLAGGED!')
-        update_stac = True
-
+        
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
     missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
@@ -188,7 +186,7 @@ def get_missing_stac_files(limit=None):
 
     logging.info(f"Limited: {'No limit' if limit else limit}")
     
-    if limit:
+    if limit is not None:
         missing_scene_paths = missing_scene_paths[:int(limit)]
     
   
@@ -210,19 +208,17 @@ def post_messages(messages):
     queue.send_messages(Entries=messages)
 
 
-def get_contents_and_attributes(hook, s3_filepath, update_stac: bool = False):
+def get_contents_and_attributes(hook, s3_filepath):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
     contents = hook.read_key(key=key, bucket_name=SENTINEL_COGS_BUCKET)
     contents_dict = json.loads(contents)
     
     attributes = get_common_message_attributes(contents_dict)
-    # add update stac as attribut in case of some action is required
-    attributes["update_stac"] = update_stac
-
+    
     return json.dumps(contents_dict), attributes
 
 
-def prepare_message(hook, s3_path, update_stac: bool = False):
+def prepare_message(hook, s3_path):
     """
     Prepare a single message for each stac file
     """
@@ -231,7 +227,7 @@ def prepare_message(hook, s3_path, update_stac: bool = False):
     if not key_exists:
         raise ValueError(f"{s3_path} does not exist")
 
-    contents, attributes = get_contents_and_attributes(hook, s3_path, update_stac)
+    contents, attributes = get_contents_and_attributes(hook, s3_path)
     message = {
         "MessageBody": json.dumps(
             {
@@ -243,7 +239,7 @@ def prepare_message(hook, s3_path, update_stac: bool = False):
     return message
 
 
-def publish_message(files, update_stac):
+def publish_message(files):
     """
     """
     hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
@@ -256,7 +252,7 @@ def publish_message(files, update_stac):
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = [
-            executor.submit(prepare_message, hook, s3_path, update_stac)
+            executor.submit(prepare_message, hook, s3_path)
             for s3_path in files
         ]
 
@@ -288,11 +284,12 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
         #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
         # )
 
-        logging.info(f'limit - {dag_run.conf.get("limit", None)}')
+        limit = dag_run.conf.get("limit", None)
+        logging.info(f'limit - {limit}')
         
-        files = get_missing_stac_files(dag_run.conf.get("limit", None))
+        files = get_missing_stac_files(limit)
 
-        # publish_message(files, update_stac)
+        publish_message(files)
 
     except Exception as error:
         print(error)
