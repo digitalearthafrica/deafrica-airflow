@@ -163,6 +163,11 @@ def get_missing_stac_files(limit=None):
 
     logging.info(f'This is the last report {last_report}')
 
+    update_stac = False
+    if 'update' in last_report:
+        print('FORCED UPDATE FLAGGED!')
+        update_stac = True
+
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
     missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
@@ -209,12 +214,11 @@ def get_contents_and_attributes(hook, s3_filepath, update_stac: bool = False):
     bucket_name, key = hook.parse_s3_url(s3_filepath)
     contents = hook.read_key(key=key, bucket_name=SENTINEL_COGS_BUCKET)
     contents_dict = json.loads(contents)
-    contents_dict.update(
-        {
-            "update_stac": update_stac
-        }
-    )
+    
     attributes = get_common_message_attributes(contents_dict)
+    # add update stac as attribut in case of some action is required
+    attributes["update_stac"] = update_stac
+
     return json.dumps(contents_dict), attributes
 
 
@@ -284,13 +288,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
         #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
         # )
 
-        update_stac = False
-        if 'update' in dag_run.conf["s3_report_path"]:
-            print('FORCED UPDATE FLAGGED!')
-            update_stac = True
-            
-        logging.info('HERE')
-        logging.info(f's3_report_path {dag_run.conf.get("s3_report_path", "")} - offset - {dag_run.conf.get("offset", 0)} - limit - {dag_run.conf.get("limit", None)}')
+        logging.info(f'limit - {dag_run.conf.get("limit", None)}')
         
         files = get_missing_stac_files(dag_run.conf.get("limit", None))
 
