@@ -40,7 +40,7 @@ default_args = {
     "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
-    "email_on_failure": True,
+    "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
     "on_failure_callback": task_fail_slack_alert,
@@ -160,9 +160,10 @@ def get_missing_stac_files(limit=None):
 
     logging.info(f'This is the last report {last_report}')
 
-    update_stac = False
     if 'update' in last_report:
-        print('FORCED UPDATE FLAGGED!')
+        logging.info('FORCED UPDATE FLAGGED!')
+
+    logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
 
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
@@ -178,13 +179,11 @@ def get_missing_stac_files(limit=None):
         if scene_path
     ]
 
-    logging.info(f"Number of scenes found {len(missing_scene_paths)}")
-    logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
-
-    logging.info(f"Limited: {'No limit' if limit else limit}")
-
     if limit is not None:
         missing_scene_paths = missing_scene_paths[:int(limit)]
+
+    logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+    logging.info(f"Example scenes: {missing_scene_paths[0:10]}")
 
     for f in missing_scene_paths:
         yield f.strip()
@@ -260,12 +259,12 @@ def publish_message(files):
                     batch = []
             except Exception as exc:
                 failed += 1
-                print(f"File no longer exists: {exc}")
+                logging.info(f"File no longer exists: {exc}")
 
     if len(batch) > 0:
         post_messages(batch)
 
-    print(f"Total of {failed} files failed")
+    logging.info(f"Total of {failed} files failed")
 
 
 def prepare_and_send_messages(dag_run, **kwargs) -> None:
@@ -276,7 +275,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
     try:
 
         # Read the missing stac files from the gap report file
-        # print(
+        # logging.info(
         #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
         # )
 
@@ -288,7 +287,7 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
         publish_message(files)
 
     except Exception as error:
-        print(error)
+        logging.exception(error)
         # print traceback but does not stop execution
         traceback.print_exc()
         raise error
