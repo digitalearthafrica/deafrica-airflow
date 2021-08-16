@@ -55,49 +55,49 @@ def get_common_message_attributes(stac_doc: Dict) -> Dict:
     """
     msg_attributes = {
         "product": {
-            "DataType": "String",
-            "StringValue": PRODUCT_NAME,
+            "Type": "String",
+            "Value": PRODUCT_NAME,
         }
     }
 
     date_time = stac_doc.get("properties").get("datetime")
     if date_time:
         msg_attributes["datetime"] = {
-            "DataType": "String",
-            "StringValue": date_time,
+            "Type": "String",
+            "Value": date_time,
         }
 
     cloud_cover = stac_doc.get("properties").get("eo:cloud_cover")
     if cloud_cover:
         msg_attributes["cloudcover"] = {
-            "DataType": "Number",
-            "StringValue": str(cloud_cover),
+            "Type": "Number",
+            "Value": str(cloud_cover),
         }
 
     maturity = stac_doc.get("properties").get("dea:dataset_maturity")
     if maturity:
         msg_attributes["maturity"] = {
-            "DataType": "String",
-            "StringValue": maturity,
+            "Type": "String",
+            "Value": maturity,
         }
 
     bbox = stac_doc.get("bbox")
     if bbox and len(bbox) > 3:
         msg_attributes["bbox.ll_lon"] = {
-            "DataType": "Number",
-            "StringValue": str(bbox[0]),
+            "Type": "Number",
+            "Value": str(bbox[0]),
         }
         msg_attributes["bbox.ll_lat"] = {
-            "DataType": "Number",
-            "StringValue": str(bbox[1]),
+            "Type": "Number",
+            "Value": str(bbox[1]),
         }
         msg_attributes["bbox.ur_lon"] = {
-            "DataType": "Number",
-            "StringValue": str(bbox[2]),
+            "Type": "Number",
+            "Value": str(bbox[2]),
         }
         msg_attributes["bbox.ur_lat"] = {
-            "DataType": "Number",
-            "StringValue": str(bbox[3]),
+            "Type": "Number",
+            "Value": str(bbox[3]),
         }
 
     return msg_attributes
