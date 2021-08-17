@@ -283,8 +283,9 @@ def publish_message(files):
     if len(batch) > 0:
         post_messages(batch)
         sent += len(batch)
-
-    logging.info(f"Total of {failed} files failed, Total of sent messages {sent}")
+    if failed > 0:
+        raise ValueError(f"Total of {failed} files failed, Total of sent messages {sent}")
+    logging.info(f"Total of sent messages {sent}")
 
 
 def prepare_and_send_messages(dag_run, **kwargs) -> None:
