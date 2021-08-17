@@ -157,6 +157,8 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
 
     key = REPORTING_PREFIX + output_filename
 
+    logging.info(f"File will be saved in {key}")
+
     # Store report in the S3 bucket
     s3_report = S3(conn_id=CONN_SENTINEL_2_WRITE)
 
@@ -165,6 +167,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
         key=key,
         region=REGION,
         body=gzip.compress(str.encode("\n".join(missing_scenes))),
+        content_type="application/gzip"
     )
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
@@ -180,6 +183,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
             key=key,
             region=REGION,
             body=gzip.compress(str.encode("\n".join(orphaned_keys))),
+            content_type="application/gzip"
         )
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
