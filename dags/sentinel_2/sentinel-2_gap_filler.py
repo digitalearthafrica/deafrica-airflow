@@ -20,7 +20,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict
 
-import boto3
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.hooks.S3_hook import S3Hook
@@ -30,7 +29,7 @@ from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET, SENTINEL_COGS_AWS_REGION
+from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET
 from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 
@@ -214,29 +213,13 @@ def get_contents_and_attributes(hook, s3_filepath):
     return json.dumps(contents_dict), attributes
 
 
-def check_key(key):
-    try:
-        s3_client = boto3.client("s3", region_name=SENTINEL_COGS_AWS_REGION)
-        s3_client.head_object(
-            Bucket=SENTINEL_COGS_BUCKET,
-            Key=key,
-        )
-        return True
-    except Exception:
-        return False
-
-
 def prepare_message(hook, s3_path):
     """
     Prepare a single message for each stac file
     """
-
     key_exists = hook.check_for_key(s3_path)
-    bucket_name, key = hook.parse_s3_url(s3_path)
-    checked = check_key(key)
     logging.info(f"key_exists : {key_exists}")
-    logging.info(f"checked : {checked}")
-    if not checked:
+    if not key_exists:
         raise ValueError(f"{s3_path} does not exist")
 
     contents, attributes = get_contents_and_attributes(hook, s3_path)
@@ -294,11 +277,6 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
 
     """
     try:
-
-        # Read the missing stac files from the gap report file
-        # logging.info(
-        #    f"Reading rows {dag_run.conf['offset']} to {dag_run.conf['limit']} from {dag_run.conf['s3_report_path']}"
-        # )
 
         limit = dag_run.conf.get("limit", None)
         logging.info(f'limit - {limit}')
