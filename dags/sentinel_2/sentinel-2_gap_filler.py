@@ -218,7 +218,6 @@ def prepare_message(hook, s3_path):
     Prepare a single message for each stac file
     """
     key_exists = hook.check_for_key(s3_path)
-    logging.info(f"key_exists : {key_exists}")
     if not key_exists:
         raise ValueError(f"{s3_path} does not exist")
 
