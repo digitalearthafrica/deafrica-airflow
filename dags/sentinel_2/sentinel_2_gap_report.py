@@ -104,8 +104,6 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
     """
     logging.info("Process started")
 
-    orphaned_keys = []
-
     # Create connection to the inventory S3 bucket
     s3_inventory_destination = InventoryUtils(
         conn=CONN_SENTINEL_2_SYNC,
@@ -121,41 +119,42 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
 
     date_string = datetime.now().strftime("%Y-%m-%d")
 
-    if not update_stac:
-        # Create connection to the inventory S3 bucket
-        s3_inventory_source = InventoryUtils(
-            conn=CONN_SENTINEL_2_SYNC,
-            bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
-            region=SENTINEL_COGS_AWS_REGION,
-        )
-        logging.info(
-            f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {SENTINEL_COGS_AWS_REGION}"
-        )
+    # Create connection to the inventory S3 bucket
+    s3_inventory_source = InventoryUtils(
+        conn=CONN_SENTINEL_2_SYNC,
+        bucket_name=SENTINEL_COGS_INVENTORY_BUCKET,
+        region=SENTINEL_COGS_AWS_REGION,
+    )
+    logging.info(
+        f"Connected to S3 source {SENTINEL_COGS_INVENTORY_BUCKET} - {SENTINEL_COGS_AWS_REGION}"
+    )
 
-        # Retrieve keys from inventory bucket
-        source_keys = get_and_filter_source_keys(s3_bucket_client=s3_inventory_source)
+    # Retrieve keys from inventory bucket
+    source_keys = get_and_filter_source_keys(s3_bucket_client=s3_inventory_source)
 
-        # Keys that are missing, they are in the source but not in the bucket
-        missing_scenes = set(
-            f"s3://sentinel-cogs/{key}"
-            for key in source_keys
-            if key not in destination_keys
-        )
+    # Keys that are missing, they are in the source but not in the bucket
+    missing_scenes = set(
+        f"s3://sentinel-cogs/{key}"
+        for key in source_keys
+        if key not in destination_keys
+    )
 
-        # Keys that are lost, they are in the bucket but not found in the files
-        orphaned_keys = destination_keys.difference(source_keys)
+    # Keys that are lost, they are in the bucket but not found in the files
+    orphaned_keys = destination_keys.difference(source_keys)
 
-        output_filename = f"{date_string}.txt.gz"
+    output_filename = f"{date_string}.txt.gz"
 
-    else:
+    if update_stac:
         logging.info('FORCED UPDATE ACTIVE!')
         missing_scenes = set(
             f"s3://sentinel-cogs/{key}"
-            for key in destination_keys
+            for key in source_keys
         )
         output_filename = f"{date_string}_update.txt.gz"
 
     key = REPORTING_PREFIX + output_filename
+
+    logging.info(f"File will be saved in {key}")
 
     # Store report in the S3 bucket
     s3_report = S3(conn_id=CONN_SENTINEL_2_WRITE)
@@ -165,6 +164,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
         key=key,
         region=REGION,
         body=gzip.compress(str.encode("\n".join(missing_scenes))),
+        content_type="application/gzip"
     )
     logging.info(
         f"missing_scenes {missing_scenes if len(missing_scenes) < 100 else list(missing_scenes)[0:2]}"
@@ -180,6 +180,7 @@ def generate_buckets_diff(update_stac: bool = False) -> None:
             key=key,
             region=REGION,
             body=gzip.compress(str.encode("\n".join(orphaned_keys))),
+            content_type="application/gzip"
         )
 
         logging.info(f"10 first orphaned_keys {orphaned_keys[0:10]}")
