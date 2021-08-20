@@ -294,7 +294,7 @@ def terminate(**kwargs):
 
 
 MISSING_STAC_FILES_TASK_ID = "missing_stac_files_task"
-DAG_NAME = "sentinel-2-gap-filler"
+DAG_NAME = "sentinel-2-gap-filler-TESTING"
 
 with DAG(
         dag_id=DAG_NAME,
