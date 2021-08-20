@@ -219,10 +219,10 @@ def get_contents_and_attributes(s3_filepath):
     bucket_name, key = parse_s3_url(s3_filepath)
 
     contents = s3.get_object(
-                bucket_name=bucket_name,
-                key=str(key),
-                region=SENTINEL_COGS_AWS_REGION,
-            )
+        bucket_name=bucket_name,
+        key=str(key),
+        region=SENTINEL_COGS_AWS_REGION,
+    ).get("Body").read()
     contents_dict = json.loads(contents)
 
     attributes = get_common_message_attributes(contents_dict)
