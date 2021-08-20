@@ -151,7 +151,7 @@ def find_latest_report(update_stac: bool = False) -> str:
     return list_reports[-1]
 
 
-def get_missing_stac_files(limit=None, **kwargs):
+def get_missing_stac_files():
     """
     read the gap report
     """
@@ -162,8 +162,6 @@ def get_missing_stac_files(limit=None, **kwargs):
 
     if 'update' in last_report:
         logging.info('FORCED UPDATE FLAGGED!')
-
-    logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
 
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
@@ -178,9 +176,6 @@ def get_missing_stac_files(limit=None, **kwargs):
         for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
         if scene_path
     )
-
-    if limit is not None:
-        missing_scene_paths = list(missing_scene_paths)[:int(limit)]
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
     logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
@@ -275,22 +270,23 @@ def prepare_and_send_messages(dag_run, **kwargs) -> None:
 
     """
     try:
-        publish_message(files)
+
+        limit = dag_run.conf.get("limit", None)
+
+        logging.info(f'limit - {limit}')
+
+        logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
+
+        # if limit is not None:
+        #     missing_scene_paths = list(missing_scene_paths)[:int(limit)]
+        #
+        # publish_message(files)
 
     except Exception as error:
         logging.exception(error)
         # print traceback but does not stop execution
         traceback.print_exc()
         raise error
-
-
-def terminate(**kwargs):
-    """
-    Function to present the processed time
-    :param kwargs:
-    :return:
-    """
-    print("END")
 
 
 MISSING_STAC_FILES_TASK_ID = "missing_stac_files_task"
@@ -304,19 +300,12 @@ with DAG(
         catchup=False,
         doc_md=__doc__,
 ) as dag:
-    missing_files = get_missing_stac_files("{{ dag_run.conf.limit }}")
 
-    END = PythonOperator(
-        task_id="end-tasks",
-        python_callable=terminate,
-        op_kwargs=dict(),
+    missing_files = get_missing_stac_files()
+
+    PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
+        task_id="publish_messages_for_missing_scenes",
+        python_callable=prepare_and_send_messages,
         provide_context=True,
+        on_success_callback=task_success_slack_alert,
     )
-
-    # PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
-    #     task_id="publish_messages_for_missing_scenes",
-    #     python_callable=prepare_and_send_messages,
-    #     provide_context=True,
-    #     on_success_callback=task_success_slack_alert,
-    #     op_args=[DAG_NAME, MISSING_STAC_FILES_TASK_ID],
-    # )
