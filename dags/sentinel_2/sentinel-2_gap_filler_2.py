@@ -8,7 +8,7 @@ the path to the gap report file.
 Eg:
 ```json
 {
-"limit": 1224
+"limit": 1234
 }
 """
 
@@ -307,7 +307,7 @@ with DAG(
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
-        # provide_context=True,
         op_args=["{{ dag_run.conf.limit }}", missing_files],
-        # on_success_callback=task_success_slack_alert,
+        # provide_context=True,
+        on_success_callback=task_success_slack_alert,
     )
