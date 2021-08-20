@@ -264,16 +264,17 @@ def publish_message(files):
     logging.info(f"Total of sent messages {sent}")
 
 
-def prepare_and_send_messages(dag_run, **kwargs) -> None:
+def prepare_and_send_messages(limit, missing_files, **kwargs) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
     """
     try:
 
-        limit = dag_run.conf.get("limit", None)
+        # limit = dag_run.conf.get("limit", None)
 
         logging.info(f'limit - {limit}')
+        logging.info(f'missing_files - {missing_files}')
 
         logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
 
@@ -306,6 +307,7 @@ with DAG(
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
-        provide_context=True,
-        on_success_callback=task_success_slack_alert,
+        # provide_context=True,
+        op_args=["{{ dag_run.conf.limit }}", missing_files],
+        # on_success_callback=task_success_slack_alert,
     )
