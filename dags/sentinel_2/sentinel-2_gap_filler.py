@@ -19,6 +19,7 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from typing import Dict
+from urllib.parse import urlparse
 
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
@@ -29,7 +30,7 @@ from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET
+from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET, SENTINEL_COGS_AWS_REGION
 from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 
@@ -45,6 +46,16 @@ default_args = {
     "retries": 0,
     "on_failure_callback": task_fail_slack_alert,
 }
+
+
+def parse_s3_url(s3url):
+    parsed_url = urlparse(s3url)
+    if not parsed_url.netloc:
+        raise Exception(f'Please provide a bucket_name instead of {s3url}')
+    else:
+        bucket_name = parsed_url.netloc
+        key = parsed_url.path.strip('/')
+        return bucket_name, key
 
 
 def get_common_message_attributes(stac_doc: Dict) -> Dict:
@@ -203,9 +214,15 @@ def post_messages(messages):
     queue.send_messages(Entries=messages)
 
 
-def get_contents_and_attributes(hook, s3_filepath):
-    bucket_name, key = hook.parse_s3_url(s3_filepath)
-    contents = hook.read_key(key=key, bucket_name=SENTINEL_COGS_BUCKET)
+def get_contents_and_attributes(s3_filepath):
+    s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
+    bucket_name, key = parse_s3_url(s3_filepath)
+
+    contents = s3.get_object(
+                bucket_name=bucket_name,
+                key=str(key),
+                region=SENTINEL_COGS_AWS_REGION,
+            )
     contents_dict = json.loads(contents)
 
     attributes = get_common_message_attributes(contents_dict)
@@ -213,15 +230,23 @@ def get_contents_and_attributes(hook, s3_filepath):
     return json.dumps(contents_dict), attributes
 
 
-def prepare_message(hook, s3_path):
+def prepare_message(s3_path):
     """
     Prepare a single message for each stac file
     """
-    key_exists = hook.check_for_key(s3_path)
+    s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
+
+    bucket_name, key = parse_s3_url(s3_path)
+    key_exists = s3.check_for_key(
+        bucket_name=bucket_name,
+        region=SENTINEL_COGS_AWS_REGION,
+        key=key,
+    )
+
     if not key_exists:
         raise ValueError(f"{s3_path} does not exist")
 
-    contents, attributes = get_contents_and_attributes(hook, s3_path)
+    contents, attributes = get_contents_and_attributes(s3_path)
     message = {
         "MessageBody": json.dumps(
             {
@@ -236,27 +261,29 @@ def prepare_message(hook, s3_path):
 def publish_message(files):
     """
     """
-    hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
     max_workers = 300
-
     # counter for files that no longer exist
     failed = 0
     sent = 0
 
     batch = []
 
-    for s3_path in files:
-        try:
-            batch.append(
-                prepare_message(hook, s3_path)
-            )
-            if len(batch) == 10:
-                post_messages(batch)
-                batch = []
-                sent += 10
-        except Exception as exc:
-            failed += 1
-            logging.info(f"File no longer exists: {exc}")
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(prepare_message, s3_path)
+            for s3_path in files
+        ]
+
+        for future in as_completed(futures):
+            try:
+                batch.append(future.result())
+                if len(batch) == 10:
+                    post_messages(batch)
+                    batch = []
+                    sent += 10
+            except Exception as exc:
+                failed += 1
+                logging.info(f"File no longer exists: {exc}")
 
     if len(batch) > 0:
         post_messages(batch)
