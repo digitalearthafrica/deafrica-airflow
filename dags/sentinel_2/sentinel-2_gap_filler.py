@@ -245,22 +245,18 @@ def publish_message(files):
 
     batch = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [
-            executor.submit(prepare_message, hook, s3_path)
-            for s3_path in files
-        ]
-
-        for future in as_completed(futures):
-            try:
-                batch.append(future.result())
-                if len(batch) == 10:
-                    post_messages(batch)
-                    batch = []
-                    sent += 10
-            except Exception as exc:
-                failed += 1
-                logging.info(f"File no longer exists: {exc}")
+    for s3_path in files:
+        try:
+            batch.append(
+                prepare_message(hook, s3_path)
+            )
+            if len(batch) == 10:
+                post_messages(batch)
+                batch = []
+                sent += 10
+        except Exception as exc:
+            failed += 1
+            logging.info(f"File no longer exists: {exc}")
 
     if len(batch) > 0:
         post_messages(batch)
