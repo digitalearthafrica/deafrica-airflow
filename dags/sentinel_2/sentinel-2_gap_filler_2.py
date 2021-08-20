@@ -39,17 +39,15 @@ SCHEDULE_INTERVAL = None
 # maximum number of active runs for this DAG. The scheduler will not create new active DAG runs once this limit is hit.
 # Defaults to core.max_active_runs_per_dag if not set
 MAX_ACTIVE_RUNS = 30
-# the number of task instances allowed to run concurrently across all active runs of the DAG this is set on.
-# Defaults to core.dag_concurrency if not set
-CONCURRENCY = 50 * MAX_ACTIVE_RUNS
 
-default_args = {
+DEFAULT_ARGS = {
     "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
+    "limit_of_processes": 30,
     "on_failure_callback": task_fail_slack_alert,
 }
 
@@ -182,20 +180,18 @@ def get_missing_stac_files():
         scene_path.strip()
         for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
         if scene_path
-    )[0:100]
-    # missing_scene_paths = set(
-    #     scene_path.strip()
-    #     for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
-    #     if scene_path
-    # )
+    )[0:3000]
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
-    logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
+    logging.info(f"Number of scenes found {missing_scene_paths}")
 
-    for i in range(0, len(missing_scene_paths), 10):
-        yield missing_scene_paths[i:i + 10]
-    # for i in range(0, len(missing_scene_paths), CONCURRENCY):
-    #     yield missing_scene_paths[i:i + CONCURRENCY]
+    # logging.info(f"Number of scenes found {len(missing_scene_paths)}")
+    # logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
+    #
+    return [
+        missing_scene_paths[i:i + DEFAULT_ARGS["limit_of_processes"]]
+        for i in range(0, len(missing_scene_paths), DEFAULT_ARGS["limit_of_processes"])
+    ]
 
 
 def post_messages(messages):
@@ -246,7 +242,6 @@ def publish_message(files):
     """
     """
     hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    max_workers = 10
 
     # counter for files that no longer exist
     failed = 0
@@ -254,7 +249,7 @@ def publish_message(files):
 
     batch = []
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=300) as executor:
         futures = [
             executor.submit(prepare_message, hook, s3_path)
             for s3_path in files
@@ -264,7 +259,7 @@ def publish_message(files):
             try:
                 batch.append(future.result())
                 if len(batch) == 10:
-                    post_messages(batch)
+                    # post_messages(batch)
                     batch = []
                     sent += 10
             except Exception as exc:
@@ -272,34 +267,26 @@ def publish_message(files):
                 logging.info(f"File no longer exists: {exc}")
 
     if len(batch) > 0:
-        post_messages(batch)
+        # post_messages(batch)
         sent += len(batch)
     if failed > 0:
         raise ValueError(f"Total of {failed} files failed, Total of sent messages {sent}")
     logging.info(f"Total of sent messages {sent}")
 
 
-def prepare_and_send_messages(limit, missing_file, **kwargs) -> None:
+def prepare_and_send_messages(limit, missing_files_chunk, **kwargs) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
     """
     try:
 
-        # limit = dag_run.conf.get("limit", None)
-
-        logging.info(f'limit - {limit}')
-        logging.info(f'missing_files - {missing_files}')
-
         logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
 
-        for f in missing_file:
-            print("it would send here")
+        if limit is not None:
+            missing_files_chunk = missing_files_chunk[:int(limit)]
 
-        # if limit is not None:
-        #     missing_scene_paths = list(missing_scene_paths)[:int(limit)]
-        #
-        # publish_message(files)
+        publish_message(missing_files_chunk)
 
     except Exception as error:
         logging.exception(error)
@@ -313,23 +300,29 @@ DAG_NAME = "sentinel-2-gap-filler-TESTING"
 
 with DAG(
         dag_id=DAG_NAME,
-        default_args=default_args,
+        default_args=DEFAULT_ARGS,
         schedule_interval=SCHEDULE_INTERVAL,
         tags=["Sentinel-2", "gap-fill"],
         max_active_runs=MAX_ACTIVE_RUNS,
-        concurrency=CONCURRENCY,
         catchup=False,
         doc_md=__doc__,
 ) as dag:
-    missing_files = get_missing_stac_files()
+    missing_file_chunks = get_missing_stac_files()
+
+    max_processes = (
+        DEFAULT_ARGS["limit_of_processes"]
+        if len(missing_file_chunks) > DEFAULT_ARGS["limit_of_processes"]
+        else len(missing_file_chunks)
+    )
 
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = [
         PythonOperator(
-            task_id="publish_messages_for_missing_scenes",
+            task_id=f"publish_messages_worker_{idx}",
             python_callable=prepare_and_send_messages,
-            op_args=["{{ dag_run.conf.limit }}", missing_file],
-            # provide_context=True,
+            op_args=["{{ dag_run.conf.limit }}", missing_file_chunks[idx]],
             on_success_callback=task_success_slack_alert,
         )
-        for missing_file in missing_files
+        for idx in range(max_processes)
     ]
+
+    PUBLISH_MESSAGES_FOR_MISSING_SCENES
