@@ -15,6 +15,7 @@ Eg:
 import gzip
 import json
 import logging
+import math
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -47,7 +48,7 @@ DEFAULT_ARGS = {
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
-    "limit_of_processes": 30,
+    "limit_of_processes": 50,
     "on_failure_callback": task_fail_slack_alert,
 }
 
@@ -176,21 +177,23 @@ def get_missing_stac_files():
         key=last_report,
     )
 
-    missing_scene_paths = list(
+    missing_scene_paths = [
         scene_path.strip()
         for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
         if scene_path
-    )[0:3000]
+    ][0:3000]  # Todo remove limit when go to PROD
+
+    if len(missing_scene_paths) < 1:
+        raise Exception('No Items found')
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
-    logging.info(f"Number of scenes found {missing_scene_paths}")
+    logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
 
-    # logging.info(f"Number of scenes found {len(missing_scene_paths)}")
-    # logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
-    #
+    # This code will create chunks of 50 scenes and run over the workers
+    max_list_items = math.ceil(len(missing_scene_paths) / DEFAULT_ARGS["limit_of_processes"])
     return [
-        missing_scene_paths[i:i + DEFAULT_ARGS["limit_of_processes"]]
-        for i in range(0, len(missing_scene_paths), DEFAULT_ARGS["limit_of_processes"])
+        missing_scene_paths[i:i + max_list_items]
+        for i in range(0, len(missing_scene_paths), max_list_items)
     ]
 
 
@@ -309,12 +312,7 @@ with DAG(
 ) as dag:
     missing_file_chunks = get_missing_stac_files()
 
-    max_processes = (
-        DEFAULT_ARGS["limit_of_processes"]
-        if len(missing_file_chunks) > DEFAULT_ARGS["limit_of_processes"]
-        else len(missing_file_chunks)
-    )
-
+    # TODO Do not run for lower than 50 items in the file
     PUBLISH_MESSAGES_FOR_MISSING_SCENES = [
         PythonOperator(
             task_id=f"publish_messages_worker_{idx}",
@@ -322,7 +320,7 @@ with DAG(
             op_args=["{{ dag_run.conf.limit }}", missing_file_chunks[idx]],
             on_success_callback=task_success_slack_alert,
         )
-        for idx in range(max_processes)
+        for idx in range(DEFAULT_ARGS["limit_of_processes"])
     ]
 
     PUBLISH_MESSAGES_FOR_MISSING_SCENES
