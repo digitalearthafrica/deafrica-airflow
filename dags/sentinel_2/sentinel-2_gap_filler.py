@@ -237,7 +237,7 @@ def publish_message(files):
     """
     """
     hook = S3Hook(aws_conn_id=CONN_SENTINEL_2_SYNC)
-    max_workers = 10
+    max_workers = 300
 
     # counter for files that no longer exist
     failed = 0
