@@ -36,6 +36,13 @@ from utils.aws_utils import S3
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = None
 
+# maximum number of active runs for this DAG. The scheduler will not create new active DAG runs once this limit is hit.
+# Defaults to core.max_active_runs_per_dag if not set
+MAX_ACTIVE_RUNS = 30
+# the number of task instances allowed to run concurrently across all active runs of the DAG this is set on.
+# Defaults to core.dag_concurrency if not set
+CONCURRENCY = 50 * MAX_ACTIVE_RUNS
+
 default_args = {
     "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
@@ -171,16 +178,24 @@ def get_missing_stac_files():
         key=last_report,
     )
 
-    missing_scene_paths = set(
+    missing_scene_paths = list(
         scene_path.strip()
         for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
         if scene_path
-    )
+    )[0:100]
+    # missing_scene_paths = set(
+    #     scene_path.strip()
+    #     for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
+    #     if scene_path
+    # )
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
     logging.info(f"Example scenes: {list(missing_scene_paths)[0:10]}")
 
-    return missing_scene_paths
+    for i in range(0, len(missing_scene_paths), 10):
+        yield missing_scene_paths[i:i + 10]
+    # for i in range(0, len(missing_scene_paths), CONCURRENCY):
+    #     yield missing_scene_paths[i:i + CONCURRENCY]
 
 
 def post_messages(messages):
@@ -264,7 +279,7 @@ def publish_message(files):
     logging.info(f"Total of sent messages {sent}")
 
 
-def prepare_and_send_messages(limit, missing_files, **kwargs) -> None:
+def prepare_and_send_messages(limit, missing_file, **kwargs) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
@@ -277,6 +292,9 @@ def prepare_and_send_messages(limit, missing_files, **kwargs) -> None:
         logging.info(f'missing_files - {missing_files}')
 
         logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
+
+        for f in missing_file:
+            print("it would send here")
 
         # if limit is not None:
         #     missing_scene_paths = list(missing_scene_paths)[:int(limit)]
@@ -298,16 +316,20 @@ with DAG(
         default_args=default_args,
         schedule_interval=SCHEDULE_INTERVAL,
         tags=["Sentinel-2", "gap-fill"],
+        max_active_runs=MAX_ACTIVE_RUNS,
+        concurrency=CONCURRENCY,
         catchup=False,
         doc_md=__doc__,
 ) as dag:
-
     missing_files = get_missing_stac_files()
 
-    PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
-        task_id="publish_messages_for_missing_scenes",
-        python_callable=prepare_and_send_messages,
-        op_args=["{{ dag_run.conf.limit }}", missing_files],
-        # provide_context=True,
-        on_success_callback=task_success_slack_alert,
-    )
+    PUBLISH_MESSAGES_FOR_MISSING_SCENES = [
+        PythonOperator(
+            task_id="publish_messages_for_missing_scenes",
+            python_callable=prepare_and_send_messages,
+            op_args=["{{ dag_run.conf.limit }}", missing_file],
+            # provide_context=True,
+            on_success_callback=task_success_slack_alert,
+        )
+        for missing_file in missing_files
+    ]
