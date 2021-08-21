@@ -315,13 +315,14 @@ def prepare_and_send_messages(
         if max_list_items < 1:
             raise Exception('Files not found.')
 
+        if idx >= max_list_items:
+            logging.info("Got into the exception")
+            raise AirflowSkipException
+
         iter_list = [
             files[i:i + max_list_items]
             for i in range(0, len(files), max_list_items)
-        ]
-
-        if idx >= max_list_items:
-            raise AirflowSkipException
+        ][idx]
 
         logging.info(f"Here pushes to the queue {iter_list}")
         # publish_message(files)
@@ -355,14 +356,16 @@ with DAG(
         }
     )
 
-    PUBLISH_MISSING_SCENES = [
-        PythonOperator(
-            task_id="publish_messages_for_missing_scenes",
-            python_callable=prepare_and_send_messages,
-            op_args=[GET_SCENES_TASK_NAME, idx],
-            provide_context=True,
-            # on_success_callback=task_success_slack_alert,
-        ) for idx in range(DEFAULT_ARGS["limit_of_processes"])
-    ]
+    PUBLISH_MISSING_SCENES = []
+    for idx in range(DEFAULT_ARGS["limit_of_processes"]):
+        PUBLISH_MISSING_SCENES.append(
+            PythonOperator(
+                task_id="publish_messages_for_missing_scenes",
+                python_callable=prepare_and_send_messages,
+                op_args=[GET_SCENES_TASK_NAME, idx],
+                provide_context=True,
+                # on_success_callback=task_success_slack_alert,
+            )
+        )
 
     GET_SCENES >> PUBLISH_MISSING_SCENES
