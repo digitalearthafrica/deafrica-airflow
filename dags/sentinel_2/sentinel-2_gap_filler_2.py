@@ -37,6 +37,7 @@ from utils.aws_utils import S3
 
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = None
+NUN_WORKERS = 10
 
 DEFAULT_ARGS = {
     "owner": "RODRIGO",
@@ -45,7 +46,6 @@ DEFAULT_ARGS = {
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
-    "limit_of_processes": 10,
     # "on_failure_callback": task_fail_slack_alert,
 }
 
@@ -311,7 +311,7 @@ def prepare_and_send_messages(
         logging.info(f"IDX {idx}")
 
         # This code will create chunks of 50 scenes and run over the workers
-        max_list_items = math.ceil(len(files) / DEFAULT_ARGS["limit_of_processes"])
+        max_list_items = math.ceil(len(files) / NUN_WORKERS)
         if max_list_items < 1:
             raise Exception('Files not found.')
 
@@ -357,7 +357,7 @@ with DAG(
     )
 
     PUBLISH_MISSING_SCENES = []
-    for idx in range(DEFAULT_ARGS["limit_of_processes"]):
+    for idx in range(NUN_WORKERS):
         PUBLISH_MISSING_SCENES.append(
             PythonOperator(
                 task_id="publish_messages_for_missing_scenes",
