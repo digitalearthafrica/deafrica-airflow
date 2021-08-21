@@ -23,14 +23,13 @@ from urllib.parse import urlparse
 
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
-from airflow.hooks.S3_hook import S3Hook
 from airflow.operators.python_operator import PythonOperator
 
 from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
 from infra.sqs_queues import SENTINEL_2_SYNC_SQS_NAME
 from infra.variables import REGION
-from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_BUCKET, SENTINEL_COGS_AWS_REGION
+from sentinel_2.variables import REPORTING_PREFIX, SENTINEL_COGS_AWS_REGION
 from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 
@@ -44,7 +43,7 @@ default_args = {
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
-    "on_failure_callback": task_fail_slack_alert,
+    # "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -310,6 +309,7 @@ def prepare_and_send_messages(
                 )
             )
             logging.info(f"FILES {len(files)}")
+            logging.info(f"FILES {[f for f in files][:10]}")
             # publish_message(files)
 
     except Exception as error:
@@ -330,16 +330,18 @@ with DAG(
         doc_md=__doc__,
 ) as dag:
 
-    SET_PRODUCTS = PythonOperator(
+    GET_SCENES = PythonOperator(
         task_id=GET_SCENES_TASK_NAME,
         python_callable=get_missing_stac_files,
         op_args=["{{ dag_run.conf.limit }}"],
         # provide_context=True,
     )
 
-    PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
+    PUBLISH_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         op_args=[DAG_NAME, GET_SCENES_TASK_NAME],
-        on_success_callback=task_success_slack_alert,
+        # on_success_callback=task_success_slack_alert,
     )
+
+    GET_SCENES >> PUBLISH_MISSING_SCENES
