@@ -294,13 +294,17 @@ def publish_message(files):
 
 def prepare_and_send_messages(
         parent_dag_name: str,
-        xcom_task_id: str = None
+        xcom_task_id: str = None,
+        **context
 ) -> None:
     """
     Function to retrieve the latest gap report and create messages to the filter queue process.
 
     """
     try:
+        files1 = context['ti'].xcom_pull(task_ids=xcom_task_id)
+        logging.info(f"FILES {len(files1)}")
+        logging.info(f"FILES {[f for f in files1][:10]}")
 
         if xcom_task_id:
             files = (
@@ -329,18 +333,23 @@ with DAG(
         catchup=False,
         doc_md=__doc__,
 ) as dag:
-
     GET_SCENES = PythonOperator(
         task_id=GET_SCENES_TASK_NAME,
         python_callable=get_missing_stac_files,
         op_args=["{{ dag_run.conf.limit }}"],
         provide_context=True,
+        templates_dict={
+            'missing_scenes': "{{ ti.xcom_pull(task_ids={GET_SCENES_TASK_NAME}) }}".format(
+                GET_SCENES_TASK_NAME=GET_SCENES_TASK_NAME
+            )
+        }
     )
 
     PUBLISH_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         op_args=[DAG_NAME, GET_SCENES_TASK_NAME],
+        provide_context=True,
         # on_success_callback=task_success_slack_alert,
     )
 
