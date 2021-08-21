@@ -310,6 +310,7 @@ def prepare_and_send_messages(
                 )
             )
             logging.info(f"FILES {len(files)}")
+            logging.info(f"FILES {[f for f in files][:10]}")
             # publish_message(files)
 
     except Exception as error:
@@ -330,16 +331,18 @@ with DAG(
         doc_md=__doc__,
 ) as dag:
 
-    SET_PRODUCTS = PythonOperator(
+    GET_SCENES = PythonOperator(
         task_id=GET_SCENES_TASK_NAME,
         python_callable=get_missing_stac_files,
         op_args=["{{ dag_run.conf.limit }}"],
         # provide_context=True,
     )
 
-    PUBLISH_MESSAGES_FOR_MISSING_SCENES = PythonOperator(
+    PUBLISH_MISSING_SCENES = PythonOperator(
         task_id="publish_messages_for_missing_scenes",
         python_callable=prepare_and_send_messages,
         op_args=[DAG_NAME, GET_SCENES_TASK_NAME],
         on_success_callback=task_success_slack_alert,
     )
+
+    GET_SCENES >> PUBLISH_MISSING_SCENES
