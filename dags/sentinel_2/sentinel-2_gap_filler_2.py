@@ -361,7 +361,7 @@ with DAG(
     for idx in range(NUN_WORKERS):
         PUBLISH_MISSING_SCENES.append(
             PythonOperator(
-                task_id="publish_messages_for_missing_scenes",
+                task_id=f"publish_messages_for_missing_scenes_{idx}",
                 python_callable=prepare_and_send_messages,
                 op_args=[GET_SCENES_TASK_NAME, idx],
                 provide_context=True,
