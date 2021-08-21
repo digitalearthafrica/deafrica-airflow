@@ -344,6 +344,8 @@ with DAG(
         catchup=False,
         doc_md=__doc__,
 ) as dag:
+    PUBLISH_MISSING_SCENES = []
+
     GET_SCENES = PythonOperator(
         task_id=GET_SCENES_TASK_NAME,
         python_callable=get_missing_stac_files,
@@ -356,7 +358,6 @@ with DAG(
         }
     )
 
-    PUBLISH_MISSING_SCENES = []
     for idx in range(NUN_WORKERS):
         PUBLISH_MISSING_SCENES.append(
             PythonOperator(
