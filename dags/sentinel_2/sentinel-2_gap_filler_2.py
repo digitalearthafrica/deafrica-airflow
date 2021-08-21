@@ -15,6 +15,7 @@ Eg:
 import gzip
 import json
 import logging
+import math
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
@@ -24,6 +25,7 @@ from urllib.parse import urlparse
 from airflow import DAG
 from airflow.contrib.sensors.aws_sqs_sensor import SQSHook
 from airflow.operators.python_operator import PythonOperator
+from airflow.exceptions import AirflowSkipException
 
 from infra.connections import CONN_SENTINEL_2_SYNC
 from infra.s3_buckets import SENTINEL_2_SYNC_BUCKET_NAME
@@ -36,13 +38,14 @@ from utils.aws_utils import S3
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = None
 
-default_args = {
+DEFAULT_ARGS = {
     "owner": "RODRIGO",
     "start_date": datetime(2020, 7, 24),
     "email": ["systems@digitalearthafrica.org"],
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
+    "limit_of_processes": 10,
     # "on_failure_callback": task_fail_slack_alert,
 }
 
@@ -293,8 +296,8 @@ def publish_message(files):
 
 
 def prepare_and_send_messages(
-        parent_dag_name: str,
-        xcom_task_id: str = None,
+        xcom_task_id: str,
+        idx,
         **context
 ) -> None:
     """
@@ -302,19 +305,26 @@ def prepare_and_send_messages(
 
     """
     try:
-        files1 = context['ti'].xcom_pull(task_ids=xcom_task_id)
-        logging.info(f"FILES {len(files1)}")
-        logging.info(f"FILES {[f for f in files1][:10]}")
+        files = context['ti'].xcom_pull(task_ids=xcom_task_id)
+        logging.info(f"FILES {len(files)}")
+        logging.info(f"FILES {[f for f in files][:10]}")
+        logging.info(f"IDX {idx}")
 
-        if xcom_task_id:
-            files = (
-                "{{{{ task_instance.xcom_pull(dag_id='{}', task_ids='{}') }}}}".format(
-                    parent_dag_name, xcom_task_id
-                )
-            )
-            logging.info(f"FILES {len(files)}")
-            logging.info(f"FILES {[f for f in files][:10]}")
-            # publish_message(files)
+        # This code will create chunks of 50 scenes and run over the workers
+        max_list_items = math.ceil(len(files) / DEFAULT_ARGS["limit_of_processes"])
+        if max_list_items < 1:
+            raise Exception('Files not found.')
+
+        iter_list = [
+            files[i:i + max_list_items]
+            for i in range(0, len(files), max_list_items)
+        ]
+
+        if idx >= max_list_items:
+            raise AirflowSkipException
+
+        logging.info(f"Here pushes to the queue {iter_list}")
+        # publish_message(files)
 
     except Exception as error:
         logging.exception(error)
@@ -327,7 +337,7 @@ GET_SCENES_TASK_NAME = "gap_scenes"
 DAG_NAME = "sentinel-2-gap-filler-2"
 with DAG(
         DAG_NAME,
-        default_args=default_args,
+        default_args=DEFAULT_ARGS,
         schedule_interval=SCHEDULE_INTERVAL,
         tags=["Sentinel-2", "gap-fill"],
         catchup=False,
@@ -345,12 +355,14 @@ with DAG(
         }
     )
 
-    PUBLISH_MISSING_SCENES = PythonOperator(
-        task_id="publish_messages_for_missing_scenes",
-        python_callable=prepare_and_send_messages,
-        op_args=[DAG_NAME, GET_SCENES_TASK_NAME],
-        provide_context=True,
-        # on_success_callback=task_success_slack_alert,
-    )
+    PUBLISH_MISSING_SCENES = [
+        PythonOperator(
+            task_id="publish_messages_for_missing_scenes",
+            python_callable=prepare_and_send_messages,
+            op_args=[GET_SCENES_TASK_NAME, idx],
+            provide_context=True,
+            # on_success_callback=task_success_slack_alert,
+        ) for idx in range(DEFAULT_ARGS["limit_of_processes"])
+    ]
 
     GET_SCENES >> PUBLISH_MISSING_SCENES
