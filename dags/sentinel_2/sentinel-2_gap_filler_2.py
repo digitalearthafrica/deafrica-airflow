@@ -161,7 +161,7 @@ def find_latest_report(update_stac: bool = False) -> str:
     return list_reports[-1]
 
 
-def get_missing_stac_files(limit=None):
+def get_missing_stac_files(limit=None, **context):
     """
     read the gap report
     """
@@ -334,7 +334,7 @@ with DAG(
         task_id=GET_SCENES_TASK_NAME,
         python_callable=get_missing_stac_files,
         op_args=["{{ dag_run.conf.limit }}"],
-        # provide_context=True,
+        provide_context=True,
     )
 
     PUBLISH_MISSING_SCENES = PythonOperator(
