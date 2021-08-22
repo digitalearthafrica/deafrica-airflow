@@ -37,7 +37,7 @@ from utils.aws_utils import S3
 
 PRODUCT_NAME = "s2_l2a"
 SCHEDULE_INTERVAL = None
-NUN_WORKERS = 10
+NUN_WORKERS = 30
 
 DEFAULT_ARGS = {
     "owner": "RODRIGO",
@@ -46,7 +46,7 @@ DEFAULT_ARGS = {
     "email_on_failure": False,
     "email_on_retry": False,
     "retries": 0,
-    # "on_failure_callback": task_fail_slack_alert,
+    "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -324,8 +324,7 @@ def prepare_and_send_messages(
             for i in range(0, len(files), max_list_items)
         ][idx]
 
-        logging.info(f"Here pushes to the queue {iter_list}")
-        # publish_message(files)
+        publish_message(files)
 
     except Exception as error:
         logging.exception(error)
@@ -365,7 +364,7 @@ with DAG(
                 python_callable=prepare_and_send_messages,
                 op_args=[GET_SCENES_TASK_NAME, idx],
                 provide_context=True,
-                # on_success_callback=task_success_slack_alert,
+                on_success_callback=task_success_slack_alert,
             )
         )
 
