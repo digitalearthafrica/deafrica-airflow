@@ -306,8 +306,6 @@ def prepare_and_send_messages(
     """
     try:
         files = context['ti'].xcom_pull(task_ids=xcom_task_id)
-        logging.info(f"FILES {len(files)}")
-        logging.info(f"FILES {[f for f in files][:10]}")
         logging.info(f"IDX {idx}")
 
         # This code will create chunks of 50 scenes and run over the workers
@@ -324,7 +322,9 @@ def prepare_and_send_messages(
             for i in range(0, len(files), max_list_items)
         ][idx]
 
-        publish_message(files)
+        logging.info(f"Number of files to be sent {len(iter_list)}")
+        logging.info(f"10 First files {[f for f in iter_list][:10]}")
+        publish_message(iter_list)
 
     except Exception as error:
         logging.exception(error)
