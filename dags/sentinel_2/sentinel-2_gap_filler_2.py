@@ -47,6 +47,7 @@ DEFAULT_ARGS = {
     "email_on_retry": False,
     "retries": 0,
     "on_failure_callback": task_fail_slack_alert,
+    "on_success_callback": task_success_slack_alert,
 }
 
 
@@ -342,6 +343,7 @@ with DAG(
         tags=["Sentinel-2", "gap-fill"],
         catchup=False,
         doc_md=__doc__,
+        max_active_runs=NUN_WORKERS
 ) as dag:
     PUBLISH_MISSING_SCENES = []
 
@@ -364,7 +366,6 @@ with DAG(
                 python_callable=prepare_and_send_messages,
                 op_args=[GET_SCENES_TASK_NAME, idx],
                 provide_context=True,
-                on_success_callback=task_success_slack_alert,
             )
         )
 
