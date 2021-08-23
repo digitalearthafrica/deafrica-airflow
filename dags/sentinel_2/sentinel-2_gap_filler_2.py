@@ -178,8 +178,6 @@ def get_missing_stac_files(limit=None, **context):
     if 'update' in last_report:
         logging.info('FORCED UPDATE FLAGGED!')
 
-    logging.info(f"Limited: {'No limit' if limit else int(limit)}")
-
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
     missing_scene_file_gzip = s3.get_s3_contents_and_attributes(
@@ -193,6 +191,8 @@ def get_missing_stac_files(limit=None, **context):
         for scene_path in gzip.decompress(missing_scene_file_gzip).decode("utf-8").split("\n")
         if scene_path
     ]
+
+    logging.info(f"Limited: {int(limit) if limit else 'No limit'}")
 
     if limit:
         missing_scene_paths = missing_scene_paths[:int(limit)]
