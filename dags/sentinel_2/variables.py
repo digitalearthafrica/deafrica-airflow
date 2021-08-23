@@ -14,6 +14,7 @@ SENTINEL_COGS_INVENTORY_BUCKET = f"{SENTINEL_COGS_BUCKET}-inventory"
 SENTINEL_2_URL = f"https://{SENTINEL_COGS_BUCKET}.s3.{SENTINEL_COGS_AWS_REGION}.amazonaws.com"
 
 # ######### AFRICA ############
+# ######## Sentinel 2 ##########
 
 AFRICA_TILES = "https://raw.githubusercontent.com/digitalearthafrica/deafrica-extent/master/deafrica-mgrs-tiles.csv.gz"
 
