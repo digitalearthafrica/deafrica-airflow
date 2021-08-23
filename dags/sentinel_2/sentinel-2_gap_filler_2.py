@@ -8,7 +8,7 @@ the path to the gap report file.
 Eg:
 ```json
 {
-"limit": 1224
+"limit": 1234
 }
 """
 
