@@ -178,7 +178,7 @@ def get_missing_stac_files(limit=None, **context):
     if 'update' in last_report:
         logging.info('FORCED UPDATE FLAGGED!')
 
-    logging.info(f"Limited: {'No limit' if limit is None else int(limit)}")
+    logging.info(f"Limited: {'No limit' if limit else int(limit)}")
 
     s3 = S3(conn_id=CONN_SENTINEL_2_SYNC)
 
@@ -194,7 +194,7 @@ def get_missing_stac_files(limit=None, **context):
         if scene_path
     ]
 
-    if limit is not None:
+    if limit:
         missing_scene_paths = missing_scene_paths[:int(limit)]
 
     logging.info(f"Number of scenes found {len(missing_scene_paths)}")
