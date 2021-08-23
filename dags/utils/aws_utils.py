@@ -7,6 +7,7 @@ import boto3
 from airflow import AirflowException
 from airflow.contrib.hooks.aws_sns_hook import AwsSnsHook
 from airflow.hooks.S3_hook import S3Hook
+from botocore.exceptions import ClientError
 
 
 class S3:
@@ -211,21 +212,38 @@ class S3:
             streaming_body, destination_bucket, destination_key, ExtraArgs=dict(ACL=acl)
         )
 
-    def key_not_existent(
-        self,
-        bucket_name: str,
-        key: str,
+    def check_for_key(
+            self,
+            bucket_name: str,
+            region: str,
+            key: str,
     ):
         """
-        Check on a S3 bucket if a object exist or not, if not returns the path, otherwise returns blank
+        Check on a S3 bucket if a object exist or not,
+        if not returns False, otherwise returns the path
 
         :param bucket_name:(str) S3 bucket name
+        :param region: (str) destination region
         :param key:(str) File path
         :return:(bool) True if exist, False if not
         """
 
-        exist = self.s3_hook.check_for_key(key, bucket_name=bucket_name)
-        return key if not exist else ""
+        if not bucket_name:
+            ValueError('Bucket name is required')
+
+        client = self.get_bucket_client(region=region)
+        try:
+            client.head_object(
+                Bucket=bucket_name,
+                Key=key,
+            )
+            return True
+        except ClientError as error:
+            logging.info(error.response["Error"]["Message"])
+            return False
+        except Exception as e:
+            logging.error(e)
+            raise e
 
     def get_object(
         self,
