@@ -35,7 +35,7 @@ from sentinel_2.variables import (
     SENTINEL_COGS_INVENTORY_BUCKET,
     COGS_FOLDER_NAME,
 )
-from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
+# from utility.utility_slackoperator import task_fail_slack_alert, task_success_slack_alert
 from utils.aws_utils import S3
 from utils.inventory import InventoryUtils
 from utils.sync_utils import read_csv_from_gzip
@@ -48,7 +48,7 @@ default_args = {
     "email_on_success": False,
     "email_on_retry": False,
     "retries": 0,
-    "on_failure_callback": task_fail_slack_alert,
+    # "on_failure_callback": task_fail_slack_alert,
 }
 
 
@@ -209,5 +209,5 @@ with DAG(
         task_id="compare_s2_inventories",
         python_callable=generate_buckets_diff,
         op_kwargs=dict(update_stac="{{ dag_run.conf.update_stac }}"),
-        on_success_callback=task_success_slack_alert,
+        # on_success_callback=task_success_slack_alert,
     )
